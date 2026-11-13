@@ -1,6 +1,6 @@
 {
-  "name": "Tank Log",
-  "short_name": "Tank Log",
+  "name": "Flowerphile",
+  "short_name": "Flowerphile",
   "start_url": "./#today",
   "scope": "./",
   "display": "standalone",
