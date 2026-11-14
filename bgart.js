@@ -112,22 +112,32 @@ function cloud(P, cx, cy, cw, sun){
   P.hatch([cx - cw / 2, cy - hgt * 0.5, x, cy + 4], id, {ang: 0.08, gap: 2.6, w: 0.3, op: 0.75, fade: t => t > -0.1 ? 1 : 0.15});
 }
 function treeline(P, y, W){
-  // distant scribbled canopies, a few conifers
-  let x = -10;
-  while (x < W + 10){
-    const w = 18 + P.r() * 30, h = 12 + P.r() * 22;
-    if (P.r() < 0.25){ // conifer
-      const pts = [[x, y]]; for (let k = 0; k < 6; k++){ pts.push([x + w * 0.5 * (k / 6), y - h * 1.4 * (k / 6) - P.r() * 2]); pts.push([x + w * 0.25 + w * 0.3 * (k / 6), y - h * 1.4 * (k / 6) + 2]); }
-      pts.push([x + w / 2, y - h * 1.5]); for (let k = 6; k > 0; k--) pts.push([x + w - w * 0.5 * (k / 6), y - h * 1.4 * (k / 6) - P.r() * 2]); pts.push([x + w, y]);
-      P.stroke(pts, {w: 0.5, jit: 0.6, over: 1});
-    } else { // round crowns as loose scribble
-      const pts = []; const n = 14; for (let k = 0; k <= n; k++){ const a = Math.PI + Math.PI * k / n; pts.push([x + w / 2 + Math.cos(a) * w / 2 * (0.85 + P.r() * 0.3), y - h / 2 + Math.sin(a) * h * (0.85 + P.r() * 0.3)]); }
-      P.stroke(pts, {w: 0.5, jit: 1.1, over: 2});
-      for (let k = 0; k < 4; k++) P.line(x + w * 0.2 + P.r() * w * 0.5, y - h * 0.3 - P.r() * h * 0.4, x + w * 0.35 + P.r() * w * 0.5, y - h * 0.1, {w: 0.3, op: 0.6, over: 1});
+  // a distant wood in the engraver's manner: scalloped crowns shaded on the right, a few tiered firs, a ruled ground line
+  let x = -12;
+  while (x < W + 12){
+    const fir = P.r() < 0.22, w = fir ? 10 + P.r() * 8 : 20 + P.r() * 28, h = fir ? 26 + P.r() * 16 : 16 + P.r() * 20, cx = x + w / 2;
+    if (fir){
+      const tiers = 6 + Math.floor(P.r() * 3); let d = "";
+      for (let k = 0; k < tiers; k++){ const t = k / tiers, ty = y - h * t - 2, tw = w / 2 * (1 - t * 0.85);
+        d += `M${f(cx)} ${f(ty - h / tiers * 1.2)}Q${f(cx - tw * 0.5)} ${f(ty - 1)} ${f(cx - tw)} ${f(ty + 1)}M${f(cx)} ${f(ty - h / tiers * 1.2)}Q${f(cx + tw * 0.5)} ${f(ty - 1)} ${f(cx + tw)} ${f(ty + 1)}`;
+        for (let j = 0; j < 3; j++) d += `M${f(cx + tw * (0.2 + j * 0.25))} ${f(ty - 1.5 + j * 0.5)}l${f(0.8)} 2.4`; }
+      P.out.push(`<path d="${d}" stroke-width="0.4"/>`); P.line(cx, y, cx, y - h - 3, {w: 0.35, over: 0});
+    } else {
+      // crown outline as small scallops over a dome
+      const n = Math.round(w / 3.2), pts = []; let d = "";
+      for (let k = 0; k <= n; k++){ const a = Math.PI + Math.PI * k / n, px = cx + Math.cos(a) * w / 2, py = y - h * 0.55 + Math.sin(a) * h * 0.55; pts.push([px, py]); }
+      for (let k = 0; k < n; k++){ const p0 = pts[k], p1 = pts[k + 1], mx = (p0[0] + p1[0]) / 2, my = (p0[1] + p1[1]) / 2, nx = mx - cx, ny = my - (y - h * 0.55), nl = Math.hypot(nx, ny) || 1;
+        d += `${k ? "" : `M${f(p0[0])} ${f(p0[1])}`}Q${f(mx + nx / nl * 2.2)} ${f(my + ny / nl * 2.2)} ${f(p1[0])} ${f(p1[1])}`; }
+      P.out.push(`<path d="${d}" stroke-width="0.42" style="fill:var(--paper)"/>`);
+      const id = P.clip(`<ellipse cx="${f(cx + w * 0.18)}" cy="${f(y - h * 0.5)}" rx="${f(w * 0.36)}" ry="${f(h * 0.48)}"/>`);
+      P.hatch([cx - w / 2, y - h, cx + w / 2, y], id, {ang: 1.35, gap: 1.6, w: 0.28, op: 0.7});
+      for (let k = 0; k < 4; k++){ const ax = cx + P.j(w * 0.3), ay = y - h * (0.3 + P.r() * 0.5); P.ellipse(ax, ay, 2 + P.r() * 2, 1.4 + P.r(), {from: Math.PI * 1.1, span: 2, w: 0.25, op: 0.6, jit: 0.05}); }   // leaf clumps
+      P.line(cx - 1, y, cx - 0.6, y - h * 0.2, {w: 0.4, over: 0}); P.line(cx + 1, y, cx + 0.8, y - h * 0.2, {w: 0.4, over: 0});
     }
-    x += w * (0.75 + P.r() * 0.3);
+    x += w * (0.65 + P.r() * 0.3);
   }
-  P.line(-6, y + 1, W + 6, y + 1 + P.j(2), {w: 0.6, twice: 0.5});
+  P.line(-6, y + 1, W + 6, y + 1 + P.j(1.5), {w: 0.5, twice: 0.5});
+  for (let k = 0; k < 3; k++) P.line(-6, y + 3.5 + k * 2.2, W + 6, y + 3.5 + k * 2.2 + P.j(1), {w: 0.28, op: 0.6 - k * 0.15, over: 0});
 }
 function sun(P, x, y, R){
   P.ellipse(x, y, R, R, {w: 0.8, twice: 0.8});
@@ -183,16 +193,59 @@ function lampScene(P, W, warm){
   if (warm) for (let i = 0; i < 7; i++){ const x0 = W * (0.25 + 0.5 * P.r()), y0 = 50 + P.r() * 70; const pts = []; for (let k = 0; k < 7; k++) pts.push([x0 + Math.sin(k * 1.3 + i) * 2.2, y0 - k * 5]); P.stroke(pts, {w: 0.35, op: 0.55}); }  // rising heat wisps
 }
 function skyScene(P, W, wx, night){
-  const cloud_ = wx.cloud == null ? 45 : wx.cloud;
-  P.wash(blobPath(P, [[-8, -8], [W + 8, -8], [W + 8, 150], [W * 0.6, 175], [W * 0.2, 160], [-8, 180]], 4), night ? "#22324f" : "#7fa9c9", night ? 30 : 18);
-  if (night) moon(P, W * 0.72, 34, 12); else if (cloud_ < 75) sun(P, W * 0.72, 36, 13);
-  const n = Math.round(1 + cloud_ / 22);
-  for (let k = 0; k < n; k++) cloud(P, W * (0.08 + 0.84 * P.r()), 40 + 60 * P.r(), 60 + 80 * P.r());
-  if (!night && P.r() < 0.8) birds(P, W * 0.3, 70, 3 + Math.floor(P.r() * 3));
-  for (let i = 0; i < Math.min(140, (wx.rain || 0) * 45); i++){ const x = P.r() * W, y = 70 + P.r() * 110, L = 7 + P.r() * 6; P.line(x, y, x - L * 0.35, y + L, {w: 0.4, op: 0.5 + 0.4 * P.r(), over: 0.5}); }
+  // engraved sky: ruled horizontal lines, the clouds left as bare paper with their undersides hatched,
+  // the sun or moon cut out of the ruling, all fading toward the horizon
+  const cloud_ = wx.cloud == null ? 45 : wx.cloud, bottom = 178;
+  P.wash(blobPath(P, [[-8, -8], [W + 8, -8], [W + 8, 140], [W * 0.6, 165], [W * 0.2, 150], [-8, 170]], 4), night ? "#22324f" : "#7fa9c9", night ? 28 : 12);
+  const clouds = [], n = Math.round(1 + cloud_ / 20);
+  for (let k = 0; k < n; k++){
+    const cw = 70 + P.r() * 110, cx = W * (0.05 + 0.9 * P.r()), cy = 55 + P.r() * 75, m = 6 + Math.floor(P.r() * 4), lobes = [];
+    for (let i = 0; i < m; i++){ const t = i / (m - 1), rr = cw * (0.07 + 0.12 * Math.sin(Math.PI * (0.1 + 0.8 * t))) * (0.75 + P.r() * 0.5);
+      lobes.push({x: cx - cw / 2 + t * cw + P.j(4), y: cy, r: rr}); }
+    for (let i = 0; i < 2 + Math.floor(P.r() * 3); i++){ const rr = cw * (0.08 + P.r() * 0.07), x = cx + P.j(cw * 0.3);   // billows piled on top
+      lobes.push({x, y: cy - cw * (0.08 + P.r() * 0.08), r: rr}); }
+    clouds.push({cx, cy, cw, lobes});
+  }
+  const sunR = 12, sx = W * 0.72, sy = 38, showSun = !night && cloud_ < 80;
+  const dome = l => `<path d="M${f(l.x - l.r)} ${f(l.y + 0.5)}A${f(l.r)} ${f(l.r * 0.85)} 0 0 1 ${f(l.x + l.r)} ${f(l.y + 0.5)}Z"/>`;
+  const shapes = clouds.map(c => c.lobes.map(dome).join("")).join("");
+  const stars = []; if (night) for (let i = 0; i < 26; i++) stars.push([P.r() * W, 6 + P.r() * 130, 1 + P.r() * 1.4]);
+  const hole = (showSun ? `<circle cx="${f(sx)}" cy="${f(sy)}" r="${sunR + 5}"/>` : "") + (night ? `<circle cx="${f(W * 0.72)}" cy="34" r="16"/>` : "") + stars.map(s => `<circle cx="${f(s[0])}" cy="${f(s[1])}" r="${f(s[2] + 1.6)}"/>`).join("");
+  const mid = "sk" + Math.floor(P.r() * 1e6);
+  P.defs.push(`<filter id="${mid}b"><feGaussianBlur stdDeviation="0.8"/></filter><mask id="${mid}" maskUnits="userSpaceOnUse" x="-10" y="-10" width="${W + 20}" height="${bottom + 20}"><rect x="-10" y="-10" width="${W + 20}" height="${bottom + 20}" fill="#fff"/><g fill="#000" filter="url(#${mid}b)">${shapes}${hole}</g></mask>`);
+  // the ruling
+  let d = "";
+  for (let y = 3; y < bottom; y += (night ? 1.9 : 2.3) + y * 0.02){
+    let x = -6 + P.r() * 4;
+    while (x < W + 6){ const L = 30 + P.r() * 120, ph = P.r() * 6; d += `M${f(x)} ${f(y + Math.sin(ph) * 0.4)}`;
+      for (let t = 12; t <= L; t += 12) d += `L${f(x + t)} ${f(y + Math.sin(ph + t / 37) * 0.5 + P.j(0.15))}`;
+      x += L + 1.5 + P.r() * (y > 110 ? 9 : 3); }
+  }
+  P.out.push(`<g mask="url(#${mid})"><path d="${d}" stroke-width="${night ? 0.42 : 0.34}" opacity="${night ? 0.8 : 0.7}"/></g>`);
+  // cloud undersides: closer ruling in the lower part of each cloud, a few broken contours on the shaded side
+  for (const c of clouds){
+    const id = P.clip(c.lobes.map(dome).join(""));
+    const top = Math.min(...c.lobes.map(l => l.y - l.r * 0.85)), h = c.cy - top;
+    let s = ""; for (let y = c.cy - h * 0.55; y < c.cy + 1; y += 1.5){ const k = (y - (c.cy - h * 0.55)) / (h * 0.55); let x = c.cx - c.cw / 2 - 4;
+      while (x < c.cx + c.cw / 2 + 4){ const L = 6 + P.r() * 30; if (P.r() < 0.35 + 0.6 * k) s += `M${f(x)} ${f(y + P.j(0.2))}h${f(L)}`; x += L + 1 + P.r() * 4; } }
+    P.out.push(`<path d="${s}" clip-path="url(#${id})" stroke-width="0.3" opacity="0.75"/>`);
+    for (const l of c.lobes) P.ellipse(l.x, l.y, l.r, l.r * 0.85, {from: -Math.PI + 0.35 + P.r() * 0.3, span: 1.6 + P.r() * 1.0, w: 0.34, op: 0.6, jit: 0.1});
+    P.line(c.cx - c.cw / 2 + 4, c.cy + 0.5, c.cx + c.cw / 2 - 4, c.cy + 0.5 + P.j(1), {w: 0.3, op: 0.5, over: 1});
+  }
+  if (showSun){ P.ellipse(sx, sy, sunR, sunR, {w: 0.45, jit: 0.05, twice: 0.5});
+    for (let i = 0; i < 32; i++){ const a = i / 32 * 6.283, L = i % 2 ? 5 : 10 + P.r() * 4; P.line(sx + Math.cos(a) * (sunR + 2.5), sy + Math.sin(a) * (sunR + 2.5), sx + Math.cos(a) * (sunR + 2.5 + L), sy + Math.sin(a) * (sunR + 2.5 + L), {w: 0.28, over: 0, jit: 0.05, op: 0.8}); } }
+  if (night){ const mx = W * 0.72, my = 34, R = 11;
+    P.ellipse(mx, my, R, R, {w: 0.45, jit: 0.05});
+    const id = P.clip(`<path d="M${f(mx)} ${f(my - R)}A${R} ${R} 0 1 0 ${f(mx)} ${f(my + R)}A${f(R * 0.6)} ${R} 0 1 1 ${f(mx)} ${f(my - R)}Z"/>`);
+    P.hatch([mx - R, my - R, mx + R, my + R], id, {ang: 0, gap: 1.3, w: 0.28, op: 0.8});
+    for (const s of stars){ const [x, y, rr] = s; P.line(x - rr, y, x + rr, y, {w: 0.3, over: 0, jit: 0}); P.line(x, y - rr, x, y + rr, {w: 0.3, over: 0, jit: 0}); }
+  }
+  if (!night && P.r() < 0.8) for (let i = 0; i < 3 + Math.floor(P.r() * 3); i++){ const bx = W * 0.25 + P.j(40), by = 75 + P.j(12), s = 2.5 + P.r() * 2.5;
+    P.stroke([[bx - s, by - s * 0.3], [bx - s * 0.45, by - s * 0.55], [bx, by]], {w: 0.4, over: 0, jit: 0.05}); P.stroke([[bx, by], [bx + s * 0.45, by - s * 0.6], [bx + s, by - s * 0.25]], {w: 0.4, over: 0, jit: 0.05}); }
+  for (let i = 0; i < Math.min(140, (wx.rain || 0) * 45); i++){ const x = P.r() * W, y = 70 + P.r() * 110, L = 7 + P.r() * 6; P.line(x, y, x - L * 0.3, y + L, {w: 0.35, op: 0.45 + 0.4 * P.r(), over: 0.5, jit: 0.1}); }
   const g = wx.gust || 0;
-  for (let i = 0; i < (g > 30 ? 4 : g > 15 ? 2 : 0); i++){ const y = 110 + P.r() * 50, x = P.r() * W * 0.4, L = 110 + P.r() * 110;
-    const pts = []; for (let k = 0; k <= 10; k++){ const t = k / 10; pts.push([x + L * t, y + Math.sin(t * 6.28) * 4 * (1 - t)]); } pts.push([x + L + 8, y - 6]); pts.push([x + L + 2, y - 11]); P.stroke(pts, {w: 0.5, twice: 0.5}); }
+  for (let i = 0; i < (g > 30 ? 3 : g > 15 ? 2 : 0); i++){ const y = 120 + P.r() * 40, x = P.r() * W * 0.4, L = 110 + P.r() * 110;
+    const pts = []; for (let k = 0; k <= 12; k++){ const t = k / 12; pts.push([x + L * t, y + Math.sin(t * 6.28) * 3 * (1 - t)]); } pts.push([x + L + 6, y - 5]); pts.push([x + L + 1, y - 9]); P.stroke(pts, {w: 0.4, jit: 0.15, op: 0.8}); }
   treeline(P, 196, W);
 }
 // caustic net: the wobbling light pattern seen through water, drawn as loose broken cells fading with depth

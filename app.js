@@ -162,6 +162,7 @@ const DEFS = '<svg width="0" height="0" style="position:absolute" aria-hidden="t
  '<filter id="rough" x="-10%" y="-10%" width="120%" height="120%"><feTurbulence type="fractalNoise" baseFrequency="0.04" numOctaves="2" seed="4"/><feDisplacementMap in="SourceGraphic" scale="2.4"/></filter>'+
  '<filter id="wash" x="-20%" y="-30%" width="140%" height="160%"><feTurbulence type="fractalNoise" baseFrequency="0.06" numOctaves="3" seed="8"/><feDisplacementMap in="SourceGraphic" scale="7"/><feGaussianBlur stdDeviation="0.7"/></filter>'+
  '<radialGradient id="dropg" cx=".42" cy=".64" r=".62" fx=".34" fy=".56"><stop offset="0" style="stop-color:var(--soak);stop-opacity:.25"/><stop offset=".62" style="stop-color:var(--soak);stop-opacity:.7"/><stop offset="1" style="stop-color:var(--soakline);stop-opacity:.95"/></radialGradient>'+
+ '<linearGradient id="soakg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:var(--soak);stop-opacity:.10"/><stop offset=".55" style="stop-color:var(--soak);stop-opacity:.2"/><stop offset="1" style="stop-color:var(--soak);stop-opacity:.36"/></linearGradient>'+
  '<filter id="paper"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="3" seed="2"/><feColorMatrix type="saturate" values="0"/><feComponentTransfer><feFuncA type="table" tableValues="0 0.10"/></feComponentTransfer></filter>'+
  '</defs></svg>';
 document.body.prepend(raw(DEFS));
@@ -202,55 +203,84 @@ function dropSVG(r, x, y, s, o){
 }
 function frameSVG(w, hgt, o){
   const r = rnd(o.seed || 1), med = o.medium || "hydro", X = 8, Y = 8, W = w + 16, H = hgt + 16;
-  const ring = `M${X+1} ${Y+1}h${w-2}v${hgt-2}h${-(w-2)}Z M${X+8} ${Y+8}h${w-16}v${hgt-16}h${-(w-16)}Z`;
-  let eff = "", id = "c" + Math.floor(r()*1e9), top = "";
-  if (o.soak > 0){
-    const hy = Y + hgt * (1 - o.soak * 0.9);
-    const tideAt = x => hy + 3 * Math.sin(x / 9 + 1.3) + 1.2 * Math.sin(x / 3.1);
-    let tide = ""; for (let x = 0; x <= W; x += 4) tide += (x ? "L" : "M") + x + " " + F1(tideAt(x));
-    eff += `<path d="${tide} L${W} ${H+2} L0 ${H+2}Z" style="fill:var(--soak);fill-opacity:${(0.22+0.3*o.soak).toFixed(2)}" filter="url(#wash)" clip-path="url(#${id})"/>`;
-    if (med === "hydro"){
-      // waterline with its meniscus, fine level lines below, beads sitting on the line
-      let lv = ""; for (let y = hy + 4; y < Y + hgt; y += 2.2 + r() * 0.8) for (let x = r() * 10; x < W; x += 6 + r() * 14){ const L = 2 + r() * 9; lv += `M${F1(x)} ${F1(y + (r() - 0.5))}h${F1(L)}`; }
-      eff += `<g clip-path="url(#${id})" fill="none"><path d="${tide}" style="stroke:var(--soakline)" stroke-width=".8"/><path d="${tide}" transform="translate(0 1.6)" style="stroke:var(--soakline)" stroke-width=".35" opacity=".55"/><path d="${lv}" style="stroke:var(--soakline)" stroke-width=".3" opacity=".5"/></g>`;
-      const beads = Math.round(2 + 3 * o.soak);
-      for (let i = 0; i < beads; i++){ const x = X + 4 + r() * (w - 8); if (x > X + 9 && x < X + w - 9) continue; const s = 0.9 + r() * 0.7; top += dropSVG(r, x, tideAt(x) - 0.4, s); }
-      // drops gathering under the bottom rule; the fullest one about to fall, sometimes one already falling
-      const n = Math.round(1 + 2.4 * o.soak);
-      for (let i = 0; i < n; i++){ const x = X + 14 + r() * (w - 28), s = 2.3 + r() * 1.5; top += dropSVG(r, x, Y + hgt - 3.2, s, {hang: true});
-        if (i === 0 && o.soak > 0.4){ const fy = Y + hgt - 3 + s * 2.2 + 6 + r() * 4; top += dropSVG(r, x + 0.4, fy, s * 0.55); top += `<path d="M${F1(x - 0.8)} ${F1(fy - s * 1.6)}v-2.2M${F1(x + 1.2)} ${F1(fy - s * 1.4)}v-1.4" style="stroke:var(--soakline)" stroke-width=".35" opacity=".6"/>`; } }
-    } else if (med === "coco"){
-      let fb = ""; const n = Math.round(90 * o.soak); for (let i = 0; i < n; i++){ const x = r() * W, y = H - Math.abs(r() + r() - 1) * (H - hy) - 1, a = r() * 6.28, L = 2 + r() * 5;
-        fb += `M${F1(x)} ${F1(y)}q${F1(Math.cos(a) * L / 2 + (r() - 0.5) * 2)} ${F1(Math.sin(a) * L / 2 + (r() - 0.5) * 2)} ${F1(Math.cos(a) * L)} ${F1(Math.sin(a) * L)}`; }
-      eff += `<path d="${fb}" style="stroke:var(--soakline);fill:none" stroke-width=".35" opacity=".7" clip-path="url(#${id})"/>`;
+  const ring = `M${X+3} ${Y+3}h${w-6}v${hgt-6}h${-(w-6)}Z M${X+7} ${Y+7}h${w-14}v${hgt-14}h${-(w-14)}Z`;
+  const id = "c" + Math.floor(r()*1e9), bx = id + "b";
+  const ox0 = X + 3, oy0 = Y + 3, ox1 = X + w - 3, oy1 = Y + hgt - 3, ix0 = X + 7, iy0 = Y + 7, ix1 = X + w - 7, iy1 = Y + hgt - 7;
+  const soak = o.soak || 0, wet = med === "hydro" && soak > 0;
+  // swelling: soaked paper buckles; the bottom rule sags in two or three soft bellies and the sides bow out near the bottom
+  const bumps = []; if (wet){ const n = 2 + (r() < 0.5 ? 1 : 0); for (let i = 0; i < n; i++) bumps.push({c: ox0 + (i + 0.3 + r() * 0.4) / n * (ox1 - ox0), a: (1.5 + r() * 2) * Math.min(1, 0.45 + soak), s: 9 + r() * 12}); }
+  const sag = x => bumps.reduce((t, b) => t + b.a * Math.exp(-Math.pow((x - b.c) / b.s, 2)), 0);
+  const bow = y => wet ? Math.max(0, (y - (oy1 - hgt * soak * 0.8)) / (hgt * soak * 0.8 + 1)) * 1.1 * soak : 0;
+  const line = (pts, ov) => { let d = ""; pts.forEach((p, i) => d += (i ? "L" : "M") + F1(p[0] + (r() - 0.5) * 0.25) + " " + F1(p[1] + (r() - 0.5) * 0.25)); return d; };
+  const side = (x, y0, y1, dir) => { const pts = []; for (let y = y0 - r() * 2.5; y <= y1 + r() * 2.5; y += 6) pts.push([x + dir * bow(y), y]); return line(pts); };
+  const bottom = (y, k, x0, x1) => { const pts = []; for (let x = x0 - r() * 2.5; x <= x1 + r() * 2.5; x += 4) pts.push([x, y + sag(x) * k]); return line(pts); };
+  const outer = ruled(r, ox0, oy0, ox1, oy0) + side(ox1, oy0, oy1, 1) + bottom(oy1, 1, ox0, ox1) + side(ox0, oy0, oy1, -1);
+  const inner = ruled(r, ix0, iy0, ix1, iy0) + side(ix1, iy0, iy1, 0.6) + bottom(iy1, 0.6, ix0, ix1) + side(ix0, iy0, iy1, -0.6);
+  let back = "", front = "";
+  if (soak > 0){
+    // an organic tide: slow swell, small ripple, and capillary fingers creeping upward
+    const hy = Y + hgt * (1 - Math.min(0.4, soak * 0.82)), ph = r() * 6, ph2 = r() * 6;
+    const lobes = []; for (let i = 0; i < 2 + Math.floor(r() * 3); i++) lobes.push({c: r() * W, h: 2 + r() * (wet ? 7 : 5), s: 3 + r() * 8});
+    const tideAt = x => hy + 2.4 * Math.sin(x / 14 + ph) + 1.1 * Math.sin(x / 4.3 + ph2) - lobes.reduce((t, l) => t + l.h * Math.exp(-Math.pow((x - l.c) / l.s, 2)), 0);
+    let tide = ""; for (let x = 0; x <= W; x += 2.5) tide += (x ? "L" : "M") + F1(x) + " " + F1(tideAt(x));
+    const fillD = `${tide} L${W} ${H + 6} L0 ${H + 6}Z`;
+    let cb = `M${ox0} ${oy0}H${ox1}`; for (let x = ox1; x >= ox0; x -= 3) cb += `L${F1(x + bow(oy1))} ${F1(oy1 + sag(x))}`;
+    back += `<defs><clipPath id="${bx}"><path d="${cb}Z"/></clipPath></defs>`;
+    back += `<g clip-path="url(#${bx})"><path d="${fillD}" style="fill:url(#soakg)" filter="url(#wash)"/>`;
+    // a darker bloom where the wet edge dried, and a second fainter tidemark a little lower
+    back += `<path d="${tide}" style="stroke:var(--soak);fill:none" stroke-width="2.6" opacity="${(0.25 + 0.3 * soak).toFixed(2)}" filter="url(#wash)"/>`;
+    back += `<path d="${tide}" style="stroke:var(--soakline);fill:none" stroke-width=".45" opacity="${(0.25 + 0.35 * soak).toFixed(2)}" filter="url(#rough)"/>`;
+    back += `<path d="${tide}" transform="translate(0 ${F1(4 + r() * 5)})" style="stroke:var(--soakline);fill:none" stroke-width=".35" opacity=".18" filter="url(#rough)"/></g>`;
+    back += `<path d="${fillD}" style="fill:var(--soak);fill-opacity:${(0.18 + 0.3 * soak).toFixed(2)}" filter="url(#wash)" clip-path="url(#${id})"/>`;   // the frame band drinks more
+    if (wet){
+      // cockles in the swollen paper and drops forming at the low points of the sag
+      let ck = ""; for (const b of bumps){ ck += `M${F1(b.c - b.s)} ${F1(oy1 - 3 - b.a)}Q${F1(b.c)} ${F1(oy1 - 6 - b.a * 2)} ${F1(b.c + b.s)} ${F1(oy1 - 3 - b.a)}`; }
+      back += `<path d="${ck}" style="stroke:var(--soakline);fill:none" stroke-width=".35" opacity=".22"/>`;
+      bumps.sort((a, b) => b.a - a.a);
+      bumps.forEach((b, i) => { if (i > (soak > 0.4 ? 1 : 0)) return; const s = 1.6 + b.a * 0.6;
+        front += dropSVG(r, b.c, oy1 + b.a - 0.6, s, {hang: true});
+        if (i === 0 && soak > 0.4){ const fy = oy1 + b.a + s * 2.2 + 7 + r() * 4; front += dropSVG(r, b.c + 0.3, fy, s * 0.5);
+          front += `<path d="M${F1(b.c - 0.7)} ${F1(fy - s * 1.4)}v-2M${F1(b.c + 1)} ${F1(fy - s * 1.2)}v-1.2" style="stroke:var(--soakline)" stroke-width=".3" opacity=".6"/>`; } });
     } else {
-      // earth: stipple, grit and a few crumbs, densest at the bottom
-      let st = ""; const n = Math.round(160 * o.soak);
-      for (let i = 0; i < n; i++){ const x = r() * W, y = H - Math.pow(r(), 1.6) * (H - hy) - 1; st += `M${F1(x)} ${F1(y)}h.01`; }
-      eff += `<path d="${st}" style="stroke:var(--soakline)" stroke-width="1" stroke-linecap="round" opacity=".7" clip-path="url(#${id})"/>`;
-      let cr = ""; for (let i = 0; i < Math.round(14 * o.soak); i++){ const x = r() * W, y = H - r() * (H - hy) * 0.6 - 2, s = 0.8 + r() * 1.3; cr += `<ellipse cx="${F1(x)}" cy="${F1(y)}" rx="${F1(s)}" ry="${F1(s * 0.7)}" style="fill:var(--paper);stroke:var(--soakline)" stroke-width=".35"/>`; }
-      eff += `<g clip-path="url(#${id})">${cr}</g>`;
+      // dirt: stipple and grit settling toward the bottom and spilling over the bottom rule
+      let st = ""; const n = Math.round(320 * soak) + 40;
+      for (let i = 0; i < n; i++){ const x = X + 1 + r() * (w - 2), y = oy1 + 2 - Math.pow(r(), 2.2) * (oy1 - hy); st += `M${F1(x)} ${F1(y)}h.01`; }
+      back += `<path d="${st}" style="stroke:var(--soakline)" stroke-width="${med === "coco" ? 0.8 : 1.1}" stroke-linecap="round" opacity=".55" clip-path="url(#${bx})"/>`;
+      // a smudged thumbprint near a lower corner on some tiles
+      if (r() < 0.45){ const cx = r() < 0.5 ? ox0 + 8 + r() * 10 : ox1 - 8 - r() * 10, cy = oy1 - 6 - r() * 6; let fp = "";
+        for (let k = 1; k <= 6; k++){ const a0 = r() * 6, span = 3.2 + r() * 2; fp += `M${F1(cx + Math.cos(a0) * k * 1.3)} ${F1(cy + Math.sin(a0) * k * 1.6)}A${F1(k * 1.3)} ${F1(k * 1.6)} 0 ${span > 3.14 ? 1 : 0} 1 ${F1(cx + Math.cos(a0 + span) * k * 1.3)} ${F1(cy + Math.sin(a0 + span) * k * 1.6)}`; }
+        back += `<ellipse cx="${F1(cx)}" cy="${F1(cy)}" rx="9" ry="11" style="fill:var(--soak)" opacity=".22" filter="url(#wash)"/><path d="${fp}" style="stroke:var(--soakline);fill:none" stroke-width=".4" opacity=".35"/>`; }
+      if (med === "coco"){                  // coir fibres caught across the bottom rule
+        let fb = ""; for (let i = 0; i < 4 + Math.round(10 * soak); i++){ const x = ox0 + r() * (ox1 - ox0), y = oy1 - 2 - r() * 4, a = (r() < 0.5 ? 1 : -1) * (0.3 + r() * 0.9), L = 5 + r() * 9;
+          fb += `M${F1(x)} ${F1(y)}q${F1(Math.cos(a) * L / 2 + (r() - 0.5) * 3)} ${F1(Math.abs(Math.sin(a)) * L / 2 + 1)} ${F1(Math.cos(a) * L)} ${F1(Math.abs(Math.sin(a)) * L + 1)}`; }
+        front += `<path d="${fb}" style="stroke:var(--soakline);fill:none" stroke-width=".5" opacity=".85"/>`;
+      }
+      // crumbs resting on the bottom rule and in the lower band, each with a lit top
+      for (let i = 0; i < 3 + Math.round(6 * soak); i++){ const x = ox0 + 3 + r() * (ox1 - ox0 - 6), s = 1.1 + r() * 1.7, y = (r() < 0.6 ? oy1 - s * 0.5 : oy1 - 2 - r() * 4); let cp = "";
+        for (let k = 0; k < 7; k++){ const a = k / 7 * 6.283, rr = s * (0.7 + r() * 0.5); cp += (k ? "L" : "M") + F1(x + Math.cos(a) * rr) + " " + F1(y + Math.sin(a) * rr * 0.75); }
+        front += `<path d="${cp}Z" style="fill:var(--soakline);stroke:var(--ink)" stroke-width=".3" opacity=".9"/><path d="M${F1(x - s * 0.5)} ${F1(y - s * 0.25)}q${F1(s * 0.4)} ${F1(-s * 0.4)} ${F1(s * 0.8)} ${F1(-s * 0.1)}" style="stroke:var(--paper);fill:none" stroke-width=".35" opacity=".8"/>`; }
+      // a few flecks flicked outward
+      let sp = ""; for (let i = 0; i < 6; i++){ const x = ox0 + r() * (ox1 - ox0), y = oy1 + 2 + r() * 6; sp += `M${F1(x)} ${F1(y)}h.01`; }
+      front += `<path d="${sp}" style="stroke:var(--soakline)" stroke-width="${F1(0.8 + r())}" stroke-linecap="round" opacity=".6"/>`;
     }
   }
   if (o.warm > 0){
-    eff += `<path d="M0 ${Y-8} H${W} V${Y+6+8*o.warm} Q ${W/2} ${Y+2+4*o.warm} 0 ${Y+6+8*o.warm}Z" style="fill:var(--warm);fill-opacity:${(0.35+0.35*o.warm).toFixed(2)}" filter="url(#wash)" clip-path="url(#${id})"/>`;
-    let wv = ""; for (let i = 0; i < Math.round(5*o.warm); i++){ const x = X + 10 + r()*(w-20); wv += `M${F1(x)} ${Y+1}c${F1(-2 + r())} -2 ${F1(2 + r())} -3 0 -5s${F1(-2)} -3 0 -5`; }
-    eff += `<path d="${wv}" style="stroke:var(--ink);fill:none" stroke-width=".4" opacity=".7"/>`;
+    back += `<path d="M0 ${Y-8} H${W} V${Y+6+8*o.warm} Q ${W/2} ${Y+2+4*o.warm} 0 ${Y+6+8*o.warm}Z" style="fill:var(--warm);fill-opacity:${(0.35+0.35*o.warm).toFixed(2)}" filter="url(#wash)" clip-path="url(#${id})"/>`;
+    let wv = ""; for (let i = 0; i < Math.round(5*o.warm); i++){ const x = X + 10 + r()*(w-20); wv += `M${F1(x)} ${Y+1}c${F1(-2 + r())} -2 ${F1(2 + r())} -3 0 -5s-2 -3 0 -5`; }
+    front += `<path d="${wv}" style="stroke:var(--ink);fill:none" stroke-width=".4" opacity=".7"/>`;
   }
   if (o.frost > 0){ let fz = ""; for (let i = 0; i < 3 + Math.round(3*o.frost); i++){ const x = X + 8 + r()*(w-16), y = Y + 1 + r()*5, rr = 2.2 + r()*1.8;
     for (let k = 0; k < 6; k++){ const a = k*Math.PI/3, ex = x + rr*Math.cos(a), ey = y + rr*Math.sin(a), mx = x + rr*0.55*Math.cos(a), my = y + rr*0.55*Math.sin(a);
       fz += `M${F1(x)} ${F1(y)}L${F1(ex)} ${F1(ey)}M${F1(mx)} ${F1(my)}l${F1(rr*0.3*Math.cos(a+0.8))} ${F1(rr*0.3*Math.sin(a+0.8))}M${F1(mx)} ${F1(my)}l${F1(rr*0.3*Math.cos(a-0.8))} ${F1(rr*0.3*Math.sin(a-0.8))}`; } }
-    eff += `<path d="${fz}" style="stroke:var(--ink);fill:none" stroke-width=".35"/>`; }
-  // the border itself
-  const ox0 = X + 3, oy0 = Y + 3, ox1 = X + w - 3, oy1 = Y + hgt - 3, ix0 = X + 7, iy0 = Y + 7, ix1 = X + w - 7, iy1 = Y + hgt - 7;
-  let hb = ""; for (let y = iy0 + 2; y < oy1; y += 1.7) hb += `M${F1(ix1 + 0.4)} ${F1(y + 1.6)}l${F1(ox1 - ix1 - 0.8)} -1.6`;
-  for (let x = ix0 + 2; x < ox1; x += 1.7) hb += `M${F1(x)} ${F1(iy1 + 0.4)}l1.6 ${F1(oy1 - iy1 - 0.8)}`;
+    front += `<path d="${fz}" style="stroke:var(--ink);fill:none" stroke-width=".35"/>`; }
+  let hb = ""; for (let y = iy0 + 2; y < oy1; y += 1.7) hb += `M${F1(ix1 + 0.4 + bow(y) * 0.6)} ${F1(y + 1.6)}l${F1(ox1 - ix1 - 0.8 + bow(y) * 0.4)} -1.6`;
+  for (let x = ix0 + 2; x < ox1; x += 1.7) hb += `M${F1(x)} ${F1(iy1 + 0.4 + sag(x) * 0.6)}l1.6 ${F1(oy1 - iy1 - 0.8 + sag(x) * 0.4)}`;
   let tip = "";
   if (o.state === "ok") tip = `<path d="M${X+w-8} ${Y+3} c 4 -6, 10 -6, 12 -1 c 1 4, -3 6, -5 4" stroke-width="0.8"/><path d="M${X+w-2} ${Y-2} c 2 -4, 6 -4, 7 -2 c -1 3, -4 3, -7 2 Z" style="fill:var(--ok);fill-opacity:.85" stroke-width="0.55"/><path d="M${X+w-2} ${Y-2} q 3.5 -1.4 6.6 -2" stroke-width=".3"/>`;
-  return `<svg class="frame" aria-hidden="true" viewBox="0 0 ${W} ${H}"><defs><clipPath id="${id}"><path d="${ring}" clip-rule="evenodd"/></clipPath></defs>${eff}` +
+  return `<svg class="frame" aria-hidden="true" viewBox="0 0 ${W} ${H}"><defs><clipPath id="${id}"><path d="${ring}" clip-rule="evenodd"/></clipPath></defs>${back}` +
     `<g fill="none" style="stroke:var(--ink)" stroke-linecap="round" stroke-linejoin="round"><path d="${hb}" stroke-width=".3" opacity=".55"/>` +
-    `<path d="${rect4(r, ox0, oy0, ox1, oy1)}" stroke-width="1.15"/><path d="${rect4(r, ix0, iy0, ix1, iy1)}" stroke-width=".42"/>` +
-    `<path d="M${ox0} ${oy0}L${ix0} ${iy0}M${ox1} ${oy0}L${ix1} ${iy0}M${ox1} ${oy1}L${ix1} ${iy1}M${ox0} ${oy1}L${ix0} ${iy1}" stroke-width=".35" opacity=".7"/>${tip}</g>${top}</svg>`;
+    `<path d="${outer}" stroke-width="1.15"/><path d="${inner}" stroke-width=".42"/>` +
+    `<path d="M${ox0} ${oy0}L${ix0} ${iy0}M${ox1} ${oy0}L${ix1} ${iy0}M${ox1} ${oy1 + sag(ox1)}L${ix1} ${iy1}M${ox0} ${oy1 + sag(ox0)}L${ix0} ${iy1}" stroke-width=".35" opacity=".7"/>${tip}</g>${front}</svg>`;
 }
 function previewPlant(){ return location.hash.startsWith("#plant") && S.pf && S.pf.medium ? {medium:S.pf.medium, where:S.pf.where} : null; }
 function decorate(){
