@@ -212,78 +212,25 @@ addEventListener("resize", decorateSoon);
 document.addEventListener("toggle", decorateSoon, true);
 /* ---------- background: engraved plate, atmosphere on top, medium at the bottom ---------- */
 function drawBackground(p){
-  const bg = $("#bg"); const W = innerWidth, H = innerHeight, r = rnd(7);
-  const ph = p ? phaseOf(p) : "grow", outdoor = p && p.where === "outdoor" && !["dry","cure","done"].includes(ph);
-  const med = p ? (p.medium || "hydro") : "hydro";
-  const f = n => n.toFixed(1);
-  let top = "", bot = "";
-  const hatch = (x0, y0, x1, y1, ang, gap, w, op) => { // parallel engraving lines clipped to a box
-    let o = ""; const dx = Math.cos(ang), dy = Math.sin(ang), L = Math.hypot(x1 - x0, y1 - y0) * 1.5;
-    for (let t = -L; t < L; t += gap){ const cx = (x0 + x1) / 2 + -dy * t, cy = (y0 + y1) / 2 + dx * t;
-      o += `<path d="M${f(cx - dx * L)} ${f(cy - dy * L)} L${f(cx + dx * L)} ${f(cy + dy * L)}" stroke-width="${w}" opacity="${op}"/>`; }
-    return o;
-  };
-  if (p && !outdoor && ["grow","bloom","germ"].includes(ph)){
-    // indoor: an engraved lamp bar and its light, hatched as a fading cone
-    const lx0 = W * 0.16, lx1 = W * 0.84, ly = 10;
-    top += `<path d="M${f(W/2)} 0 V${ly - 4}" stroke-width="0.8"/>`;
-    top += `<path d="M${f(lx0)} ${ly} H${f(lx1)} L${f(lx1 - 6)} ${ly + 7} H${f(lx0 + 6)} Z" stroke-width="1.1" style="fill:var(--paper)"/>`;
-    for (let x = lx0 + 8; x < lx1 - 8; x += 3.2) top += `<path d="M${f(x)} ${ly + 1.5} l1.6 4" stroke-width="0.45"/>`;
-    for (let i = 0; i < 46; i++){ // rays: fine dotted engraving lines spreading downward
-      const t = i / 45, x0 = lx0 + 10 + t * (lx1 - lx0 - 20), x1 = x0 + (x0 - W / 2) * 0.45, Ly = 120 + 70 * r();
-      top += `<path d="M${f(x0)} ${ly + 8} L${f(x1)} ${f(ly + 8 + Ly)}" stroke-width="${(0.35 + 0.25 * r()).toFixed(2)}" stroke-dasharray="${(2 + 3 * r()).toFixed(1)} ${(2 + 2 * r()).toFixed(1)}"/>`;
-    }
-    const warm = p && (latestSensor() || {}).temp > ((targetsOf(p).air || [0, 99])[1]);
-    if (warm) for (let i = 0; i < 5; i++){ let y = 40 + i * 14, d = `M${f(W * 0.2)} ${y}`; for (let x = W * 0.2; x < W * 0.8; x += 12) d += ` q 3 -3 6 0 t 6 0`; top += `<path d="${d}" stroke-width="0.4" opacity="0.6"/>`; }
-  } else if (outdoor){
-    const w = S.weather[(p.lat||BERLIN.lat)+","+(p.lon||BERLIN.lon)], c = w && w.j.current || {}, d = w && w.j.daily || {};
-    const cloud = c.cloud_cover != null ? c.cloud_cover : 50, rain = (d.precipitation_sum && d.precipitation_sum[0]) || 0, gust = (d.wind_gusts_10m_max && d.wind_gusts_10m_max[0]) || 0;
-    if (cloud < 70){ // engraved sun: disc with short and long rays
-      const sx = W * 0.7, sy = 34, R = 13;
-      top += `<circle cx="${sx}" cy="${sy}" r="${R}" stroke-width="1"/>` + hatch(sx - R, sy - R, sx + R, sy + R, 0.8, 3.2, 0.35, 0.5).replace(/<path/g, `<path clip-path="url(#sunclip)"`);
-      for (let i = 0; i < 24; i++){ const a = i / 24 * Math.PI * 2, L = i % 2 ? 9 : 18; top += `<path d="M${f(sx + Math.cos(a) * (R + 4))} ${f(sy + Math.sin(a) * (R + 4))} l${f(Math.cos(a) * L)} ${f(Math.sin(a) * L)}" stroke-width="0.6"/>`; }
-    }
-    const nC = Math.round(1 + cloud / 25);
-    for (let k = 0; k < nC; k++){ // scalloped clouds with underside hatching
-      const cx = W * (0.1 + 0.8 * r()), cy = 22 + 50 * r(), cw = 60 + 70 * r();
-      let dd = `M${f(cx)} ${f(cy)}`; const bumps = 4 + Math.floor(r() * 3);
-      for (let i = 0; i < bumps; i++){ const bw = cw / bumps; dd += ` a ${f(bw / 2)} ${f(bw / 2 * (0.7 + 0.5 * r()))} 0 0 1 ${f(bw)} 0`; }
-      dd += ` q ${f(-cw / 2)} 12 ${f(-cw)} 0`;
-      top += `<path d="${dd}" stroke-width="0.9" style="fill:var(--paper)"/>`;
-      for (let i = 1; i < 5; i++) top += `<path d="M${f(cx + cw * 0.1 * i)} ${f(cy + 3)} l${f(cw * 0.25)} 0" stroke-width="0.35" opacity="0.7"/>`;
-    }
-    for (let i = 0; i < Math.min(120, rain * 40); i++){ const x = r() * W, y = 40 + r() * 90; top += `<path d="M${f(x)} ${f(y)} l -4 10" stroke-width="0.5" opacity="${(0.35 + 0.4 * r()).toFixed(2)}"/>`; }
-    for (let i = 0; i < (gust > 30 ? 5 : gust > 15 ? 3 : 0); i++){ const y = 60 + r() * 60, x = r() * W * 0.4, L = 120 + r() * 120; top += `<path d="M${f(x)} ${f(y)} c ${f(L * 0.3)} -8 ${f(L * 0.6)} 8 ${f(L)} 0 c 10 -2 12 -12 4 -14" stroke-width="0.6"/>`; }
-  }
-  // bottom: the medium as an engraved strip
-  const by = H - 150;
-  if (["dry","cure","done"].includes(ph)){
-    // cellar shelf: plank with wood grain
-    bot += `<path d="M0 ${by + 60} H${W}" stroke-width="1.2"/><path d="M0 ${by + 72} H${W}" stroke-width="0.8"/>`;
-    for (let i = 0; i < 7; i++){ let y = by + 62 + i * 1.6, d = `M0 ${f(y)}`; for (let x = 0; x < W; x += 40) d += ` q 20 ${f((r() - 0.5) * 2)} 40 0`; bot += `<path d="${d}" stroke-width="0.3" opacity="0.6"/>`; }
-  } else if (med === "hydro"){
-    for (let i = 0; i < 18; i++){ const y = by + 10 + i * i * 0.45 + i * 3; let d = `M-10 ${f(y)}`; const amp = 1.5 + i * 0.12, wl = 34 + 10 * r();
-      for (let x = -10; x < W + 40; x += wl) d += ` q ${f(wl / 4)} ${f(-amp)} ${f(wl / 2)} 0 t ${f(wl / 2)} 0`;
-      bot += `<path d="${d}" stroke-width="${(0.3 + i * 0.03).toFixed(2)}" opacity="${(0.35 + i * 0.035).toFixed(2)}"/>`; }
-    for (let i = 0; i < 14; i++){ const x = r() * W, y = by + 30 + r() * 100, rr = 1 + r() * 2.5; bot += `<circle cx="${f(x)}" cy="${f(y)}" r="${f(rr)}" stroke-width="0.5" style="fill:var(--paper)"/>`; }
-  } else if (med === "coco"){
-    for (let i = 0; i < 260; i++){ const y = by + 20 + Math.pow(r(), 0.6) * 130, x = r() * W, a = r() * Math.PI, L = 4 + r() * 10;
-      bot += `<path d="M${f(x)} ${f(y)} q ${f(Math.cos(a) * L / 2)} ${f(Math.sin(a) * L / 2 - 2)} ${f(Math.cos(a) * L)} ${f(Math.sin(a) * L)}" stroke-width="0.45" opacity="0.7"/>`; }
-  } else { // soil and living soil: stipple strata, root threads, a few pebbles
-    for (let i = 0; i < 900; i++){ const y = by + 15 + Math.pow(r(), 0.55) * 135, x = r() * W; bot += `<circle cx="${f(x)}" cy="${f(y)}" r="${(0.35 + r() * 0.5).toFixed(2)}" style="fill:var(--ink);stroke:none" opacity="${(0.4 + 0.5 * r()).toFixed(2)}"/>`; }
-    for (let i = 0; i < 3; i++){ let y = by + 30 + i * 35, d = `M0 ${f(y)}`; for (let x = 0; x < W; x += 60) d += ` q 30 ${f((r() - 0.5) * 8)} 60 0`; bot += `<path d="${d}" stroke-width="0.5" opacity="0.55"/>`; }
-    for (let i = 0; i < 5; i++){ const x = r() * W, y = by + 40 + r() * 90, rx = 4 + r() * 6; bot += `<ellipse cx="${f(x)}" cy="${f(y)}" rx="${f(rx)}" ry="${f(rx * 0.6)}" stroke-width="0.7" style="fill:var(--paper)"/>`; }
-    for (let i = 0; i < 6; i++){ let x = W * (0.1 + 0.8 * r()), y = by + 10, d = `M${f(x)} ${f(y)}`; for (let k = 0; k < 6; k++){ x += (r() - 0.5) * 20; y += 12 + r() * 10; d += ` L${f(x)} ${f(y)}`; } bot += `<path d="${d}" stroke-width="0.4" opacity="0.6"/>`; }
-  }
+  const bg = $("#bg"); const W = innerWidth, H = innerHeight;
+  const ph = p ? phaseOf(p) : "grow", indoorGrow = p && p.where !== "outdoor" && ["germ","grow","bloom"].includes(ph);
+  const outdoor = p && p.where === "outdoor" && !["dry","cure","done"].includes(ph);
+  let wx = {};
+  if (outdoor){ const w = S.weather[(p.lat||BERLIN.lat)+","+(p.lon||BERLIN.lon)], c = w && w.j.current || {}, d = w && w.j.daily || {};
+    wx = {cloud: c.cloud_cover, rain: (d.precipitation_sum && d.precipitation_sum[0]) || 0, gust: (d.wind_gusts_10m_max && d.wind_gusts_10m_max[0]) || 0}; }
+  const warm = indoorGrow && (latestSensor() || {}).temp > ((targetsOf(p).air || [0, 99])[1]);
+  const key = [W, H, p && p.id, ph, p && p.medium, indoorGrow, outdoor, JSON.stringify(wx), warm, document.documentElement.dataset.theme].join("|");
+  if (bg._k === key) return; bg._k = key;
+  const art = window.BgArt ? BgArt.draw({W, H, scene: indoorGrow ? "indoor" : outdoor ? "outdoor" : "none", medium: p ? (p.medium || "hydro") : "hydro", phase: ph, warm, weather: wx, night: document.documentElement.dataset.theme === "night", seed: p ? seedOf(p) : 11}) : {defs:"", top:"", bottom:"", by: H - 175};
+  const by = art.by;
   bg.setAttribute("viewBox", `0 0 ${W} ${H}`); bg.setAttribute("width", W); bg.setAttribute("height", H);
-  bg.innerHTML = `<defs><linearGradient id="zone" x1="0" y1="0" x2="0" y2="1"><stop offset="0.6" style="stop-color:var(--tint);stop-opacity:0"/><stop offset="1" style="stop-color:var(--tint);stop-opacity:0.6"/></linearGradient>`+
-    `<linearGradient id="fadeTop" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff"/><stop offset="0.8" stop-color="#fff" stop-opacity="0.15"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>`+
-    `<linearGradient id="fadeBot" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset="0.35" stop-color="#fff" stop-opacity="0.7"/><stop offset="1" stop-color="#fff"/></linearGradient>`+
-    `<mask id="mTop" maskUnits="userSpaceOnUse" x="0" y="0" width="${W}" height="220"><rect width="${W}" height="220" fill="url(#fadeTop)"/></mask>`+
-    `<mask id="mBot" maskUnits="userSpaceOnUse" x="0" y="${by}" width="${W}" height="150"><rect y="${by}" width="${W}" height="150" fill="url(#fadeBot)"/></mask>`+
-    `<clipPath id="sunclip"><circle cx="${W * 0.7}" cy="34" r="13"/></clipPath></defs>`+
+  bg.innerHTML = `<defs>${art.defs}<linearGradient id="zone" x1="0" y1="0" x2="0" y2="1"><stop offset="0.6" style="stop-color:var(--tint);stop-opacity:0"/><stop offset="1" style="stop-color:var(--tint);stop-opacity:0.55"/></linearGradient>`+
+    `<linearGradient id="fadeTop" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff"/><stop offset="0.75" stop-color="#fff" stop-opacity="0.35"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>`+
+    `<linearGradient id="fadeBot" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset="0.25" stop-color="#fff" stop-opacity="0.8"/><stop offset="1" stop-color="#fff"/></linearGradient>`+
+    `<mask id="mTop" maskUnits="userSpaceOnUse" x="0" y="0" width="${W}" height="240"><rect width="${W}" height="240" fill="url(#fadeTop)"/></mask>`+
+    `<mask id="mBot" maskUnits="userSpaceOnUse" x="0" y="${by - 10}" width="${W}" height="${H - by + 10}"><rect y="${by - 10}" width="${W}" height="${H - by + 10}" fill="url(#fadeBot)"/></mask></defs>`+
     `<rect width="${W}" height="${H}" filter="url(#paper)"/><rect width="${W}" height="${H}" fill="url(#zone)"/>`+
-    `<g fill="none" style="stroke:var(--ink)" stroke-linecap="round" filter="url(#rough)"><g mask="url(#mTop)" opacity="0.75">${top}</g><g mask="url(#mBot)">${bot}</g></g>`;
+    `<g fill="none" style="stroke:var(--ink)" stroke-linecap="round" stroke-linejoin="round"><g mask="url(#mTop)" opacity="0.8">${art.top}</g><g mask="url(#mBot)" opacity="0.85">${art.bottom}</g></g>`;
 }
 function stageIndex(p){
   if (!p) return 0; const T = today();
