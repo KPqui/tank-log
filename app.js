@@ -620,11 +620,6 @@ function renderToday(){
   document.documentElement.style.setProperty("--c", p ? colorOf(p) : "var(--ink)");
   $("#t-date").textContent = new Date().toLocaleDateString("en-GB",{weekday:"short",day:"numeric",month:"short"});
   drawSpecimen(p);
-  const sbtn = $("#t-specbtn"), pimg = $("#t-plate"), showPl = !!(p && p.plate && S.plateOn === p.id);
-  sbtn.disabled = !(p && p.plate); sbtn.setAttribute("aria-label", showPl ? "Show the ink drawing" : "Show the harvest photo");
-  $("#t-spec").style.display = showPl ? "none" : ""; pimg.hidden = !showPl;
-  if (showPl) mediaUrl(p.plate).then(u => { if (u) pimg.src = u; });
-  sbtn.onclick = () => { if (!p || !p.plate) return; S.plateOn = S.plateOn === p.id ? null : p.id; renderToday(); };
   if (!p){
     $("#t-day").textContent = APP; $("#t-stage").textContent = S.cfg ? (S.synced ? "No plants" : "–") : "Not connected"; $("#t-medium").textContent = "";
     $("#t-tasks").replaceChildren(h("p",{class:"empty"}, S.synced ? "No plants yet. Add one under Settings & plants." : "Loading your plan…"));
