@@ -390,7 +390,7 @@ async function loadAll(){
     S.tasks = tasks.data || []; S.logs = sortLogs(logs.data); S.changes = (changes.data || []).slice().sort((a,b) => (b.date||"").localeCompare(a.date||""));
     if (!S.plants.find(p => p.id === S.sel)) S.sel = (S.plants.find(p => p.status !== "done") || S.plants[0] || {}).id || null;
     S.synced = new Date(); cache();
-    setSync("Synced " + hm(S.synced.toISOString()));
+    setSync("↻ " + hm(S.synced.toISOString()));
   } catch(e){
     setSync(e.code === "auth" ? "Key rejected · open Settings" : "Offline · tap to retry", true);
   } finally { S.busy = false; renderAll(); }
@@ -408,7 +408,7 @@ function route(){
   if (!VIEWS.includes(v)) v = "today";
   if (!S.cfg && v !== "setup") v = "setup";
   for (const x of VIEWS) document.getElementById("v-"+x).hidden = x !== v;
-  $("#tabs").hidden = v === "setup" || v === "plant" || v === "strain" || !S.plants.length;
+  $("#tabs").hidden = v === "setup" || v === "plant" || !S.plants.length;
   document.querySelectorAll("nav a").forEach(a => a.dataset.v === v ? a.setAttribute("aria-current","page") : a.removeAttribute("aria-current"));
   if (v === "setup") renderSetup();
   if (v === "strain") renderStrain();
@@ -452,7 +452,7 @@ function tile(k, v, st, fx){
 }
 function renderTabs(){
   const box = $("#tabs"); box.replaceChildren();
-  const v = location.hash.slice(1); box.hidden = v === "setup" || v.startsWith("plant") || v === "strain" || !S.plants.length;
+  const v = location.hash.slice(1); box.hidden = v === "setup" || v.startsWith("plant") || !S.plants.length;
   const order = {active:0, resting:1, done:2};
   const list = S.plants.slice().sort((a,b) => (order[a.status]||0) - (order[b.status]||0));
   for (const p of list){
@@ -550,11 +550,12 @@ function renderTip(p){
   const box = $("#t-tip"); if (!box) return; box.replaceChildren(); box._fk = null;
   const t = tipFor(p); box.hidden = !t; if (!t) return;
   const label = t.kind === "lore" ? "Forum lore · unverified" : t.kind === "strain" ? "About this strain" : "Fact";
-  box.append(h("div",{class:"head",style:"align-items:baseline"}, h("h2",null,label),
+  const parts = [h("div",{class:"head",style:"align-items:baseline"}, h("h2",null,label),
     h("button",{type:"button", class:"btn ghost sm", "aria-label":"Another one", onclick:() => { S.tipShift++; renderTip(sel()); decorateSoon(); }}, "Another")),
     h("p",{class:"tiptext"}, t.text),
     t.src ? h("a",{class:"small muted", href:t.src.u, target:"_blank", rel:"noopener"}, "Source: " + t.src.t) : null,
-    t.kind === "strain" && strainOf(p) ? h("a",{class:"small", href:"#strain"}, "More about " + strainOf(p).name + " →") : null);
+    t.kind === "strain" && strainOf(p) ? h("a",{class:"small", href:"#strain"}, "More about " + strainOf(p).name + " →") : null];
+  box.append(...parts.filter(Boolean));
 }
 
 /* ---------- strain sheet ---------- */
@@ -642,15 +643,19 @@ function renderToday(){
   const lg = $("#t-logged");
   lg.className = "logged " + (todays.length ? "yes" : "no");
   lg.querySelector(".box").innerHTML = '<g fill="none" style="stroke:var(--ink)" stroke-linecap="round" filter="url(#rough)"><rect x="2" y="2" width="16" height="16" rx="2" stroke-width="1.2"/>' + (todays.length ? '<path d="M5 10 l3.5 3.5 L15 6" stroke-width="2"/>' : '') + '</g>';
-  $("#t-logged-txt").textContent = todays.length ? "Entered today, " + hm(todays[0].at) + (todays.length > 1 ? " · " + todays.length + " entries" : "") : "Not entered yet today";
+  $("#t-logged-txt").textContent = todays.length ? "Logged " + hm(todays[0].at) + (todays.length > 1 ? " · " + todays.length + "×" : "") : "Not logged yet";
   $("#t-logbtn").textContent = todays.length ? "Log again" : ph === "germ" ? "Log a step" : "Log values";
 
   const due = openTasks().filter(t => t.due && t.due <= T).sort(sortTasks);
   const doneToday = mine(S.tasks).filter(t => t.status === "done" && t.doneAt && ymd(new Date(t.doneAt)) === T);
   const box = $("#t-tasks"); box.replaceChildren();
   if (!due.length && !doneToday.length) box.append(h("p",{class:"empty"},"Nothing due today."));
-  for (const t of [...due, ...doneToday]) box.append(taskRow(t));
-  $("#t-count").textContent = due.length ? due.length + " open" : (doneToday.length ? "all done" : "");
+  for (const t of due) box.append(taskRow(t));
+  if (doneToday.length){
+    if (S.showDone) doneToday.forEach(t => box.append(taskRow(t)));
+    box.append(h("button",{type:"button", class:"donebtn", onclick:() => { S.showDone = !S.showDone; renderToday(); }}, S.showDone ? "Hide done" : "✓ " + doneToday.length + " done today"));
+  }
+  $("#t-count").textContent = "";
 
   // Observations: three plant values + three climate/weather values
   const fields = fieldsFor(p);
@@ -862,7 +867,7 @@ function renderHistory(){
         h("button",{type:"button", class:"btn ghost sm", style:S.armDel===l.id ? "color:var(--bad);border-color:var(--bad)" : null, onclick:() => delLog(l)}, S.armDel===l.id ? "Tap again to delete" : "Delete"))));
   }
 }
-function renderAll(){ renderTabs(); renderToday(); renderPlan(); renderHistory(); if (!$("#v-setup").hidden) renderSetup(); decorateSoon(); }
+function renderAll(){ renderTabs(); renderToday(); renderPlan(); renderHistory(); if (!$("#v-strain").hidden) renderStrain(); if (!$("#v-setup").hidden) renderSetup(); decorateSoon(); }
 
 /* ---------- log form ---------- */
 function renderLogForm(){
