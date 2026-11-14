@@ -35,30 +35,35 @@ const DEFAULT_TARGETS = {
   "living-soil": {air:[22,27], rh:[55,70], ppfd:[300,600]}
 };
 /* ---------- phases: germinate, grow, dry, cure, done ---------- */
-const PHASES = {germ:"Germination", grow:"Growing", dry:"Drying", cure:"Curing", done:"Finished"};
-const PHASE_ORDER = ["germ","grow","dry","cure","done"];
+const PHASES = {germ:"Germination", grow:"Vegetative", bloom:"Bloom", dry:"Drying", cure:"Curing", done:"Finished"};
+const PHASE_ORDER = ["germ","grow","bloom","dry","cure","done"];
 const NEXT = {
   germ:{to:"grow", btn:"It sprouted", hint:"Sets the sprout date. Logging switches to growing values."},
-  grow:{to:"dry", btn:"Harvest", w:"wet_g", wl:"Wet weight g (optional)", hint:"Cut and hung. Weigh before hanging if you can; drying values replace the growing ones."},
+  grow:{to:"bloom", btn:"Bloom started", hint:"Light flipped to 12/12, or first pistils on an autoflower. Sets the bloom date the plan and drawing count from."},
+  bloom:{to:"dry", btn:"Harvest", w:"wet_g", wl:"Wet weight g (optional)", hint:"Cut and hung. Weigh before hanging if you can; drying values replace the growing ones."},
   dry:{to:"cure", btn:"Into jars", w:"dry_g", wl:"Dry weight g (optional)", hint:"When small stems snap and buds feel dry outside."},
   cure:{to:"done", btn:"Close the run", w:"final_g", wl:"Final weight g (optional)", hint:"Last weigh-in and a verdict. The run summary stays with this plant."}
 };
 const VERDICTS = ["Meh","OK","Good","Great","Best yet"];
 const DRY_TARGETS = {air:[15,21], rh:[55,62]}, CURE_TARGETS = {jar_rh:[58,63]};
 function phaseOf(p){
-  if (!p) return "grow"; if (p.phase) return p.phase;
+  if (!p) return "grow";
+  if (p.phase && p.phase !== "grow") return p.phase;
+  const f = p.flip || (p.phases && p.phases.bloom);
+  if (f && today() >= f) return "bloom";
+  if (p.phase) return p.phase;
   if (p.status === "done") return "done";
   if (p.start && !p.sprout) return "germ";
   return "grow";
 }
-function phaseStart(p, ph){ const d = p.phases || {}; if (d[ph]) return d[ph]; if (ph === "germ") return p.start || null; if (ph === "grow") return p.sprout || null; return null; }
+function phaseStart(p, ph){ const d = p.phases || {}; if (d[ph]) return d[ph]; if (ph === "germ") return p.start || null; if (ph === "grow") return p.sprout || null; if (ph === "bloom") return p.flip || null; return null; }
 function targetsOf(p){
   const ph = phaseOf(p);
   if (ph === "dry") return Object.assign({}, DRY_TARGETS, p.dryTargets);
   if (ph === "cure" || ph === "done") return Object.assign({}, DRY_TARGETS, CURE_TARGETS, p.cureTargets);
   return p.targets || {};
 }
-function flipOf(p){ return p.flip || (p.stage === "flower" ? p.flipEst : null); }
+function flipOf(p){ return p.flip || (p.phases && p.phases.bloom) || (p.stage === "flower" ? p.flipEst : null); }
 
 function fieldsFor(p){
   const ph = phaseOf(p);
@@ -187,8 +192,10 @@ function frameSVG(w, hgt, o){
   if (o.state === "ok") tip = `<path d="M${X+w-8} ${Y+3} c 4 -6, 10 -6, 12 -1 c 1 4, -3 6, -5 4" stroke-width="0.9"/><path d="M${X+w-2} ${Y-2} c 2 -4, 6 -4, 7 -2 c -1 3, -4 3, -7 2 Z" style="fill:var(--ok);fill-opacity:.85" stroke-width="0.6"/>`;
   return `<svg class="frame" aria-hidden="true" viewBox="0 0 ${w+16} ${hgt+16}"><defs><clipPath id="${id}"><path d="${ring}" clip-rule="evenodd"/></clipPath></defs>${eff}<g fill="none" style="stroke:var(--ink)" stroke-linecap="round" stroke-linejoin="round" filter="url(#rough)"><rect x="${X+3}" y="${Y+3}" width="${w-6}" height="${hgt-6}" rx="5" stroke-width="1.2"/><rect x="${X+7}" y="${Y+7}" width="${w-14}" height="${hgt-14}" rx="3" stroke-width="0.45"/>${tip}</g></svg>`;
 }
+function previewPlant(){ return location.hash.startsWith("#plant") && S.pf && S.pf.medium ? {medium:S.pf.medium, where:S.pf.where} : null; }
 function decorate(){
-  const p = sel(); const med = p ? (p.medium || "hydro") : "hydro";
+  const pv = previewPlant(), p = pv || sel(); const med = p ? (p.medium || "hydro") : "hydro";
+  document.documentElement.style.setProperty("--c", p ? colorOf(p) : "var(--ink)");
   document.documentElement.dataset.medium = med;
   document.querySelectorAll(".fr").forEach((el, i) => {
     const b = el.getBoundingClientRect(); if (!b.width) return;
@@ -364,13 +371,14 @@ async function loadWeather(p){
 
 /* ---------- sync ---------- */
 function setSync(text, err){ const b = $("#sync"); b.textContent = text; b.classList.toggle("err", !!err); }
-function cache(){ try { localStorage.setItem(CACHE_KEY, JSON.stringify({plants:S.plants, tasks:S.tasks, logs:S.logs, changes:S.changes})); } catch(e){} }
+function cache(){ try { localStorage.setItem(CACHE_KEY, JSON.stringify({plants:S.plants, tasks:S.tasks, logs:S.logs, changes:S.changes, tips:S.tips||[]})); } catch(e){} }
 function sortLogs(list){ return (list||[]).slice().sort((a,b) => (b.at||"").localeCompare(a.at||"")); }
 async function loadAll(){
   if (!S.cfg || S.busy) return;
   S.busy = true; setSync("Syncing…");
   try {
-    let [plants, tasks, logs, changes] = await Promise.all(["plants.json","tasks.json","logs.json","changes.json"].map(getJSON));
+    let [plants, tasks, logs, changes, tips] = await Promise.all(["plants.json","tasks.json","logs.json","changes.json","tips.json"].map(p => getJSON(p).catch(() => ({data:null}))));
+    S.tips = (tips && tips.data) || [];
     if (!plants.data){
       const run = (await getJSON("run.json")).data;
       if (run){
@@ -389,7 +397,7 @@ async function loadAll(){
 }
 function loadCache(){
   try { const c = JSON.parse(localStorage.getItem(CACHE_KEY) || "null");
-    if (c && c.plants){ Object.assign(S, {plants:c.plants, tasks:c.tasks||[], logs:sortLogs(c.logs), changes:c.changes||[]}); setSync("Saved copy"); } } catch(e){}
+    if (c && c.plants){ Object.assign(S, {plants:c.plants, tasks:c.tasks||[], logs:sortLogs(c.logs), changes:c.changes||[], tips:c.tips||[]}); setSync("Saved copy"); } } catch(e){}
 }
 
 /* ---------- routing ---------- */
@@ -443,13 +451,14 @@ function tile(k, v, st, fx){
 }
 function renderTabs(){
   const box = $("#tabs"); box.replaceChildren();
+  const v = location.hash.slice(1); box.hidden = v === "setup" || v.startsWith("plant") || !S.plants.length;
   const order = {active:0, resting:1, done:2};
   const list = S.plants.slice().sort((a,b) => (order[a.status]||0) - (order[b.status]||0));
   for (const p of list){
     const n = dueCount(p);
     box.append(h("button",{type:"button", class:"ptab"+(p.status !== "active" ? " rest" : ""), role:"tab", style:"--c:"+colorOf(p),
       "aria-current": p.id === S.sel ? "true" : "false", "aria-label": p.name + " · " + (MEDIA[p.medium]||MEDIA.hydro).label + (n ? " · " + n + " due" : ""),
-      onclick:() => selectPlant(p.id)}, p.id === S.sel ? raw('<svg aria-hidden="true" style="position:absolute;inset:0;width:100%;height:100%;overflow:visible" viewBox="0 0 100 40" preserveAspectRatio="none"><ellipse cx="50" cy="20" rx="49" ry="18" style="fill:var(--c);fill-opacity:.6" filter="url(#wash)"/></svg>') : h("span",{class:"dot"}), h("span",{style:"position:relative"}, p.name), n ? h("span",{class:"badge",style:"position:relative"}, n) : null));
+      onclick:() => selectPlant(p.id)}, p.id === S.sel ? raw('<svg aria-hidden="true" style="position:absolute;inset:0;width:100%;height:100%;overflow:visible" viewBox="0 0 100 40" preserveAspectRatio="none"><ellipse cx="50" cy="20" rx="49" ry="18" style="fill:var(--c);fill-opacity:.6" filter="url(#wash)"/></svg>') : h("span",{class:"dot"}), h("span",{style:"position:relative"}, p.strain || p.name), n ? h("span",{class:"badge",style:"position:relative"}, n) : null));
   }
   box.append(h("a",{class:"ptab add", href:"#plant-new", "aria-label":"Add plant"}, "+ specimen"));
   const cur = box.querySelector('[aria-current="true"]'); if (cur) cur.scrollIntoView({inline:"nearest", block:"nearest"});
@@ -459,7 +468,7 @@ function seedOf(p){ return [...(p.id || "x")].reduce((a, c) => a * 31 + c.charCo
 function nodesEstimate(p, ref){ const sd = p.sprout ? daysBetween(p.sprout, ref) : 0; return Math.max(0, Math.floor((sd - 3) / 3.3)); }
 function specState(p){
   const ph = phaseOf(p), T = today();
-  const st = {phase: ph, seed: seedOf(p), roots: (p.medium || "hydro") === "hydro"};
+  const st = {phase: ph === "bloom" ? "grow" : ph, seed: seedOf(p), roots: (p.medium || "hydro") === "hydro"};
   if (ph === "germ"){
     const acts = new Set(mine(S.logs).flatMap(l => l.actions || []));
     st.germ = {soaked: acts.has("Soaked") || acts.has("Paper towel"), tail: acts.has("Tail visible"), planted: acts.has("Planted") || acts.has("Broke surface")};
@@ -493,7 +502,7 @@ function drawSpecimen(p){
   spec.setAttribute("aria-label", "Ink drawing of " + (words[st.phase] || (st.nodes ? "a plant with " + st.nodes + " leaf nodes" + (st.flowerDays ? ", " + Math.round(st.flowerDays / 7) + " weeks into bloom" : "") : "a sprout")));
 }
 function lampInfo(p){
-  if ((p.where || "indoor") !== "indoor" || phaseOf(p) !== "grow") return null;
+  if ((p.where || "indoor") !== "indoor" || !["grow","bloom"].includes(phaseOf(p))) return null;
   const l = latest("lamp"), lamp = l ? l.v : num(p.lamp); if (lamp == null) return null;
   const ht = latest("height"); return {lamp, gap: ht ? lamp - ht.v : null};
 }
@@ -527,6 +536,25 @@ function coreTiles(p){
   return null;
 }
 
+/* ---------- tip of the day: alternates sourced facts and forum lore; strain notes when the plant has them ---------- */
+S.tipShift = 0;
+function tipFor(p){
+  const all = (S.tips || []).filter(t => !t.plant || (p && t.plant === p.id) || (p && t.strain && p.strain && t.strain.toLowerCase() === p.strain.toLowerCase()));
+  if (!all.length) return null;
+  const d = Math.floor(Date.now() / 864e5) + S.tipShift, want = d % 2 ? "lore" : "fact";
+  const pool = all.filter(t => (t.kind === "strain" ? "fact" : t.kind) === want); const list = pool.length ? pool : all;
+  return list[((d >> 1) % list.length + list.length) % list.length];
+}
+function renderTip(p){
+  const box = $("#t-tip"); if (!box) return; box.replaceChildren(); box._fk = null;
+  const t = tipFor(p); box.hidden = !t; if (!t) return;
+  const label = t.kind === "lore" ? "Forum lore · unverified" : t.kind === "strain" ? "About this strain" : "Fact";
+  box.append(h("div",{class:"head",style:"align-items:baseline"}, h("h2",null,label),
+    h("button",{type:"button", class:"btn ghost sm", "aria-label":"Another one", onclick:() => { S.tipShift++; renderTip(sel()); decorateSoon(); }}, "Another")),
+    h("p",{class:"tiptext"}, t.text),
+    t.src ? h("a",{class:"small muted", href:t.src.u, target:"_blank", rel:"noopener"}, "Source: " + t.src.t) : null);
+}
+
 function renderToday(){
   const p = sel(), T = today();
   document.documentElement.style.setProperty("--c", p ? colorOf(p) : "var(--ink)");
@@ -542,10 +570,11 @@ function renderToday(){
   $("#t-day").textContent = ph === "done" ? "Finished" : p.status === "resting" ? "Resting"
     : ph === "dry" && psd ? "Dry day " + (daysBetween(psd, T) + 1) : ph === "cure" && psd ? "Cure day " + (daysBetween(psd, T) + 1)
     : (p.start ? "Day " + daysBetween(p.start, T) : p.name);
-  const si = ph === "germ" ? 0 : ph === "grow" ? stageIndex(p) : 5;
+  const growing = ph === "grow" || ph === "bloom";
+  const si = ph === "germ" ? 0 : ph === "bloom" ? 4 : ph === "grow" ? Math.min(3, stageIndex(p)) : 5;
   const st = $("#t-stage"); st.replaceChildren(
     raw('<svg aria-hidden="true" width="22" height="25" viewBox="0 0 30 34"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">' + GLYPHS[si] + '</g></svg>'),
-    document.createTextNode(ph === "grow" ? (p.stageLabel || ["Seed","Sprout","Seedling","Growth","Flower","Drying"][si]) : PHASES[ph] + (psd && ph !== "done" ? " · since " + short(psd) : "")));
+    document.createTextNode(growing ? (p.stageLabel || ["Seed","Sprout","Seedling","Growth","Flower","Drying"][si]) : PHASES[ph] + (psd && ph !== "done" ? " · since " + short(psd) : "")));
   const li = lampInfo(p);
   $("#t-medium").textContent = (MEDIA[p.medium]||MEDIA.hydro).label + " · " + (SYSTEMS[p.system] || "") + " · " + (WHERE[p.where] || "");
   $("#t-lamp").textContent = li ? "Lamp " + Math.round(li.lamp) + " cm above rim" + (li.gap != null ? " · " + Math.round(li.gap) + " cm to canopy" : "") : "";
@@ -588,6 +617,7 @@ function renderToday(){
   const next = openTasks().filter(t => !t.due || t.due > T).sort(sortTasks).slice(0,4);
   const nb = $("#t-next"); nb.replaceChildren();
   if (!next.length) nb.append(h("p",{class:"empty"},"Nothing scheduled yet."));
+  renderTip(p);
   for (const t of next) nb.append(h("div",{class:"row"}, h("span",null,t.title), h("span",{class:"lead"}), h("span",{class:"when"}, t.due ? fmtDay(t.due) : (t.trigger || "when ready"))));
   decorateSoon();
 }
@@ -626,11 +656,17 @@ function envTiles(p){
   if (!ma && !mr) note.textContent = "No sensor data yet. Upload a CSV export with a log.";
   return {tiles:[["Air", ma ? fmtv("air", ma.v) : "–", statusOf("air", ma && ma.v)], ["Humidity", mr ? fmtv("rh", mr.v) : "–", statusOf("rh", mr && mr.v)], ["VPD","–",none]], age: ma || mr ? "manual " + ago((ma||mr).at) : ""};
 }
+S.openTask = new Set();
 function taskRow(t){
-  const id = "task-" + t.id, done = t.status === "done";
-  const cb = h("input",{type:"checkbox", id, checked:done, onchange:e => toggleTask(t, e.target.checked)});
-  return h("label",{class:"task"+(done?" done":""), for:id}, cb,
-    h("span",null, h("b",null,t.title), t.detail ? h("br") : null, t.detail ? h("span",{class:"d"},t.detail) : null));
+  const id = "task-" + t.id, done = t.status === "done", more = t.detail || t.trigger;
+  const cb = h("input",{type:"checkbox", id, checked:done, "aria-label": (done ? "Reopen: " : "Done: ") + t.title, onchange:e => toggleTask(t, e.target.checked)});
+  const open = !done && S.openTask.has(t.id);
+  const title = more && !done
+    ? h("button",{type:"button", class:"tt", "aria-expanded": open ? "true" : "false", onclick:() => { S.openTask.has(t.id) ? S.openTask.delete(t.id) : S.openTask.add(t.id); renderToday(); }},
+        h("b",null,t.title), h("span",{class:"chev", "aria-hidden":"true"}, open ? "–" : "+"))
+    : h("label",{for:id, class:"tt"}, h("b",null,t.title));
+  return h("div",{class:"task"+(done?" done":"")}, cb, h("div",{class:"tb"}, title,
+    open ? h("span",{class:"d"}, t.detail || "", t.trigger ? (t.detail ? " · " : "") + "Trigger: " + t.trigger : "") : null));
 }
 async function toggleTask(t, on){
   const prev = {status:t.status, doneAt:t.doneAt};
@@ -645,7 +681,7 @@ function runRows(p){
   const dur = (a, b) => a && b && b >= a ? daysBetween(a, b) + " d" : null;
   const rows = [
     ["Germination", dur(ps("germ"), ps("grow"))],
-    ["Vegetative", dur(ps("grow"), flip && flip <= T ? flip : (phaseOf(p) === "grow" ? T : ps("dry")))],
+    ["Vegetative", dur(ps("grow"), flip && flip <= T ? flip : (phaseOf(p) === "grow" ? T : null))],
     ["Bloom", flip && flip <= T ? dur(flip, ps("dry") || T) : null],
     ["Drying", dur(ps("dry"), ps("cure") || (phaseOf(p) === "dry" ? T : null))],
     ["Curing", dur(ps("cure"), ps("done") || (phaseOf(p) === "cure" ? T : null))],
@@ -661,7 +697,8 @@ function renderPhase(p){
   const box = $("#p-phase"); box.replaceChildren(); box._fk = null; box.hidden = !p; if (!p) return;
   const ph = phaseOf(p), T = today();
   const rail = h("div",{class:"rail"});
-  PHASE_ORDER.forEach(k => { const d = phaseStart(p, k); rail.append(h("span",{class:"st" + (k === ph ? " on" : "") + (PHASE_ORDER.indexOf(k) < PHASE_ORDER.indexOf(ph) ? " past" : "")}, h("b",null, PHASES[k]), h("small",null, d ? short(d) : "·"))); });
+  const SHORT = {germ:"Germ", grow:"Veg", bloom:"Bloom", dry:"Dry", cure:"Cure", done:"Done"};
+  PHASE_ORDER.forEach(k => { const d = phaseStart(p, k); rail.append(h("span",{class:"st" + (k === ph ? " on" : "") + (PHASE_ORDER.indexOf(k) < PHASE_ORDER.indexOf(ph) ? " past" : ""), title: PHASES[k]}, h("b",null, SHORT[k]), h("small",null, d ? short(d) : "·"))); });
   box.append(h("div",{class:"head",style:"align-items:center"}, h("h2",null,"The run"), h("span",{class:"muted small"}, PHASES[ph])), rail);
   const rows = runRows(p);
   if (rows.length) box.append(h("div",{class:"runrows"}, rows.map(r => h("div",{class:"row"}, h("span",null,r[0]), h("span",{class:"lead"}), h("span",{class:"when num"}, r[1])))));
@@ -688,6 +725,7 @@ function renderPhase(p){
         if (!y.phases.grow && x.sprout) y.phases.grow = x.sprout;
         y.phases[nx.to] = d;
         if (nx.to === "grow" && !x.sprout) y.sprout = d;
+        if (nx.to === "bloom"){ y.flip = d; y.stage = "flower"; }
         y.run = Object.assign({}, x.run || {}); if (w != null) y.run[nx.w] = w; if (verdict) y.run.verdict = verdict;
         if (nx.to === "done") y.status = "done";
         return y;
@@ -719,9 +757,10 @@ function renderPlan(){
   if (!open.length) list.append(h("li",null,h("span",{class:"empty"},"No open steps.")));
   for (const t of open){
     const isDue = t.due && t.due <= T;
-    list.append(h("li",{class:"fr","data-soak":"0.12"},
-      h("div",{style:"display:flex;flex-direction:column;gap:2px;min-width:0"}, h("span",{style:"font-weight:600"},t.title),
-        (t.trigger || t.detail) ? h("span",{class:"muted small"}, t.trigger ? "Trigger: " + t.trigger : t.detail) : null),
+    const open = S.openTask.has("p-" + t.id), more = t.trigger || t.detail;
+    list.append(h("li",{class:"fr","data-soak":"0.12", onclick: more ? () => { S.openTask.has("p-" + t.id) ? S.openTask.delete("p-" + t.id) : S.openTask.add("p-" + t.id); renderPlan(); decorateSoon(); } : null, style: more ? "cursor:pointer" : null},
+      h("div",{style:"display:flex;flex-direction:column;gap:2px;min-width:0"}, h("span",{style:"font-weight:600"},t.title, more ? h("span",{class:"chev","aria-hidden":"true"}, open ? " –" : " +") : null),
+        open ? h("span",{class:"muted small"}, [t.detail, t.trigger ? "Trigger: " + t.trigger : ""].filter(Boolean).join(" · ")) : null),
       h("span",{class:"when num"+(isDue?" due":"")}, t.due ? (isDue ? fmtDay(t.due) : "~" + fmtDay(t.due)) : "open")));
   }
   const dl = $("#p-donelist"); dl.replaceChildren();
@@ -772,7 +811,7 @@ function renderLogForm(){
   const keep = {}; document.querySelectorAll("#l-fields input").forEach(i => keep[i.dataset.k] = i.value);
   const box = $("#l-fields"); box.replaceChildren();
   const ph = phaseOf(p), fl = fieldsFor(p).slice();
-  if (ph === "grow" && S.actions.has("Light changed")) fl.push("lamp");
+  if ((ph === "grow" || ph === "bloom") && S.actions.has("Light changed")) fl.push("lamp");
   $("#l-hint").textContent = ph === "germ" ? "Tap the steps you did. A photo is plenty." : ph === "dry" ? "Weigh the same sample each time. Upload the drying sensor's CSV." : ph === "cure" ? "Jar RH from the hygrometer inside the jar." : ph === "done" ? "This run is closed. You can still add notes and photos." : "Fill what you measured, skip the rest. Grey numbers are your last values.";
   for (const k of fl){
     const l = latest(k), ph0 = k === "lamp" && !l && p.lamp != null ? {v: p.lamp} : l;
@@ -875,6 +914,7 @@ function renderPlantChips(){
   chipGroup("#pl-where", WHERE, "where");
   chipGroup("#pl-status", STATUS, "status");
   $("#pl-sensorwrap").hidden = S.pf.where !== "indoor"; $("#pl-lampwrap").hidden = S.pf.where !== "indoor";
+  decorateSoon();
 }
 function openPlantForm(editing){
   const p = editing ? sel() : null;
@@ -882,6 +922,7 @@ function openPlantForm(editing){
   S.pf = p ? {medium:p.medium||"hydro", system:p.system||"dwc", where:p.where||"indoor", status:p.status||"active"} : {medium:"living-soil", system:"hand", where:"indoor", status:"active"};
   $("#pl-title").textContent = p ? "Edit " + p.name : "New plant";
   $("#pl-name").value = p ? p.name : ""; $("#pl-start").value = p && p.start || ""; $("#pl-sprout").value = p && p.sprout || "";
+  $("#pl-strain").value = p && p.strain || ""; $("#pl-breeder").value = p && p.breeder || "";
   $("#pl-sensor").value = p && p.sensor || ""; $("#pl-lamp").value = p && p.lamp != null ? p.lamp : "";
   $("#pl-save").textContent = p ? "Save" : "Add plant"; $("#pl-statusmsg").textContent = "";
   renderPlantChips();
@@ -891,7 +932,7 @@ $("#plantform").addEventListener("submit", async e => {
   e.preventDefault();
   const name = $("#pl-name").value.trim(), st = $("#pl-statusmsg");
   if (!name){ st.textContent = "Give the plant a name."; return; }
-  const fields = Object.assign({}, S.pf, {name, start:$("#pl-start").value || null, sprout:$("#pl-sprout").value || null, sensor:S.pf.where === "indoor" ? ($("#pl-sensor").value.trim() || null) : null, lamp:S.pf.where === "indoor" ? num($("#pl-lamp").value) : null});
+  const fields = Object.assign({}, S.pf, {name, start:$("#pl-start").value || null, sprout:$("#pl-sprout").value || null, sensor:S.pf.where === "indoor" ? ($("#pl-sensor").value.trim() || null) : null, lamp:S.pf.where === "indoor" ? num($("#pl-lamp").value) : null, strain:$("#pl-strain").value.trim() || null, breeder:$("#pl-breeder").value.trim() || null});
   $("#pl-save").disabled = true; st.textContent = "Saving…";
   try {
     const id = S.plantEdit || "p-" + Date.now();
