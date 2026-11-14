@@ -528,7 +528,7 @@ function coreTiles(p){
     const cs = phaseStart(p, "cure"), j = latestSince("jar_rh", cs), w = latestSince("weight", cs), b = lastAction(["Burped"]);
     const bd = b ? daysBetween(b.date, T) : null;
     return [["Jar RH", j ? fmtv("jar_rh", j.v) : "–", statusOf("jar_rh", j && j.v)],
-      ["Burped", bd == null ? "–" : bd === 0 ? "today" : bd + " d ago", bd != null && bd > 2 && cs && daysBetween(cs, T) < 14 ? {cls:"high", word:"due", txt:"daily in week 1–2"} : {cls:"none", word:"", txt:"daily in week 1–2"}],
+      ["Burped", bd == null ? "–" : bd === 0 ? "today" : bd + " d ago", bd != null && bd > 2 && cs && daysBetween(cs, T) < 14 ? {cls:"high", word:"due", txt:"daily in week 1–2"} : {cls:"none", word:"", txt: cs && daysBetween(cs, T) >= 14 ? "every few days now" : "daily in week 1–2"}],
       ["Weight", w ? fmtv("weight", w.v) : (run.dry_g ? run.dry_g + " g" : "–"), {cls:"none", word:"", txt: run.dry_g ? "jarred at " + run.dry_g + " g" : ""}]];
   }
   if (ph === "done"){
@@ -633,7 +633,7 @@ function renderToday(){
   const si = ph === "germ" ? 0 : ph === "bloom" ? 4 : ph === "grow" ? Math.min(3, stageIndex(p)) : 5;
   const st = $("#t-stage"); st.replaceChildren(
     raw('<svg aria-hidden="true" width="22" height="25" viewBox="0 0 30 34"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">' + GLYPHS[si] + '</g></svg>'),
-    document.createTextNode(growing ? (p.stageLabel || ["Seed","Sprout","Seedling","Growth","Flower","Drying"][si]) : PHASES[ph] + (psd && ph !== "done" ? " · since " + short(psd) : "")));
+    document.createTextNode(ph === "bloom" && !(p.stageLabel || "").startsWith("Bloom") && flipOf(p) ? "Bloom · wk " + (Math.floor(daysBetween(flipOf(p), T) / 7) + 1) : growing ? (p.stageLabel || ["Seed","Sprout","Seedling","Growth","Flower","Drying"][si]) : PHASES[ph] + (psd && ph !== "done" ? " · since " + short(psd) : "")));
   const li = lampInfo(p);
   $("#t-medium").textContent = (MEDIA[p.medium]||MEDIA.hydro).label + " · " + (SYSTEMS[p.system] || "") + " · " + (WHERE[p.where] || "");
   const sx = strainOf(p); $("#t-strain").replaceChildren(sx ? h("a",{href:"#strain"}, "About " + sx.name + " →") : document.createTextNode(""));
@@ -682,12 +682,21 @@ function renderToday(){
   const nb = $("#t-next"); nb.replaceChildren();
   if (!next.length) nb.append(h("p",{class:"empty"},"Nothing scheduled yet."));
   renderTip(p);
+  const sb = $("#t-summary"); sb.replaceChildren(); sb._fk = null;
+  const summ = p.summary || [];
+  sb.hidden = !summ.length || ph === "germ" || ph === "grow" || ph === "bloom";
+  if (!sb.hidden){
+    const open = S.sumOpen === p.id, lines = open ? summ : summ.slice(0, 3);
+    sb.append(h("div",{class:"head",style:"align-items:baseline"}, h("h2",null,"The run"), h("a",{href:"#plan", class:"small"}, "Numbers →")),
+      h("ul",{class:"notes"}, lines.map(t => h("li",null,t))),
+      ...(summ.length > 3 ? [h("button",{type:"button", class:"donebtn", onclick:() => { S.sumOpen = open ? null : p.id; renderToday(); }}, open ? "Less" : "More (" + (summ.length - 3) + ")")] : []));
+  }
   for (const t of next) nb.append(h("div",{class:"row"}, h("span",null,t.title), h("span",{class:"lead"}), h("span",{class:"when"}, t.due ? fmtDay(t.due) : (t.trigger || "when ready"))));
   decorateSoon();
 }
 function envTiles(p){
   const none = {cls:"none", word:"", txt:""}; const note = $("#t-envnote"); note.textContent = "";
-  if ((p.where || "indoor") === "outdoor"){
+  if ((p.where || "indoor") === "outdoor" && !["dry","cure","done"].includes(phaseOf(p))){
     const w = S.weather[(p.lat||BERLIN.lat)+","+(p.lon||BERLIN.lon)];
     if (!w){ loadWeather(p).then(x => { if (x && sel() === p) renderToday(); }); return {tiles:[["Now","–",none],["Rain mm","–",none],["Gusts km/h","–",none]], age:"loading weather"}; }
     const c = w.j.current || {}, d = w.j.daily || {};
@@ -718,7 +727,7 @@ function envTiles(p){
   }
   const ma = latest("air"), mr = latest("rh");
   if (!ma && !mr) note.textContent = "No sensor data yet. Upload a CSV export with a log.";
-  return {tiles:[["Air", ma ? fmtv("air", ma.v) : "–", statusOf("air", ma && ma.v)], ["Humidity", mr ? fmtv("rh", mr.v) : "–", statusOf("rh", mr && mr.v)], ["VPD","–",none]], age: ma || mr ? "manual " + ago((ma||mr).at) : ""};
+  return {tiles:[["Air", ma ? fmtv("air", ma.v) : "–", statusOf("air", ma && ma.v)], ["Humidity", mr ? fmtv("rh", mr.v) : "–", statusOf("rh", mr && mr.v)], [["dry","cure","done"].includes(phaseOf(p)) ? "RH 24 h" : "VPD","–",none]], age: ma || mr ? "manual " + ago((ma||mr).at) : ""};
 }
 S.openTask = new Set();
 function taskRow(t){
@@ -765,6 +774,7 @@ function renderPhase(p){
   PHASE_ORDER.forEach(k => { const d = phaseStart(p, k); rail.append(h("span",{class:"st" + (k === ph ? " on" : "") + (PHASE_ORDER.indexOf(k) < PHASE_ORDER.indexOf(ph) ? " past" : ""), title: PHASES[k]}, h("b",null, SHORT[k]), h("small",null, d ? short(d) : "·"))); });
   box.append(h("div",{class:"head",style:"align-items:center"}, h("h2",null,"The run"), h("span",{class:"muted small"}, PHASES[ph])), rail);
   const rows = runRows(p);
+  if (p.summary && p.summary.length) box.append(h("details",null, h("summary",{class:"small"},"Story of this run"), h("ul",{class:"notes", style:"margin-top:8px"}, p.summary.map(t => h("li",null,t)))));
   if (rows.length) box.append(h("div",{class:"runrows"}, rows.map(r => h("div",{class:"row"}, h("span",null,r[0]), h("span",{class:"lead"}), h("span",{class:"when num"}, r[1])))));
   const nx = NEXT[ph]; if (!nx) return;
   const form = h("form",{class:"phaseform", hidden: true});
@@ -774,9 +784,9 @@ function renderPhase(p){
   if (ph === "cure") VERDICTS.forEach(v => vbox.append(h("button",{type:"button", class:"chip", "aria-pressed":"false", onclick:e => { verdict = v; vbox.querySelectorAll(".chip").forEach(c => c.setAttribute("aria-pressed", c === e.currentTarget ? "true" : "false")); }}, v)));
   const note = h("input",{type:"text", autocomplete:"off", placeholder:"Optional note"});
   const msg = h("p",{class:"status", role:"status"});
-  form.append(h("p",{class:"muted small", style:"margin:0"}, nx.hint), h("div",{class:"fields"}, h("label",{class:"f"}, "Date", date), wt ? h("label",{class:"f"}, nx.wl, wt) : null),
+  form.append(...[h("p",{class:"muted small", style:"margin:0"}, nx.hint), h("div",{class:"fields"}, h("label",{class:"f"}, "Date", date), wt ? h("label",{class:"f"}, nx.wl, wt) : null),
     ph === "cure" ? h("fieldset",null, h("legend",null,"How did it turn out?"), vbox) : null, h("label",{class:"f"}, "Note", note),
-    h("button",{class:"btn primary", type:"submit"}, "Confirm: " + nx.btn), msg);
+    h("button",{class:"btn primary", type:"submit"}, "Confirm: " + nx.btn), msg].filter(Boolean));
   form.addEventListener("submit", async e => {
     e.preventDefault();
     const d = date.value || T, w = wt ? num(wt.value) : null, nt = note.value.trim();
@@ -806,14 +816,14 @@ function renderPlan(){
   const p = sel(), T = today();
   renderPhase(p);
   const bar = $("#p-bar"), lg = $("#p-legend"); bar.replaceChildren(); lg.replaceChildren(); $("#p-upd").textContent = "";
-  if (p && p.start){
+  if (p && p.start && !["dry","cure","done"].includes(phaseOf(p))){
     const total = daysBetween(p.start, p.endEst || T) || 1;
     const g = p.flipEst ? daysBetween(p.start, p.flipEst) : total;
     bar.append(h("div",{class:"g", style:"width:"+(100*g/total)+"%"}), h("div",{class:"b", style:"width:"+(100*(total-g)/total)+"%"}));
     const nowPct = Math.max(0, Math.min(100, 100*daysBetween(p.start, T)/total));
     bar.append(h("div",{class:"now", style:"left:calc("+nowPct+"% - 1px)", title:"Today"}));
-    lg.append(h("span",null,"Start " + short(p.start)), h("span",null,"Growth"),
-      p.flipEst ? h("span",null,"Bloom ~" + short(p.flipEst)) : null, p.endEst ? h("span",null,"End ~" + short(p.endEst)) : null);
+    lg.append(...[h("span",null,"Start " + short(p.start)), h("span",null,"Growth"),
+      p.flipEst ? h("span",null,"Bloom ~" + short(p.flipEst)) : null, p.endEst ? h("span",null,"End ~" + short(p.endEst)) : null].filter(Boolean));
     if (p.updated) $("#p-upd").textContent = "Updated " + fmtDay(p.updated);
   }
   const list = $("#p-list"); list.replaceChildren();
