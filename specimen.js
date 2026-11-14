@@ -8,6 +8,9 @@
 (function(){
 "use strict";
 const VB_W = 120, VB_H = 200, GROUND = 186;
+// faint watercolour, mixed into the paper so the night theme stays dark
+const wash = (hex, k) => `color-mix(in srgb, var(--paper) ${100 - k}%, ${hex})`;
+const LEAF = wash("#5f9a3e", 22), BRACT = wash("#8fae4e", 20), NUG = wash("#7f8f45", 26);
 
 function rng(seed){ let s = (seed * 9301 + 49297) % 233280 || 1; return () => { s = (s * 9301 + 49297) % 233280; return s / 233280; }; }
 const rad = a => a * Math.PI / 180;
@@ -52,7 +55,7 @@ function leaflet(C, base, a, L, o){
   };
   const L1 = side(1), R1 = side(-1);
   const outline = L1.concat(R1.reverse()); outline.push(outline[0]);
-  C.poly(outline, {w: lw, fill: o.fill == null ? true : o.fill, op: o.op, z});
+  C.poly(outline, {w: lw, fill: o.fill == null ? LEAF : o.fill, op: o.op, z});
   const mo = tw * W * 0.25;
   const mid = []; for (let i = 0; i <= N * 0.92; i += 2){ const q = at(i / N); mid.push([q.p[0] + q.n[0] * mo, q.p[1] + q.n[1] * mo]); }
   C.poly(mid, {w: lw * 0.5, op: o.op, z: z + 0.01});
@@ -109,7 +112,7 @@ function calyx(C, p, a, s, o){
     const ca = Math.cos(rad(a - 90)), sa = Math.sin(rad(a - 90));
     pts.push([p[0] + x * ca - y * sa, p[1] + x * sa + y * ca]);
   }
-  C.poly(pts, {w: o.lw || 0.36, fill: o.fill == null ? true : o.fill, z: o.z || 3, op: o.op});
+  C.poly(pts, {w: o.lw || 0.36, fill: o.fill == null ? BRACT : o.fill, z: o.z || 3, op: o.op});
   C.poly([add(p, a, s * 0.12), add(p, a, s * 0.78)], {w: 0.18, z: (o.z || 3) + 0.01, op: (o.op || 1) * 0.6});
   if (o.hatch) for (let k = 0; k < 3; k++){ const q = add(p, a, s * (0.25 + 0.17 * k)); C.poly([q, add(q, a - 70, s * 0.22)], {w: 0.2, z: (o.z || 3) + 0.01, op: 0.7}); }
   if (o.hair){
@@ -173,7 +176,7 @@ function plant(C, s){
       const pts = []; const a0 = (side > 0 ? 10 : 170) - (nodes > 3 ? side * 30 : 0);
       for (let i = 0; i <= 16; i++){ const t = i / 16 * Math.PI * 2; const lx = (1 - Math.cos(t)) * 0.5 * cs, ly = Math.sin(t) * cs * 0.32;
         const ca = Math.cos(rad(a0)), sa = Math.sin(rad(a0)); pts.push([p0[0] + lx * ca - ly * sa, p0[1] + lx * sa + ly * ca]); }
-      C.poly(pts, {w: 0.45, fill: true, z: 2, op: nodes > 3 ? 0.55 : 1});
+      C.poly(pts, {w: 0.45, fill: LEAF, z: 2, op: nodes > 3 ? 0.55 : 1});
       C.poly([p0, add(p0, a0, cs * 0.8)], {w: 0.2, z: 2.01, op: 0.6});
     }
   }
@@ -260,7 +263,7 @@ function nug(C, p, a, s, r){
     const x = Math.cos(t) * s * 0.42 * bump, y = Math.sin(t) * s * 0.6 * bump * (1 - 0.15 * Math.sin(t));
     const ca = Math.cos(rad(a - 90)), sa = Math.sin(rad(a - 90)); pts.push([p[0] + x * ca - y * sa, p[1] + x * sa + y * ca]); }
   pts[n] = pts[0];
-  C.poly(pts, {w: 0.42, fill: true, z: 3});
+  C.poly(pts, {w: 0.42, fill: NUG, z: 3});
   for (let k = 0; k < 7; k++){ const u = (r() - 0.5) * 0.6, v = (r() - 0.5) * 0.9;
     const q = [p[0] + (u * Math.cos(rad(a - 90)) - v * Math.sin(rad(a - 90))) * s, p[1] + (u * Math.sin(rad(a - 90)) + v * Math.cos(rad(a - 90))) * s];
     C.poly(axis(q, a + (r() - 0.5) * 50, s * 0.28, (r() - 0.5) * 60, 4), {w: 0.28, z: 3.01, op: 0.8}); }

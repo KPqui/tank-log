@@ -90,7 +90,13 @@ function drawRoots(P, list, o){
   }
 }
 function roots(P, x, y, len, ang, depth, w){ const L = []; rootTree(P, x, y, len, ang, depth, w, L); drawRoots(P, L); }
-function bubble(P, x, y, rr){ P.ellipse(x, y, rr, rr * (0.9 + P.r() * 0.2), {w: 0.45, jit: 0.15, fill: "var(--paper)"}); if (rr > 2) P.ellipse(x - rr * 0.35, y - rr * 0.35, rr * 0.25, rr * 0.2, {w: 0.35, jit: 0.05, span: 2.4}); }
+function bubble(P, x, y, rr){
+  P.out.push(`<circle cx="${f(x)}" cy="${f(y)}" r="${f(rr)}" style="fill:${tint("#3f93c4", 12)};stroke:none"/>`);
+  P.ellipse(x, y, rr, rr * (0.94 + P.r() * 0.1), {w: 0.35 + rr * 0.08, jit: 0.04});
+  if (rr > 1.2){ P.ellipse(x, y, rr * 0.86, rr * 0.86, {from: 0.25, span: 2.2, w: 0.25 + rr * 0.06, jit: 0.02, op: 0.7});         // shaded lower rim
+    P.out.push(`<path d="M${f(x - rr * 0.62)} ${f(y - rr * 0.05)}Q${f(x - rr * 0.6)} ${f(y - rr * 0.62)} ${f(x - rr * 0.05)} ${f(y - rr * 0.66)}Q${f(x - rr * 0.42)} ${f(y - rr * 0.4)} ${f(x - rr * 0.62)} ${f(y - rr * 0.05)}Z" style="fill:var(--ink);stroke:none" opacity=".55"/>`);
+    P.out.push(`<circle cx="${f(x + rr * 0.38)}" cy="${f(y + rr * 0.4)}" r="${f(rr * 0.12)}" style="fill:var(--ink);stroke:none" opacity=".5"/>`); }
+}
 function cloud(P, cx, cy, cw, sun){
   // contour of overlapping lobes, drawn as several arcs, shaded underneath with hatching
   const lobes = 4 + Math.floor(P.r() * 3), hgt = cw * (0.22 + P.r() * 0.08);
@@ -219,8 +225,6 @@ function hydroScene(P, W, top){
   for (const k of [1, 1.7, 2.6]) P.ellipse(W / 2 + P.j(3), wy, 14 * k, 2.2 * k * 0.8, {w: 0.35, op: 0.8 - k * 0.2, span: Math.PI * (1.4 + P.r() * 0.5)});
   caustics(P, W, wy + 18, bot);
   for (let i = 0; i < 40; i++) P.dots(1, r => [r() * W, wy + 20 + r() * 150], {r: 0.4, op: 0.5});   // drifting specks
-  const L = []; for (let i = 0; i < 13; i++) rootTree(P, W / 2 + P.j(24), cy + 6, 120 + P.r() * 110, Math.PI / 2 + P.j(0.35), 3, 0.85, L);
-  drawRoots(P, L);
   const sx = W * 0.2, sy = cy + 132;
   P.stroke([[sx - 14, sy], [sx + 14, sy], [sx + 14, sy + 7], [sx - 14, sy + 7], [sx - 14, sy]], {w: 0.7, over: 1, fill: "var(--paper)"});
   P.dots(36, r => [sx - 12 + r() * 24, sy + 1 + r() * 5], {r: 0.5});
@@ -249,8 +253,6 @@ function soilScene(P, W, top, living){
   P.dots(1300, r => [r() * W, cy + 4 + Math.pow(r(), 0.7) * 180], {r: 0.5, op: 0.8});
   for (let i = 0; i < 40; i++){ const x = P.r() * W, y = cy + 8 + P.r() * 170; P.ellipse(x, y, 1 + P.r() * 1.6, 0.8 + P.r(), {w: 0.3, fill: "var(--paper)", jit: 0.2}); }   // grit
   for (let i = 0; i < 8; i++) stone(P, P.r() * W, cy + 30 + P.r() * 130, 3.5 + P.r() * 6);
-  const L = []; for (let i = 0; i < 9; i++) rootTree(P, W * (0.1 + 0.8 * P.r()), cy + 2, 70 + P.r() * 110, Math.PI / 2 + P.j(0.5), 3, 0.8, L);
-  drawRoots(P, L, {light: true});
   if (living){
     for (let i = 0; i < 18; i++){ let x = P.r() * W, y = cy + 25 + P.r() * 140, a = P.r() * 6.28; const ps = [[x, y]]; for (let k = 0; k < 10; k++){ a += P.j(0.9); x += Math.cos(a) * 6; y += Math.sin(a) * 6; ps.push([x, y]); } P.stroke(ps, {w: 0.45, op: 0.85, jit: 0.3, color: "var(--paper)"}); }
     const wx = W * 0.66, wy = cy + 96, wp = []; for (let k = 0; k <= 14; k++) wp.push([wx + k * 4, wy + Math.sin(k * 0.8) * 3.5]);
@@ -266,8 +268,6 @@ function cocoScene(P, W, top){
   for (let i = 0; i < 420; i++){ const y = cy + 4 + Math.pow(P.r(), 0.7) * 180, x = P.r() * W, a = P.r() * 6.28, l = 4 + P.r() * 12, light = P.r() < 0.4;
     P.stroke([[x, y], [x + Math.cos(a) * l / 2 + P.j(2), y + Math.sin(a) * l / 2 + P.j(2)], [x + Math.cos(a) * l, y + Math.sin(a) * l]], {w: light ? 0.6 : 0.32, op: 0.75, over: 0.5, color: light ? "var(--paper)" : null}); }
   for (let i = 0; i < 46; i++){ const x = P.r() * W, y = cy + 8 + P.r() * 170, rr = 1.5 + P.r() * 2.4; P.ellipse(x, y, rr, rr * 0.85, {w: 0.4, fill: "var(--paper)"}); P.dots(2, r => [x + (r() - 0.5) * rr, y + (r() - 0.5) * rr], {r: 0.3}); }
-  const L = []; for (let i = 0; i < 8; i++) rootTree(P, W * (0.12 + 0.76 * P.r()), cy + 2, 70 + P.r() * 100, Math.PI / 2 + P.j(0.5), 3, 0.75, L);
-  drawRoots(P, L, {light: true});
 }
 function jarSketch(P, x, y, w, h){
   // a glass curing jar standing on the shelf: glass outline, glint, hatched lid, nugs inside
