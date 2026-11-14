@@ -688,6 +688,13 @@ function renderToday(){
   sb.hidden = !summ.length || ph === "germ" || ph === "grow" || ph === "bloom";
   if (!sb.hidden){
     const open = S.sumOpen === p.id, lines = open ? summ : summ.slice(0, 3);
+    if (p.plate){
+      const img = h("img",{class:"plate", alt:"Harvest photo of " + (p.strain || p.name) + ", half photo, half ink"});
+      mediaUrl(p.plate).then(u => { if (u){ img.src = u; img.onload = decorateSoon; } });
+      img.addEventListener("click", async () => { const u = await mediaUrl(p.plate); if (u){ const v = h("div",{class:"viewer paper", role:"dialog", "aria-label":"Harvest plate", onclick:() => v.remove()}, h("img",{src:u, alt:""})); document.body.append(v); } });
+      const hd = phaseStart(p, "dry");
+      sb.append(h("figure",{class:"platefig"}, img, h("figcaption",null, (p.strain || p.name) + (hd ? " · harvested " + short(hd) : ""))));
+    }
     sb.append(h("div",{class:"head",style:"align-items:baseline"}, h("h2",null,"The run"), h("a",{href:"#plan", class:"small"}, "Numbers →")),
       h("ul",{class:"notes"}, lines.map(t => h("li",null,t))),
       ...(summ.length > 3 ? [h("button",{type:"button", class:"donebtn", onclick:() => { S.sumOpen = open ? null : p.id; renderToday(); }}, open ? "Less" : "More (" + (summ.length - 3) + ")")] : []));
