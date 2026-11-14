@@ -1,5 +1,5 @@
 // App shell cache: network first, cache as fallback. Data calls to api.github.com are never cached.
-const CACHE = "flowerphile-v4";
+const CACHE = "flowerphile-v5";
 const SHELL = ["./", "./index.html", "./manifest.webmanifest", "./specimen.js?v=4", "./app.js?v=4", "./icons/icon-192.png", "./icons/icon-512.png"];
 self.addEventListener("install", e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL))); self.skipWaiting(); });
 self.addEventListener("activate", e => {
