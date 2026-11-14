@@ -25,7 +25,7 @@ Pen.prototype.stroke = function(pts, o){
   if (P.length === 2) d += "L" + f(P[1][0]) + " " + f(P[1][1]);
   else for (let i = 1; i < P.length - 1; i++){ const m = [(P[i][0] + P[i + 1][0]) / 2, (P[i][1] + P[i + 1][1]) / 2]; d += "Q" + f(P[i][0]) + " " + f(P[i][1]) + " " + f(m[0]) + " " + f(m[1]); }
   if (P.length > 2) d += "L" + f(P[P.length - 1][0]) + " " + f(P[P.length - 1][1]);
-  this.out.push(`<path d="${d}" stroke-width="${w.toFixed(2)}"${o.op != null ? ` opacity="${o.op.toFixed(2)}"` : ""}${o.clip ? ` clip-path="url(#${o.clip})"` : ""}${o.fill ? ` style="fill:${o.fill}"` : ""}${o.dash ? ` stroke-dasharray="${o.dash}"` : ""}/>`);
+  this.out.push(`<path d="${d}" stroke-width="${w.toFixed(2)}"${o.op != null ? ` opacity="${o.op.toFixed(2)}"` : ""}${o.clip ? ` clip-path="url(#${o.clip})"` : ""}${o.fill || o.color ? ` style="${o.fill ? "fill:" + o.fill + ";" : ""}${o.color ? "stroke:" + o.color : ""}"` : ""}${o.dash ? ` stroke-dasharray="${o.dash}"` : ""}/>`);
   if (o.twice && r() < o.twice) this.stroke(pts, Object.assign({}, o, {twice: 0, w: (o.w || 0.6) * 0.6, op: (o.op || 1) * 0.55, jit: jit * 1.8}));
 };
 // straight line drawn as a slightly bowed stroke
@@ -56,16 +56,40 @@ Pen.prototype.dots = function(n, fx, o){ o = o || {}; for (let i = 0; i < n; i++
 Pen.prototype.svg = function(){ return { defs: this.defs.join(""), body: this.out.join("") }; };
 
 /* ---------- pieces ---------- */
-function roots(P, x, y, len, ang, depth, w){
-  // wandering, branching roots with fine hairs
-  let pts = [[x, y]], cx = x, cy = y, a = ang;
-  const n = Math.max(3, Math.round(len / 9));
-  for (let i = 0; i < n; i++){ a += P.j(0.35); cx += Math.cos(a) * len / n; cy += Math.sin(a) * len / n; pts.push([cx, cy]);
-    if (depth > 0 && P.r() < 0.28) roots(P, cx, cy, len * (0.35 + P.r() * 0.3), a + (P.r() < 0.5 ? -1 : 1) * (0.5 + P.r() * 0.6), depth - 1, w * 0.65);
-    if (P.r() < 0.5){ const ha = a + (P.r() < 0.5 ? -1.4 : 1.4), hl = 2 + P.r() * 3; P.line(cx, cy, cx + Math.cos(ha) * hl, cy + Math.sin(ha) * hl, {w: 0.25, op: 0.6, over: 0, jit: 0.2}); }
+// watercolour wash: a ragged-edged tinted shape under the ink, mixed into the paper colour so it also works at night
+const tint = (hex, k) => `color-mix(in srgb, var(--paper) ${100 - k}%, ${hex})`;
+Pen.prototype.wash = function(d, hex, k, o){ o = o || {};
+  this.out.push(`<path d="${d}" style="fill:${tint(hex, k)};stroke:none" filter="url(#wc)"${o.op != null ? ` opacity="${o.op}"` : ""}/>`); };
+// a ragged blob path around a polygon, for washes
+function blobPath(P, pts, j){ return "M" + pts.map(p => f(p[0] + P.j(j)) + " " + f(p[1] + P.j(j))).join("L") + "Z"; }
+// root path: wanders downward, returns its points and spawns side roots that angle down and out
+function rootTree(P, x, y, len, ang, depth, w, out){
+  const pts = [[x, y]]; let cx = x, cy = y, a = ang;
+  const n = Math.max(4, Math.round(len / 7));
+  for (let i = 0; i < n; i++){
+    a += P.j(0.22) + (Math.PI / 2 - a) * 0.08;             // gravity pulls the tip down
+    cx += Math.cos(a) * len / n; cy += Math.sin(a) * len / n; pts.push([cx, cy]);
+    if (depth > 0 && i > 0 && P.r() < (depth > 1 ? 0.5 : 0.32)){
+      const sd = P.r() < 0.5 ? -1 : 1;
+      rootTree(P, cx, cy, len * (0.22 + P.r() * 0.3) * (1 - i / n * 0.5), a + sd * (0.6 + P.r() * 0.5), depth - 1, w * 0.6, out);
+    }
   }
-  P.stroke(pts, {w, jit: 0.3, over: 1, twice: 0.3});
+  out.push({pts, w, depth});
 }
+function drawRoots(P, list, o){
+  o = o || {};
+  for (const rt of list){
+    if (o.light){                                           // pale roots against dark soil: a paper core with ink edges on the thick ones
+      P.stroke(rt.pts, {w: rt.w * 2.4 + 0.5, jit: 0.25, over: 0.5, color: "var(--paper)"});
+      if (rt.w > 0.5) P.stroke(rt.pts.map((p, i, a) => { const q = a[Math.min(a.length - 1, i + 1)], r = a[Math.max(0, i - 1)], dx = q[0] - r[0], dy = q[1] - r[1], d = Math.hypot(dx, dy) || 1; return [p[0] - dy / d * rt.w * 1.3, p[1] + dx / d * rt.w * 1.3]; }), {w: 0.35, jit: 0.2, over: 0.5, op: 0.8});
+    } else P.stroke(rt.pts, {w: 0.25 + rt.w * 0.7, jit: 0.25, over: 1, twice: rt.w > 0.5 ? 0.4 : 0});
+    if (rt.depth === 0) for (let i = 1; i < rt.pts.length; i += 2) if (P.r() < 0.6){   // root hairs on the finest roots
+      const p = rt.pts[i], ha = P.r() * 6.28, hl = 1.5 + P.r() * 2.5;
+      P.line(p[0], p[1], p[0] + Math.cos(ha) * hl, p[1] + Math.abs(Math.sin(ha)) * hl, {w: 0.2, op: 0.55, over: 0, jit: 0.1, color: o.light ? "var(--paper)" : null});
+    }
+  }
+}
+function roots(P, x, y, len, ang, depth, w){ const L = []; rootTree(P, x, y, len, ang, depth, w, L); drawRoots(P, L); }
 function bubble(P, x, y, rr){ P.ellipse(x, y, rr, rr * (0.9 + P.r() * 0.2), {w: 0.45, jit: 0.15, fill: "var(--paper)"}); if (rr > 2) P.ellipse(x - rr * 0.35, y - rr * 0.35, rr * 0.25, rr * 0.2, {w: 0.35, jit: 0.05, span: 2.4}); }
 function cloud(P, cx, cy, cw, sun){
   // contour of overlapping lobes, drawn as several arcs, shaded underneath with hatching
@@ -121,6 +145,7 @@ function lampScene(P, W, warm){
   P.hatch([0, 0, inset, 210], wl, {ang: 1.45, gap: 3, w: 0.3, op: 0.6}); P.hatch([W - inset, 0, W, 210], wr, {ang: 1.7, gap: 3, w: 0.3, op: 0.6});
   // hangers: rope, ratchet, hook
   const bx0 = W * 0.17, bx1 = W * 0.83, by = 30;
+  P.wash(blobPath(P, [[bx0, by + 8], [bx1, by + 8], [W - inset + 4, 240], [inset - 4, 240]], 3), "#e3b84a", 20);
   for (const hx of [bx0 + 14, bx1 - 14]){
     P.stroke([[hx + P.j(3), 0], [hx + P.j(1.5), 8], [hx, 14]], {w: 0.45});
     P.ellipse(hx, 16, 2.6, 3.6, {w: 0.55});
@@ -153,6 +178,7 @@ function lampScene(P, W, warm){
 }
 function skyScene(P, W, wx, night){
   const cloud_ = wx.cloud == null ? 45 : wx.cloud;
+  P.wash(blobPath(P, [[-8, -8], [W + 8, -8], [W + 8, 150], [W * 0.6, 175], [W * 0.2, 160], [-8, 180]], 4), night ? "#22324f" : "#7fa9c9", night ? 30 : 18);
   if (night) moon(P, W * 0.72, 34, 12); else if (cloud_ < 75) sun(P, W * 0.72, 36, 13);
   const n = Math.round(1 + cloud_ / 22);
   for (let k = 0; k < n; k++) cloud(P, W * (0.08 + 0.84 * P.r()), 40 + 60 * P.r(), 60 + 80 * P.r());
@@ -163,56 +189,106 @@ function skyScene(P, W, wx, night){
     const pts = []; for (let k = 0; k <= 10; k++){ const t = k / 10; pts.push([x + L * t, y + Math.sin(t * 6.28) * 4 * (1 - t)]); } pts.push([x + L + 8, y - 6]); pts.push([x + L + 2, y - 11]); P.stroke(pts, {w: 0.5, twice: 0.5}); }
   treeline(P, 196, W);
 }
+// caustic net: the wobbling light pattern seen through water, drawn as loose broken cells fading with depth
+function caustics(P, W, y0, y1){
+  for (let y = y0; y < y1; y += 10 + (y - y0) * 0.06){
+    const k = 1 - (y - y0) / (y1 - y0), cw = 15 + P.r() * 8;
+    for (let x = -10 + P.r() * cw; x < W + 10; x += cw * (0.8 + P.r() * 0.5)){
+      const cx = x, cy = y + P.j(3), rx = cw * 0.5, ry = 4 + P.r() * 3, m = 5 + Math.floor(P.r() * 2), a0 = P.r() * 6;
+      const vs = []; for (let i = 0; i < m; i++){ const a = a0 + i / m * 6.283; vs.push([cx + Math.cos(a) * rx * (0.75 + P.r() * 0.4), cy + Math.sin(a) * ry * (0.75 + P.r() * 0.4)]); }
+      for (let i = 0; i < m; i++) if (P.r() < 0.62){ const a = vs[i], b = vs[(i + 1) % m], mid = [(a[0] + b[0]) / 2 + P.j(1.2), (a[1] + b[1]) / 2 + P.j(1.2)];
+        P.stroke([a, mid, b], {w: 0.28, op: 0.12 + 0.45 * k, jit: 0.2, over: 0.4}); }
+    }
+  }
+}
 function hydroScene(P, W, top){
-  // lid rim of the bucket, net pot, water with ripples, roots, airstone and bubble column
-  const cy = top + 22, rx = W * 0.62, ry = 14;
+  // a cut-away DWC bucket: lid rim and net pot, air gap with hanging roots, the waterline, then water with
+  // caustic light, a fibrous root mass, the air stone and its bubble column
+  const cy = top + 20, rx = W * 0.62, ry = 13, wy = cy + 36, bot = top + 230;
+  P.wash(blobPath(P, [[-8, wy], [W * 0.3, wy + 1], [W * 0.7, wy - 1], [W + 8, wy], [W + 8, bot], [-8, bot]], 2), "#3f93c4", 36);
+  P.wash(blobPath(P, [[-8, wy + 2], [W + 8, wy + 2], [W + 8, wy + 16], [-8, wy + 22]], 3), "#3f93c4", 22);
   P.ellipse(W / 2, cy, rx, ry, {from: Math.PI, span: Math.PI, w: 0.9, twice: 0.7});
   P.ellipse(W / 2, cy + 7, rx, ry, {from: Math.PI * 1.05, span: Math.PI * 0.9, w: 0.5, op: 0.7});
-  { const id = P.clip(`<path d="M${f(W / 2 - rx)} ${f(cy)} A ${f(rx)} ${ry} 0 0 1 ${f(W / 2 + rx)} ${f(cy)} L ${f(W / 2 + rx)} ${f(cy + 7)} A ${f(rx)} ${ry} 0 0 0 ${f(W / 2 - rx)} ${f(cy + 7)} Z"/>`); P.hatch([0, cy - ry, W, cy + 8], id, {ang: 1.35, gap: 2.6, w: 0.3, op: 0.6}); }
+  { const id = P.clip(`<path d="M${f(W / 2 - rx)} ${f(cy)} A ${f(rx)} ${ry} 0 0 1 ${f(W / 2 + rx)} ${f(cy)} L ${f(W / 2 + rx)} ${f(cy + 7)} A ${f(rx)} ${ry} 0 0 0 ${f(W / 2 - rx)} ${f(cy + 7)} Z"/>`); P.hatch([0, cy - ry, W, cy + 8], id, {ang: 1.35, gap: 2.4, w: 0.3, op: 0.6}); }
   P.ellipse(W / 2, cy - 2, 34, 8, {w: 0.8, twice: 0.6, fill: "var(--paper)"});
-  for (let i = -3; i <= 3; i++) P.line(W / 2 + i * 9, cy - 8 + Math.abs(i) * 0.5, W / 2 + i * 10, cy + 6, {w: 0.35, over: 0.5});  // net pot slots
-  for (let i = 0; i < 9; i++){ const a = Math.PI * (1.08 + i * 0.1); P.dots(14, r => [W / 2 + Math.cos(a) * 30 + (r() - 0.5) * 8, cy - 2 + Math.sin(a) * 6 + (r() - 0.5) * 4], {r: 0.8}); }  // clay pebbles hint
-  for (let i = 0; i < 9; i++) roots(P, W / 2 + P.j(26), cy + 6, 70 + P.r() * 90, Math.PI / 2 + P.j(0.5), 2, 0.7);
-  for (let i = 0; i < 12; i++){ const y = cy + 30 + i * (6 + i * 0.9); const pts = []; const amp = 1 + i * 0.12, ph = P.r() * 6;
-    for (let x = -10; x < W + 10; x += 9) pts.push([x, y + Math.sin(x / (16 + i) + ph) * amp]);
-    if (P.r() < 0.85) P.stroke(pts.slice(Math.floor(P.r() * 6), pts.length - Math.floor(P.r() * 6)), {w: 0.35 + i * 0.025, op: 0.45 + i * 0.04, jit: 0.3}); }
-  const sx = W * 0.22, sy = cy + 128;
+  for (let i = -3; i <= 3; i++) P.line(W / 2 + i * 9, cy - 8 + Math.abs(i) * 0.5, W / 2 + i * 10, cy + 6, {w: 0.35, over: 0.5});
+  for (let i = 0; i < 16; i++){ const x = W / 2 + P.j(28), y = cy - 3 + P.j(4), rr = 1.6 + P.r() * 1.4; P.ellipse(x, y, rr, rr * 0.8, {w: 0.4, jit: 0.1, fill: "var(--paper)"}); }  // clay pebbles
+  // waterline, glints and ripple rings where the roots go in
+  P.line(-8, wy, W + 8, wy + P.j(1.5), {w: 0.7, twice: 0.8});
+  for (let row = 0; row < 4; row++) for (let x = P.r() * 20 - 10; x < W; x += 9 + P.r() * 16){ const y = wy + 3 + row * 3.2 + P.j(0.6), L = 3 + P.r() * 9 - row; if (L > 1.5) P.line(x, y, x + L, y + P.j(0.4), {w: 0.3, op: 0.75 - row * 0.15, over: 0.3, jit: 0.1}); }
+  for (const k of [1, 1.7, 2.6]) P.ellipse(W / 2 + P.j(3), wy, 14 * k, 2.2 * k * 0.8, {w: 0.35, op: 0.8 - k * 0.2, span: Math.PI * (1.4 + P.r() * 0.5)});
+  caustics(P, W, wy + 18, bot);
+  for (let i = 0; i < 40; i++) P.dots(1, r => [r() * W, wy + 20 + r() * 150], {r: 0.4, op: 0.5});   // drifting specks
+  const L = []; for (let i = 0; i < 13; i++) rootTree(P, W / 2 + P.j(24), cy + 6, 120 + P.r() * 110, Math.PI / 2 + P.j(0.35), 3, 0.85, L);
+  drawRoots(P, L);
+  const sx = W * 0.2, sy = cy + 132;
   P.stroke([[sx - 14, sy], [sx + 14, sy], [sx + 14, sy + 7], [sx - 14, sy + 7], [sx - 14, sy]], {w: 0.7, over: 1, fill: "var(--paper)"});
-  P.dots(30, r => [sx - 12 + r() * 24, sy + 1 + r() * 5], {r: 0.5});
-  P.stroke([[sx + 14, sy + 3], [sx + 30, sy - 4], [sx + 40, sy - 40], [sx + 34, sy - 100], [sx + 50, cy - 4]], {w: 0.55, twice: 0.5});  // air line
-  for (let i = 0; i < 26; i++){ const y = sy - 6 - i * (4 + P.r() * 3), x = sx + P.j(8) + Math.sin(i) * 3; if (y < cy + 12) break; bubble(P, x, y, 1 + P.r() * 2.6); }
+  P.dots(36, r => [sx - 12 + r() * 24, sy + 1 + r() * 5], {r: 0.5});
+  P.stroke([[sx + 14, sy + 3], [sx + 30, sy - 4], [sx + 40, sy - 40], [sx + 34, sy - 100], [sx + 50, cy - 4]], {w: 0.55, twice: 0.5});
+  for (let i = 0; i < 30; i++){ const y = sy - 6 - i * (3.5 + P.r() * 3), x = sx + P.j(7 + i * 0.25) + Math.sin(i * 0.8) * 3; if (y < wy + 3) break; bubble(P, x, y, 0.8 + P.r() * 2.4 + i * 0.03); }
+}
+// the soil section's surface: a lumpy line, crumbs on top, a hairy fringe of fibres just under it
+function surface(P, W, y){
+  const pts = []; for (let x = -8; x <= W + 8; x += 6) pts.push([x, y + Math.sin(x / 23) * 2 + P.j(1.6)]);
+  P.stroke(pts, {w: 0.8, jit: 0.4, over: 1, twice: 0.6});
+  for (const p of pts) for (let k = 0; k < 3; k++){ const x = p[0] + P.r() * 6, a = Math.PI / 2 + P.j(1.2), l = 1.5 + P.r() * 3.5; P.line(x, p[1] + 0.5, x + Math.cos(a) * l, p[1] + 0.5 + Math.sin(a) * l, {w: 0.25, op: 0.7, over: 0, jit: 0.1}); }
+  for (let i = 0; i < 22; i++){ const x = P.r() * W, s = 1.2 + P.r() * 2.6; P.ellipse(x, y - s * 0.4 + Math.sin(x / 23) * 2, s, s * 0.6, {w: 0.4, jit: 0.3, fill: "var(--paper)"}); }
+  return pts;
+}
+function section(P, W, pts, bot){ return P.clip(`<path d="M${pts.map(p => f(p[0]) + " " + f(p[1])).join("L")}L${W + 8} ${bot}L-8 ${bot}Z"/>`); }
+function stone(P, x, y, rr){
+  P.ellipse(x, y, rr, rr * 0.65, {w: 0.6, fill: "var(--paper)", twice: 0.4});
+  const id = P.clip(`<ellipse cx="${f(x)}" cy="${f(y)}" rx="${f(rr)}" ry="${f(rr * 0.65)}"/>`); P.hatch([x - rr * 0.2, y, x + rr, y + rr], id, {ang: -0.6, gap: 1.5, w: 0.25, op: 0.65});
 }
 function soilScene(P, W, top, living){
-  const cy = top + 24, rx = W * 0.62, ry = 14;
-  P.ellipse(W / 2, cy, rx, ry, {from: Math.PI, span: Math.PI, w: 0.9, twice: 0.7});
-  // surface clods
-  for (let i = 0; i < 26; i++){ const x = P.r() * W, y = cy + 4 + P.r() * 8, s = 2 + P.r() * 4; P.ellipse(x, y, s, s * 0.55, {w: 0.45, jit: 0.4, fill: "var(--paper)"}); }
-  // stippled soil, denser with depth
-  P.dots(1100, r => { const y = cy + 10 + Math.pow(r(), 0.6) * 150; return [r() * W, y]; }, {r: 0.55, op: 0.75});
-  // pebbles with shading
-  for (let i = 0; i < 7; i++){ const x = P.r() * W, y = cy + 40 + P.r() * 100, rr = 4 + P.r() * 7; P.ellipse(x, y, rr, rr * 0.65, {w: 0.7, fill: "var(--paper)", twice: 0.5});
-    const id = P.clip(`<ellipse cx="${f(x)}" cy="${f(y)}" rx="${f(rr)}" ry="${f(rr * 0.65)}"/>`); P.hatch([x, y, x + rr, y + rr], id, {ang: -0.6, gap: 1.8, w: 0.3, op: 0.7}); }
-  for (let i = 0; i < 8; i++) roots(P, W * (0.15 + 0.7 * P.r()), cy + 8, 60 + P.r() * 90, Math.PI / 2 + P.j(0.6), 2, 0.6);
+  // a cut through the bed in the old plate manner: dark hatched earth, pale roots running through it
+  const cy = top + 24, bot = top + 230;
+  P.wash(blobPath(P, [[-8, cy - 2], [W + 8, cy - 2], [W + 8, bot], [-8, bot]], 2.5), "#7a4f28", 34);
+  const pts = surface(P, W, cy), id = section(P, W, pts, bot);
+  P.hatch([0, cy, W, bot], id, {ang: -0.75, gap: 2.3, w: 0.3, op: 0.55, cross: true});
+  P.dots(1300, r => [r() * W, cy + 4 + Math.pow(r(), 0.7) * 180], {r: 0.5, op: 0.8});
+  for (let i = 0; i < 40; i++){ const x = P.r() * W, y = cy + 8 + P.r() * 170; P.ellipse(x, y, 1 + P.r() * 1.6, 0.8 + P.r(), {w: 0.3, fill: "var(--paper)", jit: 0.2}); }   // grit
+  for (let i = 0; i < 8; i++) stone(P, P.r() * W, cy + 30 + P.r() * 130, 3.5 + P.r() * 6);
+  const L = []; for (let i = 0; i < 9; i++) rootTree(P, W * (0.1 + 0.8 * P.r()), cy + 2, 70 + P.r() * 110, Math.PI / 2 + P.j(0.5), 3, 0.8, L);
+  drawRoots(P, L, {light: true});
   if (living){
-    for (let i = 0; i < 14; i++){ let x = P.r() * W, y = cy + 30 + P.r() * 110, a = P.r() * 6.28; const pts = [[x, y]]; for (let k = 0; k < 9; k++){ a += P.j(0.9); x += Math.cos(a) * 7; y += Math.sin(a) * 7; pts.push([x, y]); } P.stroke(pts, {w: 0.25, op: 0.65, jit: 0.4}); }  // mycelium
-    const wx = W * 0.7, wy = cy + 95; const pts = []; for (let k = 0; k <= 12; k++) pts.push([wx + k * 4, wy + Math.sin(k * 0.9) * 3]);  // an earthworm
-    P.stroke(pts, {w: 0.6, op: 0.9}); P.stroke(pts.map(p => [p[0], p[1] + 2.4]), {w: 0.6, op: 0.9}); for (let k = 2; k < 11; k += 2) P.line(wx + k * 4, wy + Math.sin(k * 0.9) * 3 - 1.5, wx + k * 4 + 0.6, wy + Math.sin(k * 0.9) * 3 + 1.5, {w: 0.3, over: 0});
+    for (let i = 0; i < 18; i++){ let x = P.r() * W, y = cy + 25 + P.r() * 140, a = P.r() * 6.28; const ps = [[x, y]]; for (let k = 0; k < 10; k++){ a += P.j(0.9); x += Math.cos(a) * 6; y += Math.sin(a) * 6; ps.push([x, y]); } P.stroke(ps, {w: 0.45, op: 0.85, jit: 0.3, color: "var(--paper)"}); }
+    const wx = W * 0.66, wy = cy + 96, wp = []; for (let k = 0; k <= 14; k++) wp.push([wx + k * 4, wy + Math.sin(k * 0.8) * 3.5]);
+    P.stroke(wp, {w: 3.6, jit: 0.1, over: 0, color: "var(--paper)"}); P.stroke(wp.map(p => [p[0], p[1] - 1.8]), {w: 0.5, jit: 0.15, over: 0}); P.stroke(wp.map(p => [p[0], p[1] + 1.8]), {w: 0.5, jit: 0.15, over: 0});
+    for (let k = 1; k < 14; k++) P.line(wx + k * 4, wy + Math.sin(k * 0.8) * 3.5 - 1.6, wx + k * 4 + 0.5, wy + Math.sin(k * 0.8) * 3.5 + 1.6, {w: 0.28, over: 0, op: 0.8});
   }
 }
 function cocoScene(P, W, top){
-  const cy = top + 24, rx = W * 0.62, ry = 14;
-  P.ellipse(W / 2, cy, rx, ry, {from: Math.PI, span: Math.PI, w: 0.9, twice: 0.7});
-  for (let i = 0; i < 380; i++){ const y = cy + 6 + Math.pow(P.r(), 0.65) * 150, x = P.r() * W, a = P.r() * 6.28, L = 4 + P.r() * 12;
-    P.stroke([[x, y], [x + Math.cos(a) * L / 2 + P.j(2), y + Math.sin(a) * L / 2 + P.j(2)], [x + Math.cos(a) * L, y + Math.sin(a) * L]], {w: 0.35, op: 0.7, over: 0.5}); }
-  for (let i = 0; i < 40; i++){ const x = P.r() * W, y = cy + 10 + P.r() * 140, rr = 1.5 + P.r() * 2.5; P.ellipse(x, y, rr, rr * 0.85, {w: 0.4, fill: "var(--paper)"}); P.dots(2, r => [x + (r() - 0.5) * rr, y + (r() - 0.5) * rr], {r: 0.3}); }  // perlite
-  for (let i = 0; i < 6; i++) roots(P, W * (0.15 + 0.7 * P.r()), cy + 8, 60 + P.r() * 80, Math.PI / 2 + P.j(0.6), 2, 0.6);
+  const cy = top + 24, bot = top + 230;
+  P.wash(blobPath(P, [[-8, cy - 2], [W + 8, cy - 2], [W + 8, bot], [-8, bot]], 2.5), "#9a6a3c", 28);
+  const pts = surface(P, W, cy), id = section(P, W, pts, bot);
+  P.hatch([0, cy, W, bot], id, {ang: -0.9, gap: 3.2, w: 0.28, op: 0.45});
+  for (let i = 0; i < 420; i++){ const y = cy + 4 + Math.pow(P.r(), 0.7) * 180, x = P.r() * W, a = P.r() * 6.28, l = 4 + P.r() * 12, light = P.r() < 0.4;
+    P.stroke([[x, y], [x + Math.cos(a) * l / 2 + P.j(2), y + Math.sin(a) * l / 2 + P.j(2)], [x + Math.cos(a) * l, y + Math.sin(a) * l]], {w: light ? 0.6 : 0.32, op: 0.75, over: 0.5, color: light ? "var(--paper)" : null}); }
+  for (let i = 0; i < 46; i++){ const x = P.r() * W, y = cy + 8 + P.r() * 170, rr = 1.5 + P.r() * 2.4; P.ellipse(x, y, rr, rr * 0.85, {w: 0.4, fill: "var(--paper)"}); P.dots(2, r => [x + (r() - 0.5) * rr, y + (r() - 0.5) * rr], {r: 0.3}); }
+  const L = []; for (let i = 0; i < 8; i++) rootTree(P, W * (0.12 + 0.76 * P.r()), cy + 2, 70 + P.r() * 100, Math.PI / 2 + P.j(0.5), 3, 0.75, L);
+  drawRoots(P, L, {light: true});
+}
+function jarSketch(P, x, y, w, h){
+  // a glass curing jar standing on the shelf: glass outline, glint, hatched lid, nugs inside
+  P.stroke([[x, y], [x, y - h + 4], [x + 2, y - h + 1], [x + w - 2, y - h + 1], [x + w, y - h + 4], [x + w, y]], {w: 0.7, over: 1, twice: 0.5});
+  P.line(x - 1, y, x + w + 1, y, {w: 0.7});
+  P.stroke([[x + 1, y - h + 1], [x + 1, y - h - 5], [x + w - 1, y - h - 5], [x + w - 1, y - h + 1]], {w: 0.7, over: 0.5, fill: "var(--paper)"});
+  for (let k = x + 2; k < x + w - 1; k += 1.8) P.line(k, y - h - 4.5, k + 1, y - h + 0.5, {w: 0.25, over: 0, jit: 0.1});
+  P.line(x + 2.5, y - 3, x + 2.5, y - h + 6, {w: 0.3, op: 0.6});
+  for (let i = 0; i < 7; i++){ const nx = x + 4 + P.r() * (w - 8), ny = y - 4 - P.r() * h * 0.55, s = 2.4 + P.r() * 1.6;
+    P.ellipse(nx, ny, s * 0.75, s, {w: 0.4, jit: 0.4, fill: "var(--paper)"}); P.line(nx - s * 0.3, ny + s * 0.2, nx + s * 0.2, ny - s * 0.5, {w: 0.25, op: 0.7}); }
 }
 function shelfScene(P, W, top, phase){
   const y = top + 70;
+  P.wash(blobPath(P, [[-8, y - 1], [W + 8, y - 1], [W + 8, y + 13], [-8, y + 13]], 1.5), "#8a6238", 26);
+  if (phase !== "dry"){ jarSketch(P, W * 0.14, y, 24, 34); jarSketch(P, W * 0.14 + 30, y, 20, 28);
+    P.stroke([[W * 0.62, y], [W * 0.62, y - 16], [W * 0.62 + 14, y - 16], [W * 0.62 + 14, y]], {w: 0.6, over: 0.5, fill: "var(--paper)"});   // a little hygrometer
+    P.ellipse(W * 0.62 + 7, y - 9, 4.5, 4.5, {w: 0.45}); P.line(W * 0.62 + 7, y - 9, W * 0.62 + 9.5, y - 12, {w: 0.4}); }
   P.line(-6, y, W + 6, y + P.j(2), {w: 1, twice: 0.8}); P.line(-6, y + 12, W + 6, y + 12 + P.j(2), {w: 0.8});
   for (let i = 0; i < 9; i++){ const pts = []; const yy = y + 2 + i * 1.2, ph = P.r() * 6; for (let x = -6; x < W + 6; x += 12) pts.push([x, yy + Math.sin(x / 30 + ph) * 0.8]); if (P.r() < 0.8) P.stroke(pts.slice(Math.floor(P.r() * 8)), {w: 0.25, op: 0.6}); }
-  for (const kx of [W * 0.2, W * 0.67]){ P.ellipse(kx, y + 6, 5, 2.5, {w: 0.5}); for (let k = 1; k < 4; k++) P.ellipse(kx, y + 6, 5 - k * 1.2, 2.5 - k * 0.6, {w: 0.3}); }  // knots
-  P.line(W * 0.12, y + 12, W * 0.1, y + 26, {w: 0.7}); P.line(W * 0.88, y + 12, W * 0.9, y + 26, {w: 0.7}); // brackets
+  for (const kx of [W * 0.2, W * 0.67]){ P.ellipse(kx, y + 6, 5, 2.5, {w: 0.5}); for (let k = 1; k < 4; k++) P.ellipse(kx, y + 6, 5 - k * 1.2, 2.5 - k * 0.6, {w: 0.3}); }
+  P.line(W * 0.12, y + 12, W * 0.1, y + 26, {w: 0.7}); P.line(W * 0.88, y + 12, W * 0.9, y + 26, {w: 0.7});
 }
 function dryLine(P, W){ // drying line with clothespins across the top
   P.stroke([[-4, 6], [W * 0.5, 18], [W + 4, 6]], {w: 0.6, twice: 0.6});
@@ -232,7 +308,8 @@ function draw(o){
   else if (o.medium === "coco") cocoScene(bot, W, by);
   else soilScene(bot, W, by, o.medium === "living-soil");
   const a = top.svg(), b = bot.svg();
-  return {defs: a.defs + b.defs, top: a.body, bottom: b.body, by};
+  const wc = `<filter id="wc" x="-10%" y="-10%" width="120%" height="120%"><feTurbulence type="fractalNoise" baseFrequency="0.04" numOctaves="3" seed="5" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="9" xChannelSelector="R" yChannelSelector="G"/></filter>`;
+  return {defs: wc + a.defs + b.defs, top: a.body, bottom: b.body, by};
 }
 window.BgArt = {draw};
 })();
