@@ -209,6 +209,7 @@ function decorate(){
 let decoTimer = null;
 function decorateSoon(){ clearTimeout(decoTimer); decoTimer = setTimeout(() => requestAnimationFrame(decorate), 30); }
 addEventListener("resize", decorateSoon);
+document.addEventListener("toggle", decorateSoon, true);
 function drawBackground(p){
   const bg = $("#bg"); const W = innerWidth, H = innerHeight;
   const outdoor = p && p.where === "outdoor"; const r = rnd(7);
@@ -606,9 +607,9 @@ function renderStrain(){
   box.append(tp);
   if (x.growNotes && x.growNotes.length) box.append(h("div",{class:"panel fr","data-soak":"0.12"}, h("h2",null,"Growing her"), h("ul",{class:"notes"}, x.growNotes.map(t => h("li",null,t)))));
   if (x.bio && x.bio.length){
-    const d = h("details",{class:"panel fr bio","data-soak":"0.12"}, h("summary",null, h("h2",{style:"display:inline"},"Botany lesson")));
+    const d = h("details",{class:"bio"}, h("summary",null, h("h2",{style:"display:inline"},"Botany lesson")));
     x.bio.forEach(t => d.append(h("p",{class:"prose"}, t)));
-    box.append(d);
+    box.append(h("div",{class:"panel fr","data-soak":"0.12"}, d));
   }
   if (x.sources && x.sources.length) box.append(h("details",null, h("summary",{class:"small muted"},"Sources"), h("ul",{class:"notes small"}, x.sources.map(s => h("li",null, h("a",{href:s.u, target:"_blank", rel:"noopener"}, s.t))))));
   decorateSoon();
