@@ -22,7 +22,10 @@ const F = {
   runoff_ph:{label:"Runoff pH", d:1}, runoff_ec:{label:"Runoff EC", d:1},
   res_l:{label:"Refill L", short:"Refill", d:1, unit:" L"}, res_ph:{label:"Res. pH", d:1}, res_ec:{label:"Res. EC", d:1},
   ppfd:{label:"Light (PPFD)", short:"Light", d:0}, height:{label:"Height cm", short:"Height", d:0, unit:" cm"},
-  air:{label:"Air °C", short:"Air", d:1, unit:"°"}, rh:{label:"Humidity %", short:"Humidity", d:0, unit:"%"}
+  air:{label:"Air °C", short:"Air", d:1, unit:"°"}, rh:{label:"Humidity %", short:"Humidity", d:0, unit:"%"},
+  nodes:{label:"Nodes", d:0}, lamp:{label:"Lamp above rim cm", short:"Lamp", d:0, unit:" cm"},
+  weight:{label:"Weight g", short:"Weight", d:0, unit:" g"}, jar_rh:{label:"Jar RH %", short:"Jar RH", d:0, unit:"%"},
+  wet_g:{label:"Wet weight g", short:"Wet", d:0, unit:" g"}, dry_g:{label:"Dry weight g", short:"Dry", d:0, unit:" g"}, final_g:{label:"Final weight g", short:"Final", d:0, unit:" g"}
 };
 const ALL_KEYS = Object.keys(F);
 const DEFAULT_TARGETS = {
@@ -31,7 +34,37 @@ const DEFAULT_TARGETS = {
   "soil": {ph:[6.2,6.8], ec:[0.8,1.6], air:[22,27], rh:[55,70], ppfd:[300,600]},
   "living-soil": {air:[22,27], rh:[55,70], ppfd:[300,600]}
 };
+/* ---------- phases: germinate, grow, dry, cure, done ---------- */
+const PHASES = {germ:"Germination", grow:"Growing", dry:"Drying", cure:"Curing", done:"Finished"};
+const PHASE_ORDER = ["germ","grow","dry","cure","done"];
+const NEXT = {
+  germ:{to:"grow", btn:"It sprouted", hint:"Sets the sprout date. Logging switches to growing values."},
+  grow:{to:"dry", btn:"Harvest", w:"wet_g", wl:"Wet weight g (optional)", hint:"Cut and hung. Weigh before hanging if you can; drying values replace the growing ones."},
+  dry:{to:"cure", btn:"Into jars", w:"dry_g", wl:"Dry weight g (optional)", hint:"When small stems snap and buds feel dry outside."},
+  cure:{to:"done", btn:"Close the run", w:"final_g", wl:"Final weight g (optional)", hint:"Last weigh-in and a verdict. The run summary stays with this plant."}
+};
+const VERDICTS = ["Meh","OK","Good","Great","Best yet"];
+const DRY_TARGETS = {air:[15,21], rh:[55,62]}, CURE_TARGETS = {jar_rh:[58,63]};
+function phaseOf(p){
+  if (!p) return "grow"; if (p.phase) return p.phase;
+  if (p.status === "done") return "done";
+  if (p.start && !p.sprout) return "germ";
+  return "grow";
+}
+function phaseStart(p, ph){ const d = p.phases || {}; if (d[ph]) return d[ph]; if (ph === "germ") return p.start || null; if (ph === "grow") return p.sprout || null; return null; }
+function targetsOf(p){
+  const ph = phaseOf(p);
+  if (ph === "dry") return Object.assign({}, DRY_TARGETS, p.dryTargets);
+  if (ph === "cure" || ph === "done") return Object.assign({}, DRY_TARGETS, CURE_TARGETS, p.cureTargets);
+  return p.targets || {};
+}
+function flipOf(p){ return p.flip || (p.stage === "flower" ? p.flipEst : null); }
+
 function fieldsFor(p){
+  const ph = phaseOf(p);
+  if (ph === "germ" || ph === "done") return [];
+  if (ph === "dry") return ["weight"];
+  if (ph === "cure") return ["jar_rh","weight"];
   const m = p.medium || "hydro", sys = p.system || "hand", indoor = (p.where || "indoor") === "indoor";
   let k;
   if (m === "hydro") k = ["ph","ec","water"];
@@ -41,7 +74,7 @@ function fieldsFor(p){
     if (m === "soil") k.push(...(sys === "autopot" ? ["res_ph","res_ec"] : ["ph","ec"]), "runoff_ph");
   }
   if (indoor) k.push("ppfd");
-  k.push("height");
+  k.push("height","nodes");
   return k;
 }
 function labelFor(p, k, short){
@@ -50,7 +83,11 @@ function labelFor(p, k, short){
   return l;
 }
 function actionsFor(p){
-  const m = p.medium || "hydro", indoor = (p.where || "indoor") === "indoor", auto = p.system === "autopot";
+  const m = p.medium || "hydro", indoor = (p.where || "indoor") === "indoor", auto = p.system === "autopot", ph = phaseOf(p);
+  if (ph === "germ") return ["Soaked","Paper towel","Tail visible","Planted","Broke surface"];
+  if (ph === "dry") return ["Hung","Rotated","Bucked","Trimmed","Stems snap","Still bendy","Sensor moved"];
+  if (ph === "cure") return ["Burped","Humidity pack in","Jar changed","Smell check","Long storage"];
+  if (ph === "done") return [];
   let a;
   if (m === "hydro") a = ["Fed","Topped off","Water change","pH adjusted","Trimmed","Trained"];
   else if (m === "living-soil") a = [auto ? "Reservoir refilled" : "Watered","Top-fed","Tea / amended","Trimmed","Trained","Pest check"];
@@ -103,7 +140,6 @@ const colorOf = p => (MEDIA[p.medium] || MEDIA.hydro).c;
 
 
 /* ---------- botanical look: theme, frames, washes, background ---------- */
-const SPECIMEN = "<g fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M70 250 C 67 205, 75 160, 70 112 S 73 60, 72 40\" stroke-width=\"2.1\"/><path d=\"M72.5 246 C 70 205, 77.5 160, 72.5 112\" stroke-width=\"0.5\" opacity=\"0.7\"/><path d=\"M70.0 228.0 L68.7 229.1 L67.6 229.9 L66.1 232.0 L65.4 230.9 L64.0 232.4 L63.4 231.1 L62.2 232.0 L61.6 230.5 L60.5 230.9 L59.9 229.4 L58.9 229.3 L58.4 227.8 L57.5 227.4 L56.9 225.9 L56.1 225.3 L55.4 224.3 L54.4 224.1 L53.5 223.8 L53.5 223.8 L54.5 223.9 L55.4 224.3 L56.5 223.7 L57.5 223.5 L58.7 222.5 L59.7 222.6 L60.9 221.5 L61.8 222.0 L63.1 220.9 L63.8 221.7 L65.0 220.7 L65.6 222.1 L66.8 221.3 L67.3 223.3 L68.5 222.6 L68.8 225.2 L69.4 226.4 L70.0 228.0Z\" stroke-width=\"0.7\"/><path d=\"M70.0 228.0 L70.6 226.4 L71.2 225.2 L71.5 222.6 L72.7 223.3 L73.2 221.3 L74.4 222.1 L75.0 220.7 L76.2 221.7 L76.9 220.9 L78.2 222.0 L79.1 221.5 L80.3 222.6 L81.3 222.5 L82.5 223.5 L83.5 223.7 L84.6 224.3 L85.5 223.9 L86.5 223.8 L86.5 223.8 L85.6 224.1 L84.6 224.3 L83.9 225.3 L83.1 225.9 L82.5 227.4 L81.6 227.8 L81.1 229.3 L80.1 229.4 L79.5 230.9 L78.4 230.5 L77.8 232.0 L76.6 231.1 L76.0 232.4 L74.6 230.9 L73.9 232.0 L72.4 229.9 L71.3 229.1 L70.0 228.0Z\" stroke-width=\"0.7\"/><path d=\"M70.0 200.0 Q 65.5 193.6 54.9 193.3\" stroke-width=\"0.9\"/><path d=\"M54.9 193.3 L53.0 193.5 L51.2 193.6 L48.9 194.6 L47.6 193.2 L45.6 193.8 L44.4 192.3 L42.5 192.5 L41.4 190.9 L39.6 190.7 L38.5 189.1 L37.0 188.5 L35.9 186.9 L34.4 186.1 L33.2 184.6 L31.8 183.7 L30.6 182.4 L29.0 181.8 L27.5 181.0 L27.5 181.0 L29.1 181.6 L30.6 182.4 L32.4 182.5 L34.0 182.9 L35.9 182.7 L37.5 183.3 L39.4 183.0 L40.9 183.9 L42.8 183.6 L44.1 184.7 L46.1 184.5 L47.2 186.0 L49.1 185.9 L50.0 187.9 L51.9 187.9 L52.6 190.3 L53.8 191.7 L54.9 193.3Z\" fill=\"var(--leaf)\" fill-opacity=\"0.38\" stroke=\"none\" filter=\"url(#wash)\"/><path d=\"M54.9 193.3 L53.0 193.5 L51.2 193.6 L48.9 194.6 L47.6 193.2 L45.6 193.8 L44.4 192.3 L42.5 192.5 L41.4 190.9 L39.6 190.7 L38.5 189.1 L37.0 188.5 L35.9 186.9 L34.4 186.1 L33.2 184.6 L31.8 183.7 L30.6 182.4 L29.0 181.8 L27.5 181.0 L27.5 181.0 L29.1 181.6 L30.6 182.4 L32.4 182.5 L34.0 182.9 L35.9 182.7 L37.5 183.3 L39.4 183.0 L40.9 183.9 L42.8 183.6 L44.1 184.7 L46.1 184.5 L47.2 186.0 L49.1 185.9 L50.0 187.9 L51.9 187.9 L52.6 190.3 L53.8 191.7 L54.9 193.3Z\" stroke-width=\"0.75\"/><path d=\"M54.9 193.3 L28.6 181.5\" stroke-width=\"0.45\"/><path d=\"M71.0 200.0 Q 81.5 193.6 86.1 193.3\" stroke-width=\"0.9\"/><path d=\"M86.1 193.3 L87.2 191.7 L88.4 190.3 L89.1 187.9 L91.0 187.9 L91.9 185.9 L93.8 186.0 L94.9 184.5 L96.9 184.7 L98.2 183.6 L100.1 183.9 L101.6 183.0 L103.5 183.3 L105.1 182.7 L107.0 182.9 L108.6 182.5 L110.4 182.4 L111.9 181.6 L113.5 181.0 L113.5 181.0 L112.0 181.8 L110.4 182.4 L109.2 183.7 L107.8 184.6 L106.6 186.1 L105.1 186.9 L104.0 188.5 L102.5 189.1 L101.4 190.7 L99.6 190.9 L98.5 192.5 L96.6 192.3 L95.4 193.8 L93.4 193.2 L92.1 194.6 L89.8 193.6 L88.0 193.5 L86.1 193.3Z\" fill=\"var(--leaf)\" fill-opacity=\"0.38\" stroke=\"none\" filter=\"url(#wash)\"/><path d=\"M86.1 193.3 L87.2 191.7 L88.4 190.3 L89.1 187.9 L91.0 187.9 L91.9 185.9 L93.8 186.0 L94.9 184.5 L96.9 184.7 L98.2 183.6 L100.1 183.9 L101.6 183.0 L103.5 183.3 L105.1 182.7 L107.0 182.9 L108.6 182.5 L110.4 182.4 L111.9 181.6 L113.5 181.0 L113.5 181.0 L112.0 181.8 L110.4 182.4 L109.2 183.7 L107.8 184.6 L106.6 186.1 L105.1 186.9 L104.0 188.5 L102.5 189.1 L101.4 190.7 L99.6 190.9 L98.5 192.5 L96.6 192.3 L95.4 193.8 L93.4 193.2 L92.1 194.6 L89.8 193.6 L88.0 193.5 L86.1 193.3Z\" stroke-width=\"0.75\"/><path d=\"M86.1 193.3 L112.4 181.5\" stroke-width=\"0.45\"/><path d=\"M70.0 156.0 Q 62.0 148.1 47.9 146.1\" stroke-width=\"0.9\"/><path d=\"M47.9 146.1 L47.2 147.6 L46.4 148.8 L46.0 150.9 L44.5 151.0 L44.0 152.7 L42.4 152.8 L41.7 154.1 L40.1 154.1 L39.2 155.1 L37.5 155.0 L36.5 155.8 L34.8 155.8 L33.6 156.4 L32.1 156.3 L30.8 156.8 L29.3 157.0 L28.2 157.7 L27.0 158.4 L27.0 158.4 L28.1 157.6 L29.3 157.0 L30.2 155.9 L31.3 155.0 L32.0 153.6 L33.1 152.8 L33.8 151.4 L35.1 150.8 L35.8 149.4 L37.1 149.1 L37.9 147.7 L39.4 147.7 L40.2 146.3 L42.0 146.7 L42.8 145.5 L44.8 146.1 L46.3 146.1 L47.9 146.1Z\" fill=\"var(--leaf)\" fill-opacity=\"0.38\" stroke=\"none\" filter=\"url(#wash)\"/><path d=\"M47.9 146.1 L47.2 147.6 L46.4 148.8 L46.0 150.9 L44.5 151.0 L44.0 152.7 L42.4 152.8 L41.7 154.1 L40.1 154.1 L39.2 155.1 L37.5 155.0 L36.5 155.8 L34.8 155.8 L33.6 156.4 L32.1 156.3 L30.8 156.8 L29.3 157.0 L28.2 157.7 L27.0 158.4 L27.0 158.4 L28.1 157.6 L29.3 157.0 L30.2 155.9 L31.3 155.0 L32.0 153.6 L33.1 152.8 L33.8 151.4 L35.1 150.8 L35.8 149.4 L37.1 149.1 L37.9 147.7 L39.4 147.7 L40.2 146.3 L42.0 146.7 L42.8 145.5 L44.8 146.1 L46.3 146.1 L47.9 146.1Z\" stroke-width=\"0.75\"/><path d=\"M47.9 146.1 L27.9 157.9\" stroke-width=\"0.45\"/><path d=\"M47.9 146.1 L45.1 146.4 L42.4 146.4 L39.2 147.6 L37.4 145.7 L34.4 146.4 L32.6 144.4 L29.9 144.5 L28.2 142.3 L25.7 141.9 L24.0 139.7 L21.7 138.9 L20.0 136.6 L17.9 135.5 L16.1 133.3 L14.1 132.0 L12.2 130.2 L9.9 129.3 L7.7 128.2 L7.7 128.2 L10.0 129.1 L12.2 130.2 L14.8 130.4 L17.2 131.0 L19.9 130.9 L22.2 131.7 L25.0 131.5 L27.1 132.7 L30.0 132.4 L31.9 134.0 L34.7 133.8 L36.4 135.9 L39.1 135.9 L40.6 138.5 L43.2 138.7 L44.4 141.9 L46.2 143.9 L47.9 146.1Z\" fill=\"var(--leaf)\" fill-opacity=\"0.38\" stroke=\"none\" filter=\"url(#wash)\"/><path d=\"M47.9 146.1 L45.1 146.4 L42.4 146.4 L39.2 147.6 L37.4 145.7 L34.4 146.4 L32.6 144.4 L29.9 144.5 L28.2 142.3 L25.7 141.9 L24.0 139.7 L21.7 138.9 L20.0 136.6 L17.9 135.5 L16.1 133.3 L14.1 132.0 L12.2 130.2 L9.9 129.3 L7.7 128.2 L7.7 128.2 L10.0 129.1 L12.2 130.2 L14.8 130.4 L17.2 131.0 L19.9 130.9 L22.2 131.7 L25.0 131.5 L27.1 132.7 L30.0 132.4 L31.9 134.0 L34.7 133.8 L36.4 135.9 L39.1 135.9 L40.6 138.5 L43.2 138.7 L44.4 141.9 L46.2 143.9 L47.9 146.1Z\" stroke-width=\"0.75\"/><path d=\"M47.9 146.1 L9.3 128.9\" stroke-width=\"0.45\"/><path d=\"M47.9 146.1 L46.8 145.0 L45.8 143.8 L44.0 142.8 L44.4 141.4 L42.9 140.3 L43.4 138.8 L42.3 137.7 L42.9 136.2 L42.2 134.9 L42.8 133.4 L42.4 132.2 L43.0 130.7 L42.8 129.3 L43.4 127.8 L43.4 126.5 L43.6 125.1 L43.3 123.7 L43.1 122.4 L43.1 122.4 L43.4 123.7 L43.6 125.1 L44.4 126.3 L44.9 127.5 L46.0 128.7 L46.4 130.0 L47.5 131.1 L47.6 132.5 L48.8 133.6 L48.6 135.0 L49.7 136.2 L49.2 137.6 L50.2 138.8 L49.3 140.4 L50.2 141.6 L48.9 143.2 L48.5 144.6 L47.9 146.1Z\" fill=\"var(--leaf)\" fill-opacity=\"0.38\" stroke=\"none\" filter=\"url(#wash)\"/><path d=\"M47.9 146.1 L46.8 145.0 L45.8 143.8 L44.0 142.8 L44.4 141.4 L42.9 140.3 L43.4 138.8 L42.3 137.7 L42.9 136.2 L42.2 134.9 L42.8 133.4 L42.4 132.2 L43.0 130.7 L42.8 129.3 L43.4 127.8 L43.4 126.5 L43.6 125.1 L43.3 123.7 L43.1 122.4 L43.1 122.4 L43.4 123.7 L43.6 125.1 L44.4 126.3 L44.9 127.5 L46.0 128.7 L46.4 130.0 L47.5 131.1 L47.6 132.5 L48.8 133.6 L48.6 135.0 L49.7 136.2 L49.2 137.6 L50.2 138.8 L49.3 140.4 L50.2 141.6 L48.9 143.2 L48.5 144.6 L47.9 146.1Z\" stroke-width=\"0.75\"/><path d=\"M47.9 146.1 L43.3 123.4\" stroke-width=\"0.45\"/><path d=\"M71.0 156.0 Q 85.0 148.1 93.1 146.1\" stroke-width=\"0.9\"/><path d=\"M93.1 146.1 L92.5 144.6 L92.1 143.2 L90.8 141.6 L91.7 140.4 L90.8 138.8 L91.8 137.6 L91.3 136.2 L92.4 135.0 L92.2 133.6 L93.4 132.5 L93.5 131.1 L94.6 130.0 L95.0 128.7 L96.1 127.5 L96.6 126.3 L97.4 125.1 L97.6 123.7 L97.9 122.4 L97.9 122.4 L97.7 123.7 L97.4 125.1 L97.6 126.5 L97.6 127.8 L98.2 129.3 L98.0 130.7 L98.6 132.2 L98.2 133.4 L98.8 134.9 L98.1 136.2 L98.7 137.7 L97.6 138.8 L98.1 140.3 L96.6 141.4 L97.0 142.8 L95.2 143.8 L94.2 145.0 L93.1 146.1Z\" fill=\"var(--leaf)\" fill-opacity=\"0.38\" stroke=\"none\" filter=\"url(#wash)\"/><path d=\"M93.1 146.1 L92.5 144.6 L92.1 143.2 L90.8 141.6 L91.7 140.4 L90.8 138.8 L91.8 137.6 L91.3 136.2 L92.4 135.0 L92.2 133.6 L93.4 132.5 L93.5 131.1 L94.6 130.0 L95.0 128.7 L96.1 127.5 L96.6 126.3 L97.4 125.1 L97.6 123.7 L97.9 122.4 L97.9 122.4 L97.7 123.7 L97.4 125.1 L97.6 126.5 L97.6 127.8 L98.2 129.3 L98.0 130.7 L98.6 132.2 L98.2 133.4 L98.8 134.9 L98.1 136.2 L98.7 137.7 L97.6 138.8 L98.1 140.3 L96.6 141.4 L97.0 142.8 L95.2 143.8 L94.2 145.0 L93.1 146.1Z\" stroke-width=\"0.75\"/><path d=\"M93.1 146.1 L97.7 123.4\" stroke-width=\"0.45\"/><path d=\"M93.1 146.1 L94.8 143.9 L96.6 141.9 L97.8 138.7 L100.4 138.5 L101.9 135.9 L104.6 135.9 L106.3 133.8 L109.1 134.0 L111.0 132.4 L113.9 132.7 L116.0 131.5 L118.8 131.7 L121.1 130.9 L123.8 131.0 L126.2 130.4 L128.8 130.2 L131.0 129.1 L133.3 128.2 L133.3 128.2 L131.1 129.3 L128.8 130.2 L126.9 132.0 L124.9 133.3 L123.1 135.5 L121.0 136.6 L119.3 138.9 L117.0 139.7 L115.3 141.9 L112.8 142.3 L111.1 144.5 L108.4 144.4 L106.6 146.4 L103.6 145.7 L101.8 147.6 L98.6 146.4 L95.9 146.4 L93.1 146.1Z\" fill=\"var(--leaf)\" fill-opacity=\"0.38\" stroke=\"none\" filter=\"url(#wash)\"/><path d=\"M93.1 146.1 L94.8 143.9 L96.6 141.9 L97.8 138.7 L100.4 138.5 L101.9 135.9 L104.6 135.9 L106.3 133.8 L109.1 134.0 L111.0 132.4 L113.9 132.7 L116.0 131.5 L118.8 131.7 L121.1 130.9 L123.8 131.0 L126.2 130.4 L128.8 130.2 L131.0 129.1 L133.3 128.2 L133.3 128.2 L131.1 129.3 L128.8 130.2 L126.9 132.0 L124.9 133.3 L123.1 135.5 L121.0 136.6 L119.3 138.9 L117.0 139.7 L115.3 141.9 L112.8 142.3 L111.1 144.5 L108.4 144.4 L106.6 146.4 L103.6 145.7 L101.8 147.6 L98.6 146.4 L95.9 146.4 L93.1 146.1Z\" stroke-width=\"0.75\"/><path d=\"M93.1 146.1 L131.7 128.9\" stroke-width=\"0.45\"/><path d=\"M93.1 146.1 L94.7 146.1 L96.2 146.1 L98.2 145.5 L99.0 146.7 L100.8 146.3 L101.6 147.7 L103.1 147.7 L103.9 149.1 L105.2 149.4 L105.9 150.8 L107.2 151.4 L107.9 152.8 L109.0 153.6 L109.7 155.0 L110.8 155.9 L111.7 157.0 L112.9 157.6 L114.0 158.4 L114.0 158.4 L112.8 157.7 L111.7 157.0 L110.2 156.8 L108.9 156.3 L107.4 156.4 L106.2 155.8 L104.5 155.8 L103.5 155.0 L101.8 155.1 L100.9 154.1 L99.3 154.1 L98.6 152.8 L97.0 152.7 L96.5 151.0 L95.0 150.9 L94.6 148.8 L93.8 147.6 L93.1 146.1Z\" fill=\"var(--leaf)\" fill-opacity=\"0.38\" stroke=\"none\" filter=\"url(#wash)\"/><path d=\"M93.1 146.1 L94.7 146.1 L96.2 146.1 L98.2 145.5 L99.0 146.7 L100.8 146.3 L101.6 147.7 L103.1 147.7 L103.9 149.1 L105.2 149.4 L105.9 150.8 L107.2 151.4 L107.9 152.8 L109.0 153.6 L109.7 155.0 L110.8 155.9 L111.7 157.0 L112.9 157.6 L114.0 158.4 L114.0 158.4 L112.8 157.7 L111.7 157.0 L110.2 156.8 L108.9 156.3 L107.4 156.4 L106.2 155.8 L104.5 155.8 L103.5 155.0 L101.8 155.1 L100.9 154.1 L99.3 154.1 L98.6 152.8 L97.0 152.7 L96.5 151.0 L95.0 150.9 L94.6 148.8 L93.8 147.6 L93.1 146.1Z\" stroke-width=\"0.75\"/><path d=\"M93.1 146.1 L113.1 157.9\" stroke-width=\"0.45\"/><path d=\"M70.0 108.0 Q 59.9 99.2 43.9 96.3\" stroke-width=\"0.9\"/><path d=\"M43.9 96.3 L43.0 98.0 L42.0 99.5 L41.6 101.8 L39.8 102.0 L39.1 103.9 L37.3 104.0 L36.4 105.6 L34.6 105.6 L33.5 106.8 L31.6 106.8 L30.3 107.7 L28.4 107.6 L27.0 108.3 L25.2 108.4 L23.6 108.9 L22.0 109.2 L20.6 110.1 L19.2 110.8 L19.2 110.8 L20.5 109.9 L22.0 109.2 L23.0 107.9 L24.2 106.8 L25.1 105.2 L26.5 104.3 L27.3 102.7 L28.8 102.0 L29.6 100.3 L31.3 99.9 L32.2 98.3 L34.0 98.3 L34.9 96.8 L37.0 97.1 L38.0 95.7 L40.3 96.4 L42.0 96.3 L43.9 96.3Z\" fill=\"var(--leaf)\" fill-opacity=\"0.38\" stroke=\"none\" filter=\"url(#wash)\"/><path d=\"M43.9 96.3 L43.0 98.0 L42.0 99.5 L41.6 101.8 L39.8 102.0 L39.1 103.9 L37.3 104.0 L36.4 105.6 L34.6 105.6 L33.5 106.8 L31.6 106.8 L30.3 107.7 L28.4 107.6 L27.0 108.3 L25.2 108.4 L23.6 108.9 L22.0 109.2 L20.6 110.1 L19.2 110.8 L19.2 110.8 L20.5 109.9 L22.0 109.2 L23.0 107.9 L24.2 106.8 L25.1 105.2 L26.5 104.3 L27.3 102.7 L28.8 102.0 L29.6 100.3 L31.3 99.9 L32.2 98.3 L34.0 98.3 L34.9 96.8 L37.0 97.1 L38.0 95.7 L40.3 96.4 L42.0 96.3 L43.9 96.3Z\" stroke-width=\"0.75\"/><path d=\"M43.9 96.3 L20.2 110.2\" stroke-width=\"0.45\"/><path d=\"M43.9 96.3 L41.7 97.7 L39.5 98.9 L37.4 101.3 L35.1 100.5 L33.0 102.3 L30.7 101.4 L28.5 102.7 L26.2 101.6 L24.0 102.3 L21.7 101.1 L19.5 101.5 L17.2 100.3 L15.0 100.3 L12.7 99.2 L10.4 99.0 L8.1 98.3 L5.9 98.5 L3.6 98.6 L3.6 98.6 L5.9 98.3 L8.1 98.3 L10.3 97.4 L12.5 96.9 L14.7 95.6 L16.9 95.3 L19.1 93.9 L21.3 94.0 L23.5 92.6 L25.8 93.1 L27.9 91.7 L30.2 92.8 L32.4 91.6 L34.7 93.2 L36.9 92.1 L39.3 94.3 L41.6 95.2 L43.9 96.3Z\" fill=\"var(--leaf)\" fill-opacity=\"0.38\" stroke=\"none\" filter=\"url(#wash)\"/><path d=\"M43.9 96.3 L41.7 97.7 L39.5 98.9 L37.4 101.3 L35.1 100.5 L33.0 102.3 L30.7 101.4 L28.5 102.7 L26.2 101.6 L24.0 102.3 L21.7 101.1 L19.5 101.5 L17.2 100.3 L15.0 100.3 L12.7 99.2 L10.4 99.0 L8.1 98.3 L5.9 98.5 L3.6 98.6 L3.6 98.6 L5.9 98.3 L8.1 98.3 L10.3 97.4 L12.5 96.9 L14.7 95.6 L16.9 95.3 L19.1 93.9 L21.3 94.0 L23.5 92.6 L25.8 93.1 L27.9 91.7 L30.2 92.8 L32.4 91.6 L34.7 93.2 L36.9 92.1 L39.3 94.3 L41.6 95.2 L43.9 96.3Z\" stroke-width=\"0.75\"/><path d=\"M43.9 96.3 L5.3 98.5\" stroke-width=\"0.45\"/><path d=\"M43.9 96.3 L40.6 96.6 L37.5 96.5 L33.7 97.9 L31.5 95.7 L28.0 96.5 L25.9 94.1 L22.7 94.2 L20.7 91.7 L17.7 91.2 L15.7 88.6 L13.0 87.6 L11.0 85.0 L8.4 83.7 L6.4 81.2 L3.9 79.6 L1.7 77.5 L-1.0 76.4 L-3.6 75.1 L-3.6 75.1 L-0.9 76.2 L1.7 77.5 L4.7 77.8 L7.5 78.5 L10.8 78.4 L13.5 79.4 L16.8 79.1 L19.3 80.5 L22.6 80.3 L24.9 82.1 L28.2 82.0 L30.2 84.4 L33.4 84.4 L35.2 87.5 L38.3 87.7 L39.7 91.4 L41.9 93.7 L43.9 96.3Z\" fill=\"var(--leaf)\" fill-opacity=\"0.38\" stroke=\"none\" filter=\"url(#wash)\"/><path d=\"M43.9 96.3 L40.6 96.6 L37.5 96.5 L33.7 97.9 L31.5 95.7 L28.0 96.5 L25.9 94.1 L22.7 94.2 L20.7 91.7 L17.7 91.2 L15.7 88.6 L13.0 87.6 L11.0 85.0 L8.4 83.7 L6.4 81.2 L3.9 79.6 L1.7 77.5 L-1.0 76.4 L-3.6 75.1 L-3.6 75.1 L-0.9 76.2 L1.7 77.5 L4.7 77.8 L7.5 78.5 L10.8 78.4 L13.5 79.4 L16.8 79.1 L19.3 80.5 L22.6 80.3 L24.9 82.1 L28.2 82.0 L30.2 84.4 L33.4 84.4 L35.2 87.5 L38.3 87.7 L39.7 91.4 L41.9 93.7 L43.9 96.3Z\" stroke-width=\"0.75\"/><path d=\"M43.9 96.3 L-1.7 76.0\" stroke-width=\"0.45\"/><path d=\"M43.9 96.3 L41.5 95.4 L39.3 94.3 L36.1 94.0 L35.4 91.7 L32.7 91.0 L32.1 88.6 L29.8 87.5 L29.4 85.0 L27.5 83.7 L27.1 81.1 L25.5 79.5 L25.1 76.9 L23.8 75.1 L23.4 72.6 L22.3 70.6 L21.5 68.4 L20.0 66.7 L18.7 64.9 L18.7 64.9 L20.2 66.6 L21.5 68.4 L23.5 69.6 L25.2 71.1 L27.5 72.2 L29.0 73.8 L31.4 74.8 L32.7 76.6 L35.1 77.6 L36.0 79.7 L38.4 80.7 L38.9 83.2 L41.1 84.2 L41.2 87.1 L43.2 88.2 L42.9 91.4 L43.5 93.8 L43.9 96.3Z\" fill=\"var(--leaf)\" fill-opacity=\"0.38\" stroke=\"none\" filter=\"url(#wash)\"/><path d=\"M43.9 96.3 L41.5 95.4 L39.3 94.3 L36.1 94.0 L35.4 91.7 L32.7 91.0 L32.1 88.6 L29.8 87.5 L29.4 85.0 L27.5 83.7 L27.1 81.1 L25.5 79.5 L25.1 76.9 L23.8 75.1 L23.4 72.6 L22.3 70.6 L21.5 68.4 L20.0 66.7 L18.7 64.9 L18.7 64.9 L20.2 66.6 L21.5 68.4 L23.5 69.6 L25.2 71.1 L27.5 72.2 L29.0 73.8 L31.4 74.8 L32.7 76.6 L35.1 77.6 L36.0 79.7 L38.4 80.7 L38.9 83.2 L41.1 84.2 L41.2 87.1 L43.2 88.2 L42.9 91.4 L43.5 93.8 L43.9 96.3Z\" stroke-width=\"0.75\"/><path d=\"M43.9 96.3 L19.7 66.2\" stroke-width=\"0.45\"/><path d=\"M43.9 96.3 L42.6 95.0 L41.5 93.6 L39.5 92.4 L39.8 90.7 L38.2 89.4 L38.7 87.7 L37.5 86.3 L38.1 84.5 L37.3 83.1 L38.0 81.3 L37.5 79.8 L38.2 78.0 L38.0 76.5 L38.6 74.7 L38.5 73.1 L38.8 71.4 L38.4 69.9 L38.2 68.3 L38.2 68.3 L38.6 69.9 L38.8 71.4 L39.7 72.9 L40.3 74.4 L41.5 75.7 L42.0 77.3 L43.3 78.6 L43.4 80.2 L44.7 81.6 L44.6 83.2 L45.8 84.6 L45.3 86.3 L46.4 87.7 L45.4 89.5 L46.4 91.0 L45.0 92.9 L44.5 94.6 L43.9 96.3Z\" fill=\"var(--leaf)\" fill-opacity=\"0.38\" stroke=\"none\" filter=\"url(#wash)\"/><path d=\"M43.9 96.3 L42.6 95.0 L41.5 93.6 L39.5 92.4 L39.8 90.7 L38.2 89.4 L38.7 87.7 L37.5 86.3 L38.1 84.5 L37.3 83.1 L38.0 81.3 L37.5 79.8 L38.2 78.0 L38.0 76.5 L38.6 74.7 L38.5 73.1 L38.8 71.4 L38.4 69.9 L38.2 68.3 L38.2 68.3 L38.6 69.9 L38.8 71.4 L39.7 72.9 L40.3 74.4 L41.5 75.7 L42.0 77.3 L43.3 78.6 L43.4 80.2 L44.7 81.6 L44.6 83.2 L45.8 84.6 L45.3 86.3 L46.4 87.7 L45.4 89.5 L46.4 91.0 L45.0 92.9 L44.5 94.6 L43.9 96.3Z\" stroke-width=\"0.75\"/><path d=\"M43.9 96.3 L38.4 69.4\" stroke-width=\"0.45\"/><path d=\"M71.0 108.0 Q 87.1 99.2 97.1 96.3\" stroke-width=\"0.9\"/><path d=\"M97.1 96.3 L96.5 94.6 L96.0 92.9 L94.6 91.0 L95.6 89.5 L94.6 87.7 L95.7 86.3 L95.2 84.6 L96.4 83.2 L96.3 81.6 L97.6 80.2 L97.7 78.6 L99.0 77.3 L99.5 75.7 L100.7 74.4 L101.3 72.9 L102.2 71.4 L102.4 69.9 L102.8 68.3 L102.8 68.3 L102.6 69.9 L102.2 71.4 L102.5 73.1 L102.4 74.7 L103.0 76.5 L102.8 78.0 L103.5 79.8 L103.0 81.3 L103.7 83.1 L102.9 84.5 L103.5 86.3 L102.3 87.7 L102.8 89.4 L101.2 90.7 L101.5 92.4 L99.5 93.6 L98.4 95.0 L97.1 96.3Z\" fill=\"var(--leaf)\" fill-opacity=\"0.38\" stroke=\"none\" filter=\"url(#wash)\"/><path d=\"M97.1 96.3 L96.5 94.6 L96.0 92.9 L94.6 91.0 L95.6 89.5 L94.6 87.7 L95.7 86.3 L95.2 84.6 L96.4 83.2 L96.3 81.6 L97.6 80.2 L97.7 78.6 L99.0 77.3 L99.5 75.7 L100.7 74.4 L101.3 72.9 L102.2 71.4 L102.4 69.9 L102.8 68.3 L102.8 68.3 L102.6 69.9 L102.2 71.4 L102.5 73.1 L102.4 74.7 L103.0 76.5 L102.8 78.0 L103.5 79.8 L103.0 81.3 L103.7 83.1 L102.9 84.5 L103.5 86.3 L102.3 87.7 L102.8 89.4 L101.2 90.7 L101.5 92.4 L99.5 93.6 L98.4 95.0 L97.1 96.3Z\" stroke-width=\"0.75\"/><path d=\"M97.1 96.3 L102.6 69.4\" stroke-width=\"0.45\"/><path d=\"M97.1 96.3 L97.5 93.8 L98.1 91.4 L97.8 88.2 L99.8 87.1 L99.9 84.2 L102.1 83.2 L102.6 80.7 L105.0 79.7 L105.9 77.6 L108.3 76.6 L109.6 74.8 L112.0 73.8 L113.5 72.2 L115.8 71.1 L117.5 69.6 L119.5 68.4 L120.8 66.6 L122.3 64.9 L122.3 64.9 L121.0 66.7 L119.5 68.4 L118.7 70.6 L117.6 72.6 L117.2 75.1 L115.9 76.9 L115.5 79.5 L113.9 81.1 L113.5 83.7 L111.6 85.0 L111.2 87.5 L108.9 88.6 L108.3 91.0 L105.6 91.7 L104.9 94.0 L101.7 94.3 L99.5 95.4 L97.1 96.3Z\" fill=\"var(--leaf)\" fill-opacity=\"0.38\" stroke=\"none\" filter=\"url(#wash)\"/><path d=\"M97.1 96.3 L97.5 93.8 L98.1 91.4 L97.8 88.2 L99.8 87.1 L99.9 84.2 L102.1 83.2 L102.6 80.7 L105.0 79.7 L105.9 77.6 L108.3 76.6 L109.6 74.8 L112.0 73.8 L113.5 72.2 L115.8 71.1 L117.5 69.6 L119.5 68.4 L120.8 66.6 L122.3 64.9 L122.3 64.9 L121.0 66.7 L119.5 68.4 L118.7 70.6 L117.6 72.6 L117.2 75.1 L115.9 76.9 L115.5 79.5 L113.9 81.1 L113.5 83.7 L111.6 85.0 L111.2 87.5 L108.9 88.6 L108.3 91.0 L105.6 91.7 L104.9 94.0 L101.7 94.3 L99.5 95.4 L97.1 96.3Z\" stroke-width=\"0.75\"/><path d=\"M97.1 96.3 L121.3 66.2\" stroke-width=\"0.45\"/><path d=\"M97.1 96.3 L99.1 93.7 L101.3 91.4 L102.7 87.7 L105.8 87.5 L107.6 84.4 L110.8 84.4 L112.8 82.0 L116.1 82.1 L118.4 80.3 L121.7 80.5 L124.2 79.1 L127.5 79.4 L130.2 78.4 L133.5 78.5 L136.3 77.8 L139.3 77.5 L141.9 76.2 L144.6 75.1 L144.6 75.1 L142.0 76.4 L139.3 77.5 L137.1 79.6 L134.6 81.2 L132.6 83.7 L130.0 85.0 L128.0 87.6 L125.3 88.6 L123.3 91.2 L120.3 91.7 L118.3 94.2 L115.1 94.1 L113.0 96.5 L109.5 95.7 L107.3 97.9 L103.5 96.5 L100.4 96.6 L97.1 96.3Z\" fill=\"var(--leaf)\" fill-opacity=\"0.38\" stroke=\"none\" filter=\"url(#wash)\"/><path d=\"M97.1 96.3 L99.1 93.7 L101.3 91.4 L102.7 87.7 L105.8 87.5 L107.6 84.4 L110.8 84.4 L112.8 82.0 L116.1 82.1 L118.4 80.3 L121.7 80.5 L124.2 79.1 L127.5 79.4 L130.2 78.4 L133.5 78.5 L136.3 77.8 L139.3 77.5 L141.9 76.2 L144.6 75.1 L144.6 75.1 L142.0 76.4 L139.3 77.5 L137.1 79.6 L134.6 81.2 L132.6 83.7 L130.0 85.0 L128.0 87.6 L125.3 88.6 L123.3 91.2 L120.3 91.7 L118.3 94.2 L115.1 94.1 L113.0 96.5 L109.5 95.7 L107.3 97.9 L103.5 96.5 L100.4 96.6 L97.1 96.3Z\" stroke-width=\"0.75\"/><path d=\"M97.1 96.3 L142.7 76.0\" stroke-width=\"0.45\"/><path d=\"M97.1 96.3 L99.4 95.2 L101.7 94.3 L104.1 92.1 L106.3 93.2 L108.6 91.6 L110.8 92.8 L113.1 91.7 L115.2 93.1 L117.5 92.6 L119.7 94.0 L121.9 93.9 L124.1 95.3 L126.3 95.6 L128.5 96.9 L130.7 97.4 L132.9 98.3 L135.1 98.3 L137.4 98.6 L137.4 98.6 L135.1 98.5 L132.9 98.3 L130.6 99.0 L128.3 99.2 L126.0 100.3 L123.8 100.3 L121.5 101.5 L119.3 101.1 L117.0 102.3 L114.8 101.6 L112.5 102.7 L110.3 101.4 L108.0 102.3 L105.9 100.5 L103.6 101.3 L101.5 98.9 L99.3 97.7 L97.1 96.3Z\" fill=\"var(--leaf)\" fill-opacity=\"0.38\" stroke=\"none\" filter=\"url(#wash)\"/><path d=\"M97.1 96.3 L99.4 95.2 L101.7 94.3 L104.1 92.1 L106.3 93.2 L108.6 91.6 L110.8 92.8 L113.1 91.7 L115.2 93.1 L117.5 92.6 L119.7 94.0 L121.9 93.9 L124.1 95.3 L126.3 95.6 L128.5 96.9 L130.7 97.4 L132.9 98.3 L135.1 98.3 L137.4 98.6 L137.4 98.6 L135.1 98.5 L132.9 98.3 L130.6 99.0 L128.3 99.2 L126.0 100.3 L123.8 100.3 L121.5 101.5 L119.3 101.1 L117.0 102.3 L114.8 101.6 L112.5 102.7 L110.3 101.4 L108.0 102.3 L105.9 100.5 L103.6 101.3 L101.5 98.9 L99.3 97.7 L97.1 96.3Z\" stroke-width=\"0.75\"/><path d=\"M97.1 96.3 L135.7 98.5\" stroke-width=\"0.45\"/><path d=\"M97.1 96.3 L99.0 96.3 L100.7 96.4 L103.0 95.7 L104.0 97.1 L106.1 96.8 L107.0 98.3 L108.8 98.3 L109.7 99.9 L111.4 100.3 L112.2 102.0 L113.7 102.7 L114.5 104.3 L115.9 105.2 L116.8 106.8 L118.0 107.9 L119.0 109.2 L120.5 109.9 L121.8 110.8 L121.8 110.8 L120.4 110.1 L119.0 109.2 L117.4 108.9 L115.8 108.4 L114.0 108.3 L112.6 107.6 L110.7 107.7 L109.4 106.8 L107.5 106.8 L106.4 105.6 L104.6 105.6 L103.7 104.0 L101.9 103.9 L101.2 102.0 L99.4 101.8 L99.0 99.5 L98.0 98.0 L97.1 96.3Z\" fill=\"var(--leaf)\" fill-opacity=\"0.38\" stroke=\"none\" filter=\"url(#wash)\"/><path d=\"M97.1 96.3 L99.0 96.3 L100.7 96.4 L103.0 95.7 L104.0 97.1 L106.1 96.8 L107.0 98.3 L108.8 98.3 L109.7 99.9 L111.4 100.3 L112.2 102.0 L113.7 102.7 L114.5 104.3 L115.9 105.2 L116.8 106.8 L118.0 107.9 L119.0 109.2 L120.5 109.9 L121.8 110.8 L121.8 110.8 L120.4 110.1 L119.0 109.2 L117.4 108.9 L115.8 108.4 L114.0 108.3 L112.6 107.6 L110.7 107.7 L109.4 106.8 L107.5 106.8 L106.4 105.6 L104.6 105.6 L103.7 104.0 L101.9 103.9 L101.2 102.0 L99.4 101.8 L99.0 99.5 L98.0 98.0 L97.1 96.3Z\" stroke-width=\"0.75\"/><path d=\"M97.1 96.3 L120.8 110.2\" stroke-width=\"0.45\"/><path d=\"M72.0 46.0 Q 72.9 39.1 67.8 38.3\" stroke-width=\"0.9\"/><path d=\"M67.8 38.3 L67.2 38.7 L66.7 39.0 L66.1 39.8 L65.7 39.4 L65.1 40.0 L64.7 39.6 L64.1 40.0 L63.7 39.4 L63.2 39.6 L62.8 39.1 L62.3 39.1 L61.8 38.5 L61.4 38.4 L60.9 37.9 L60.5 37.7 L60.0 37.3 L59.5 37.3 L59.0 37.2 L59.0 37.2 L59.5 37.2 L60.0 37.3 L60.5 37.1 L61.0 37.0 L61.6 36.6 L62.1 36.6 L62.6 36.2 L63.1 36.3 L63.6 35.9 L64.1 36.2 L64.6 35.8 L65.1 36.3 L65.6 35.9 L66.0 36.6 L66.5 36.4 L66.9 37.3 L67.4 37.7 L67.8 38.3Z\" fill=\"var(--leaf)\" fill-opacity=\"0.38\" stroke=\"none\" filter=\"url(#wash)\"/><path d=\"M67.8 38.3 L67.2 38.7 L66.7 39.0 L66.1 39.8 L65.7 39.4 L65.1 40.0 L64.7 39.6 L64.1 40.0 L63.7 39.4 L63.2 39.6 L62.8 39.1 L62.3 39.1 L61.8 38.5 L61.4 38.4 L60.9 37.9 L60.5 37.7 L60.0 37.3 L59.5 37.3 L59.0 37.2 L59.0 37.2 L59.5 37.2 L60.0 37.3 L60.5 37.1 L61.0 37.0 L61.6 36.6 L62.1 36.6 L62.6 36.2 L63.1 36.3 L63.6 35.9 L64.1 36.2 L64.6 35.8 L65.1 36.3 L65.6 35.9 L66.0 36.6 L66.5 36.4 L66.9 37.3 L67.4 37.7 L67.8 38.3Z\" stroke-width=\"0.75\"/><path d=\"M67.8 38.3 L59.4 37.3\" stroke-width=\"0.45\"/><path d=\"M67.8 38.3 L66.8 37.8 L65.9 37.3 L64.4 37.1 L64.4 36.1 L63.2 35.7 L63.2 34.7 L62.3 34.2 L62.4 33.1 L61.7 32.5 L61.9 31.4 L61.4 30.6 L61.5 29.5 L61.2 28.7 L61.3 27.7 L61.0 26.8 L61.0 25.8 L60.5 25.0 L60.1 24.2 L60.1 24.2 L60.6 25.0 L61.0 25.8 L61.8 26.4 L62.4 27.1 L63.3 27.5 L63.8 28.3 L64.8 28.7 L65.2 29.6 L66.2 30.0 L66.3 31.0 L67.3 31.4 L67.2 32.5 L68.1 33.0 L67.8 34.2 L68.6 34.8 L68.0 36.1 L67.9 37.2 L67.8 38.3Z\" fill=\"var(--leaf)\" fill-opacity=\"0.38\" stroke=\"none\" filter=\"url(#wash)\"/><path d=\"M67.8 38.3 L66.8 37.8 L65.9 37.3 L64.4 37.1 L64.4 36.1 L63.2 35.7 L63.2 34.7 L62.3 34.2 L62.4 33.1 L61.7 32.5 L61.9 31.4 L61.4 30.6 L61.5 29.5 L61.2 28.7 L61.3 27.7 L61.0 26.8 L61.0 25.8 L60.5 25.0 L60.1 24.2 L60.1 24.2 L60.6 25.0 L61.0 25.8 L61.8 26.4 L62.4 27.1 L63.3 27.5 L63.8 28.3 L64.8 28.7 L65.2 29.6 L66.2 30.0 L66.3 31.0 L67.3 31.4 L67.2 32.5 L68.1 33.0 L67.8 34.2 L68.6 34.8 L68.0 36.1 L67.9 37.2 L67.8 38.3Z\" stroke-width=\"0.75\"/><path d=\"M67.8 38.3 L60.4 24.8\" stroke-width=\"0.45\"/><path d=\"M67.8 38.3 L67.6 37.6 L67.4 37.0 L66.8 36.2 L67.4 35.9 L67.0 35.2 L67.6 34.9 L67.4 34.3 L68.0 34.0 L68.0 33.5 L68.7 33.3 L68.8 32.8 L69.5 32.6 L69.7 32.2 L70.4 31.9 L70.7 31.5 L71.2 31.2 L71.4 30.8 L71.6 30.4 L71.6 30.4 L71.4 30.8 L71.2 31.2 L71.2 31.8 L71.2 32.3 L71.4 32.9 L71.2 33.4 L71.4 34.1 L71.1 34.5 L71.4 35.1 L71.0 35.5 L71.2 36.1 L70.6 36.4 L70.7 37.0 L69.9 37.1 L70.0 37.7 L69.0 37.8 L68.4 38.1 L67.8 38.3Z\" fill=\"var(--leaf)\" fill-opacity=\"0.38\" stroke=\"none\" filter=\"url(#wash)\"/><path d=\"M67.8 38.3 L67.6 37.6 L67.4 37.0 L66.8 36.2 L67.4 35.9 L67.0 35.2 L67.6 34.9 L67.4 34.3 L68.0 34.0 L68.0 33.5 L68.7 33.3 L68.8 32.8 L69.5 32.6 L69.7 32.2 L70.4 31.9 L70.7 31.5 L71.2 31.2 L71.4 30.8 L71.6 30.4 L71.6 30.4 L71.4 30.8 L71.2 31.2 L71.2 31.8 L71.2 32.3 L71.4 32.9 L71.2 33.4 L71.4 34.1 L71.1 34.5 L71.4 35.1 L71.0 35.5 L71.2 36.1 L70.6 36.4 L70.7 37.0 L69.9 37.1 L70.0 37.7 L69.0 37.8 L68.4 38.1 L67.8 38.3Z\" stroke-width=\"0.75\"/><path d=\"M67.8 38.3 L71.5 30.7\" stroke-width=\"0.45\"/><path d=\"M72.0 46.0 Q 77.1 39.1 76.2 38.3\" stroke-width=\"0.9\"/><path d=\"M76.2 38.3 L75.6 38.1 L75.0 37.8 L74.0 37.7 L74.1 37.1 L73.3 37.0 L73.4 36.4 L72.8 36.1 L73.0 35.5 L72.6 35.1 L72.9 34.5 L72.6 34.1 L72.8 33.4 L72.6 32.9 L72.8 32.3 L72.8 31.8 L72.8 31.2 L72.6 30.8 L72.4 30.4 L72.4 30.4 L72.6 30.8 L72.8 31.2 L73.3 31.5 L73.6 31.9 L74.3 32.2 L74.5 32.6 L75.2 32.8 L75.3 33.3 L76.0 33.5 L76.0 34.0 L76.6 34.3 L76.4 34.9 L77.0 35.2 L76.6 35.9 L77.2 36.2 L76.6 37.0 L76.4 37.6 L76.2 38.3Z\" fill=\"var(--leaf)\" fill-opacity=\"0.38\" stroke=\"none\" filter=\"url(#wash)\"/><path d=\"M76.2 38.3 L75.6 38.1 L75.0 37.8 L74.0 37.7 L74.1 37.1 L73.3 37.0 L73.4 36.4 L72.8 36.1 L73.0 35.5 L72.6 35.1 L72.9 34.5 L72.6 34.1 L72.8 33.4 L72.6 32.9 L72.8 32.3 L72.8 31.8 L72.8 31.2 L72.6 30.8 L72.4 30.4 L72.4 30.4 L72.6 30.8 L72.8 31.2 L73.3 31.5 L73.6 31.9 L74.3 32.2 L74.5 32.6 L75.2 32.8 L75.3 33.3 L76.0 33.5 L76.0 34.0 L76.6 34.3 L76.4 34.9 L77.0 35.2 L76.6 35.9 L77.2 36.2 L76.6 37.0 L76.4 37.6 L76.2 38.3Z\" stroke-width=\"0.75\"/><path d=\"M76.2 38.3 L72.5 30.7\" stroke-width=\"0.45\"/><path d=\"M76.2 38.3 L76.1 37.2 L76.0 36.1 L75.4 34.8 L76.2 34.2 L75.9 33.0 L76.8 32.5 L76.7 31.4 L77.7 31.0 L77.8 30.0 L78.8 29.6 L79.2 28.7 L80.2 28.3 L80.7 27.5 L81.6 27.1 L82.2 26.4 L83.0 25.8 L83.4 25.0 L83.9 24.2 L83.9 24.2 L83.5 25.0 L83.0 25.8 L83.0 26.8 L82.7 27.7 L82.8 28.7 L82.5 29.5 L82.6 30.6 L82.1 31.4 L82.3 32.5 L81.6 33.1 L81.7 34.2 L80.8 34.7 L80.8 35.7 L79.6 36.1 L79.6 37.1 L78.1 37.3 L77.2 37.8 L76.2 38.3Z\" fill=\"var(--leaf)\" fill-opacity=\"0.38\" stroke=\"none\" filter=\"url(#wash)\"/><path d=\"M76.2 38.3 L76.1 37.2 L76.0 36.1 L75.4 34.8 L76.2 34.2 L75.9 33.0 L76.8 32.5 L76.7 31.4 L77.7 31.0 L77.8 30.0 L78.8 29.6 L79.2 28.7 L80.2 28.3 L80.7 27.5 L81.6 27.1 L82.2 26.4 L83.0 25.8 L83.4 25.0 L83.9 24.2 L83.9 24.2 L83.5 25.0 L83.0 25.8 L83.0 26.8 L82.7 27.7 L82.8 28.7 L82.5 29.5 L82.6 30.6 L82.1 31.4 L82.3 32.5 L81.6 33.1 L81.7 34.2 L80.8 34.7 L80.8 35.7 L79.6 36.1 L79.6 37.1 L78.1 37.3 L77.2 37.8 L76.2 38.3Z\" stroke-width=\"0.75\"/><path d=\"M76.2 38.3 L83.6 24.8\" stroke-width=\"0.45\"/><path d=\"M76.2 38.3 L76.6 37.7 L77.1 37.3 L77.5 36.4 L78.0 36.6 L78.4 35.9 L78.9 36.3 L79.4 35.8 L79.9 36.2 L80.4 35.9 L80.9 36.3 L81.4 36.2 L81.9 36.6 L82.4 36.6 L83.0 37.0 L83.5 37.1 L84.0 37.3 L84.5 37.2 L85.0 37.2 L85.0 37.2 L84.5 37.3 L84.0 37.3 L83.5 37.7 L83.1 37.9 L82.6 38.4 L82.2 38.5 L81.7 39.1 L81.2 39.1 L80.8 39.6 L80.3 39.4 L79.9 40.0 L79.3 39.6 L78.9 40.0 L78.3 39.4 L77.9 39.8 L77.3 39.0 L76.8 38.7 L76.2 38.3Z\" fill=\"var(--leaf)\" fill-opacity=\"0.38\" stroke=\"none\" filter=\"url(#wash)\"/><path d=\"M76.2 38.3 L76.6 37.7 L77.1 37.3 L77.5 36.4 L78.0 36.6 L78.4 35.9 L78.9 36.3 L79.4 35.8 L79.9 36.2 L80.4 35.9 L80.9 36.3 L81.4 36.2 L81.9 36.6 L82.4 36.6 L83.0 37.0 L83.5 37.1 L84.0 37.3 L84.5 37.2 L85.0 37.2 L85.0 37.2 L84.5 37.3 L84.0 37.3 L83.5 37.7 L83.1 37.9 L82.6 38.4 L82.2 38.5 L81.7 39.1 L81.2 39.1 L80.8 39.6 L80.3 39.4 L79.9 40.0 L79.3 39.6 L78.9 40.0 L78.3 39.4 L77.9 39.8 L77.3 39.0 L76.8 38.7 L76.2 38.3Z\" stroke-width=\"0.75\"/><path d=\"M76.2 38.3 L84.6 37.3\" stroke-width=\"0.45\"/><path d=\"M63 252 h15\" stroke-width=\"0.8\"/><path d=\"M70 252 c -3 6, -6 9, -10 12 M70 252 c 1 7, 3 10, 6 14 M70 252 c -1 6, 0 10, -1 15\" stroke-width=\"0.5\"/></g>";
 const GLYPHS = {"0": "<ellipse cx=\"15\" cy=\"24\" rx=\"5\" ry=\"6.5\" stroke-width=\"0.9\"/><path d=\"M15 18 v12\" stroke-width=\"0.4\"/>", "1": "<path d=\"M15 32 V18\" stroke-width=\"1\"/><path d=\"M15 19 c -5 -3, -9 -1, -9 1 c 3 2, 6 2, 9 -1 Z M15 19 c 5 -3, 9 -1, 9 1 c -3 2, -6 2, -9 -1 Z\" stroke-width=\"0.8\"/>", "2": "<path d=\"M15 32 V10\" stroke-width=\"1\"/><path d=\"M15 24 l -8 -4 M15 24 l 8 -4 M15 16 l -9 -5 M15 16 l 9 -5 M15 16 l -6 -9 M15 16 l 6 -9\" stroke-width=\"0.9\"/>", "3": "<path d=\"M15 32 V4\" stroke-width=\"1.1\"/><path d=\"M15 27 l -11 -3 M15 27 l 11 -3 M15 19 l -11 -4 M15 19 l 11 -4 M15 19 l -8 -9 M15 19 l 8 -9 M15 11 l -7 -3 M15 11 l 7 -3\" stroke-width=\"0.9\"/>", "4": "<path d=\"M15 32 V6\" stroke-width=\"1.1\"/><path d=\"M15 27 l -10 -3 M15 27 l 10 -3 M15 19 l -9 -4 M15 19 l 9 -4\" stroke-width=\"0.8\"/><circle cx=\"15\" cy=\"8\" r=\"3.5\" stroke-width=\"0.9\"/><circle cx=\"10\" cy=\"14\" r=\"2.4\" stroke-width=\"0.8\"/><circle cx=\"20\" cy=\"14\" r=\"2.4\" stroke-width=\"0.8\"/>", "5": "<path d=\"M6 6 h18\" stroke-width=\"0.9\"/><path d=\"M11 6 v18 M19 6 v14\" stroke-width=\"0.8\"/><circle cx=\"11\" cy=\"26\" r=\"3\" stroke-width=\"0.8\"/><circle cx=\"19\" cy=\"22\" r=\"3\" stroke-width=\"0.8\"/>"};
 const THEME_KEY = "ff-theme";
 function themePref(){ try { return localStorage.getItem(THEME_KEY) || "auto"; } catch(e){ return "auto"; } }
@@ -382,7 +418,7 @@ function selectPlant(id){
 function latest(k){ for (const l of mine(S.logs)){ const n = num(l[k]); if (n != null) return {v:n, at:l.at}; } return null; }
 function latestSensor(){ for (const l of mine(S.logs)) if (l.sensor && (l.sensor.temp != null || l.sensor.rh != null)) return l.sensor; return null; }
 function statusOf(k, v){
-  const p = sel(), t = p && p.targets && p.targets[k];
+  const p = sel(), t = p && targetsOf(p)[k];
   if (!t || v == null) return {cls:"none", word:"", txt:""};
   const [lo, hi] = t, range = "aim " + lo + "–" + hi;
   if (v < lo) return {cls:"low", word:"low", txt:range};
@@ -418,30 +454,108 @@ function renderTabs(){
   box.append(h("a",{class:"ptab add", href:"#plant-new", "aria-label":"Add plant"}, "+ specimen"));
   const cur = box.querySelector('[aria-current="true"]'); if (cur) cur.scrollIntoView({inline:"nearest", block:"nearest"});
 }
+/* ---------- specimen ---------- */
+function seedOf(p){ return [...(p.id || "x")].reduce((a, c) => a * 31 + c.charCodeAt(0) & 0xffff, 7) + 1; }
+function nodesEstimate(p, ref){ const sd = p.sprout ? daysBetween(p.sprout, ref) : 0; return Math.max(0, Math.floor((sd - 3) / 3.3)); }
+function specState(p){
+  const ph = phaseOf(p), T = today();
+  const st = {phase: ph, seed: seedOf(p), roots: (p.medium || "hydro") === "hydro"};
+  if (ph === "germ"){
+    const acts = new Set(mine(S.logs).flatMap(l => l.actions || []));
+    st.germ = {soaked: acts.has("Soaked") || acts.has("Paper towel"), tail: acts.has("Tail visible"), planted: acts.has("Planted") || acts.has("Broke surface")};
+    return st;
+  }
+  if (ph === "cure" || ph === "done") return st;
+  const ref = ph === "dry" ? (phaseStart(p, "dry") || T) : T, flip = flipOf(p);
+  st.sproutDays = p.sprout ? daysBetween(p.sprout, ref) : 0;
+  const logged = mine(S.logs).filter(l => num(l.nodes) != null && l.date <= ref);
+  const fromLog = logged.length ? num(logged[0].nodes) + Math.floor(daysBetween(logged[0].date, ref) / 4) : null;
+  if (flip && ref >= flip){
+    st.flowerDays = daysBetween(flip, ref);
+    const before = logged.find(l => l.date <= flip);
+    const atFlip = before ? num(before.nodes) : nodesEstimate(p, flip);
+    st.flipNode = atFlip + 1;
+    st.nodes = Math.max(logged.length ? num(logged[0].nodes) : 0, atFlip + Math.min(5, Math.round(st.flowerDays / 4)));
+    st.ripe = st.flowerDays > 49 ? Math.min(1, (st.flowerDays - 49) / 14) : 0;
+  } else st.nodes = fromLog != null ? fromLog : nodesEstimate(p, ref);
+  if (ph === "dry") st.dryDays = daysBetween(ref, T);
+  return st;
+}
+function drawSpecimen(p){
+  const spec = $("#t-spec");
+  if (!window.Specimen){ return; }
+  const st = p ? specState(p) : {phase:"germ", seed:7};
+  const key = JSON.stringify(st) + document.documentElement.dataset.theme;
+  if (spec._k === key) return; spec._k = key;
+  spec.setAttribute("viewBox", Specimen.VB);
+  spec.innerHTML = Specimen.draw(st);
+  const words = {germ:"a seed", dry:"a plant hung to dry", cure:"buds curing in a jar", done:"a finished jar"};
+  spec.setAttribute("aria-label", "Ink drawing of " + (words[st.phase] || (st.nodes ? "a plant with " + st.nodes + " leaf nodes" + (st.flowerDays ? ", " + Math.round(st.flowerDays / 7) + " weeks into bloom" : "") : "a sprout")));
+}
+function lampInfo(p){
+  if ((p.where || "indoor") !== "indoor" || phaseOf(p) !== "grow") return null;
+  const l = latest("lamp"), lamp = l ? l.v : num(p.lamp); if (lamp == null) return null;
+  const ht = latest("height"); return {lamp, gap: ht ? lamp - ht.v : null};
+}
+function lastAction(names){ for (const l of mine(S.logs)) if ((l.actions || []).some(a => names.includes(a))) return l; return null; }
+function latestSince(k, since){ for (const l of mine(S.logs)){ if (since && l.date < since) break; const n = num(l[k]); if (n != null) return {v:n, at:l.at}; } return null; }
+function coreTiles(p){
+  const ph = phaseOf(p), T = today(), none = {cls:"none", word:"", txt:""}, run = p.run || {};
+  if (ph === "germ"){
+    const la = lastAction(["Soaked","Paper towel","Tail visible","Planted","Broke surface"]);
+    const step = la ? la.actions.filter(a => ["Soaked","Paper towel","Tail visible","Planted","Broke surface"].includes(a)).pop() : "–";
+    return [["Days", p.start ? String(daysBetween(p.start, T)) : "–", {cls:"none", word:"", txt: p.start ? "since " + short(p.start) : ""}], ["Last step", step, {cls:"none", word:"", txt: la ? ago(la.at) : "tap a step when you log"}], ["Expect", "2–7 d", {cls:"none", word:"", txt:"to break surface"}]];
+  }
+  if (ph === "dry"){
+    const ds = phaseStart(p, "dry"), w = latestSince("weight", ds), wet = num(run.wet_g);
+    const lost = w && wet ? Math.round(100 * (1 - w.v / wet)) : null;
+    const snap = lastAction(["Stems snap","Still bendy"]);
+    return [["Weight", w ? fmtv("weight", w.v) : "–", {cls:"none", word:"", txt: wet ? "wet " + wet + " g" : "weigh a sample"}],
+      ["Lost", lost != null ? lost + "%" : "–", lost != null ? (lost >= 70 ? {cls:"ok", word:"near", txt:"jars at ~72–75%"} : {cls:"none", word:"", txt:"jars at ~72–75%"}) : {cls:"none", word:"", txt:"needs wet + now"}],
+      ["Day", ds ? String(daysBetween(ds, T) + 1) : "–", snap ? (snap.actions.includes("Stems snap") ? {cls:"ok", word:"snaps", txt:"ready for jars?"} : {cls:"none", word:"", txt:"still bendy"}) : {cls:"none", word:"", txt:"usually 7–14"}]];
+  }
+  if (ph === "cure"){
+    const cs = phaseStart(p, "cure"), j = latestSince("jar_rh", cs), w = latestSince("weight", cs), b = lastAction(["Burped"]);
+    const bd = b ? daysBetween(b.date, T) : null;
+    return [["Jar RH", j ? fmtv("jar_rh", j.v) : "–", statusOf("jar_rh", j && j.v)],
+      ["Burped", bd == null ? "–" : bd === 0 ? "today" : bd + " d ago", bd != null && bd > 2 && cs && daysBetween(cs, T) < 14 ? {cls:"high", word:"due", txt:"daily in week 1–2"} : {cls:"none", word:"", txt:"daily in week 1–2"}],
+      ["Weight", w ? fmtv("weight", w.v) : (run.dry_g ? run.dry_g + " g" : "–"), {cls:"none", word:"", txt: run.dry_g ? "jarred at " + run.dry_g + " g" : ""}]];
+  }
+  if (ph === "done"){
+    return [["Wet", run.wet_g ? run.wet_g + " g" : "–", none], ["Dry", run.dry_g ? run.dry_g + " g" : "–", run.wet_g && run.dry_g ? {cls:"none", word:"", txt: Math.round(100 * run.dry_g / run.wet_g) + "% of wet"} : none], ["Verdict", run.verdict || "–", none]];
+  }
+  return null;
+}
+
 function renderToday(){
   const p = sel(), T = today();
   document.documentElement.style.setProperty("--c", p ? colorOf(p) : "var(--ink)");
   $("#t-date").textContent = new Date().toLocaleDateString("en-GB",{weekday:"short",day:"numeric",month:"short"});
-  const spec = $("#t-spec"); if (!spec.firstChild) spec.innerHTML = SPECIMEN;
+  drawSpecimen(p);
   if (!p){
     $("#t-day").textContent = APP; $("#t-stage").textContent = S.cfg ? (S.synced ? "No plants" : "–") : "Not connected"; $("#t-medium").textContent = "";
     $("#t-tasks").replaceChildren(h("p",{class:"empty"}, S.synced ? "No plants yet. Add one under Settings & plants." : "Loading your plan…"));
     $("#t-grid").replaceChildren(); $("#t-next").replaceChildren(); $("#t-more").textContent = ""; decorateSoon(); return;
   }
   $("#t-date").textContent += " · " + p.name;
-  $("#t-day").textContent = p.status === "resting" ? "Resting" : p.status === "done" ? "Finished" : (p.start ? "Day " + daysBetween(p.start, T) : p.name);
-  const si = stageIndex(p);
+  const ph = phaseOf(p), psd = phaseStart(p, ph);
+  $("#t-day").textContent = ph === "done" ? "Finished" : p.status === "resting" ? "Resting"
+    : ph === "dry" && psd ? "Dry day " + (daysBetween(psd, T) + 1) : ph === "cure" && psd ? "Cure day " + (daysBetween(psd, T) + 1)
+    : (p.start ? "Day " + daysBetween(p.start, T) : p.name);
+  const si = ph === "germ" ? 0 : ph === "grow" ? stageIndex(p) : 5;
   const st = $("#t-stage"); st.replaceChildren(
     raw('<svg aria-hidden="true" width="22" height="25" viewBox="0 0 30 34"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">' + GLYPHS[si] + '</g></svg>'),
-    document.createTextNode(p.stageLabel || ["Seed","Sprout","Seedling","Growth","Flower","Drying"][si]));
+    document.createTextNode(ph === "grow" ? (p.stageLabel || ["Seed","Sprout","Seedling","Growth","Flower","Drying"][si]) : PHASES[ph] + (psd && ph !== "done" ? " · since " + short(psd) : "")));
+  const li = lampInfo(p);
   $("#t-medium").textContent = (MEDIA[p.medium]||MEDIA.hydro).label + " · " + (SYSTEMS[p.system] || "") + " · " + (WHERE[p.where] || "");
+  $("#t-lamp").textContent = li ? "Lamp " + Math.round(li.lamp) + " cm above rim" + (li.gap != null ? " · " + Math.round(li.gap) + " cm to canopy" : "") : "";
 
   const todays = mine(S.logs).filter(l => l.date === T);
   const lg = $("#t-logged");
   lg.className = "logged " + (todays.length ? "yes" : "no");
   lg.querySelector(".box").innerHTML = '<g fill="none" style="stroke:var(--ink)" stroke-linecap="round" filter="url(#rough)"><rect x="2" y="2" width="16" height="16" rx="2" stroke-width="1.2"/>' + (todays.length ? '<path d="M5 10 l3.5 3.5 L15 6" stroke-width="2"/>' : '') + '</g>';
   $("#t-logged-txt").textContent = todays.length ? "Entered today, " + hm(todays[0].at) + (todays.length > 1 ? " · " + todays.length + " entries" : "") : "Not entered yet today";
-  $("#t-logbtn").textContent = todays.length ? "Log again" : "Log values";
+  $("#t-logbtn").textContent = todays.length ? "Log again" : ph === "germ" ? "Log a step" : "Log values";
 
   const due = openTasks().filter(t => t.due && t.due <= T).sort(sortTasks);
   const doneToday = mine(S.tasks).filter(t => t.status === "done" && t.doneAt && ymd(new Date(t.doneAt)) === T);
@@ -458,13 +572,15 @@ function renderToday(){
   const warm = env.warm || 0, frost = env.frost || 0;
   const grid = $("#t-grid"); grid.replaceChildren();
   let newest = null;
-  core.slice(0,3).forEach((k, i) => {
+  const ct = coreTiles(p);
+  if (ct){ ct.forEach(t => grid.append(tile(t[0], t[1], t[2], {soak:0.22, warm, frost}))); const l0 = mine(S.logs)[0]; if (l0) newest = l0.at; }
+  else core.slice(0,3).forEach((k, i) => {
     const l = latest(k);
     if (l && (!newest || l.at > newest)) newest = l.at;
     grid.append(tile(labelFor(p,k,true), l ? fmtv(k, l.v) : "–", statusOf(k, l && l.v), {soak:0.22, warm, frost}));
   });
-  env.tiles.forEach(t => grid.append(tile(t[0], t[1], t[2], {soak:0.55})));
-  const extra = fields.filter(k => !core.slice(0,3).includes(k)).map(k => { const l = latest(k); return l ? labelFor(p,k,true) + " " + fmtv(k, l.v) : null; }).filter(Boolean);
+  if (ph !== "done") env.tiles.forEach(t => grid.append(tile(t[0], t[1], t[2], {soak:0.55})));
+  const extra = (ct ? [] : fields.filter(k => !core.slice(0,3).includes(k))).map(k => { const l = latest(k); return l ? labelFor(p,k,true) + " " + fmtv(k, l.v) : null; }).filter(Boolean);
   if (env.more) extra.push(env.more);
   $("#t-more").textContent = extra.join(" · ");
   $("#t-envage").textContent = (newest ? "entered " + hm(newest) : "no entries yet") + (env.age ? " · " + env.age : "");
@@ -491,7 +607,7 @@ function envTiles(p){
     };
   }
   const s = latestSensor();
-  const T = p.targets || {};
+  const T = targetsOf(p), ph = phaseOf(p);
   if (s){
     const v = vpd(s.temp, s.rh);
     const vs = v == null ? none : v < 0.8 ? {cls:"low", word:"low", txt:"aim 0.8–1.2"} : v > 1.4 ? {cls:"high", word:"high", txt:"aim 0.8–1.2"} : {cls:"ok", word:"good", txt:"aim 0.8–1.2"};
@@ -499,7 +615,8 @@ function envTiles(p){
     if (old > 2) note.textContent = "Sensor data is " + ago(s.at).replace(" ago","") + " old. Upload a fresh CSV with your next log.";
     const hi = T.air ? T.air[1] : 26;
     return {
-      tiles:[["Air", s.temp != null ? s.temp.toFixed(1)+"°" : "–", statusOf("air", s.temp)], ["Humidity", s.rh != null ? Math.round(s.rh)+"%" : "–", statusOf("rh", s.rh)], ["VPD", v != null ? v.toFixed(2) : "–", vs]],
+      tiles:[["Air", s.temp != null ? s.temp.toFixed(1)+"°" : "–", statusOf("air", s.temp)], ["Humidity", s.rh != null ? Math.round(s.rh)+"%" : "–", statusOf("rh", s.rh)],
+        ph === "dry" || ph === "cure" ? ["RH 24 h", s.hmin != null ? Math.round(s.hmin) + "–" + Math.round(s.hmax) : "–", s.hmax != null && s.hmax - s.hmin > 8 ? {cls:"high", word:"swingy", txt:"keep it steady"} : {cls:"none", word:"", txt:"min–max %"}] : ["VPD", v != null ? v.toFixed(2) : "–", vs]],
       warm: s.temp != null ? Math.max(0, Math.min(1, (s.temp - hi) / 4)) : 0,
       more: s.tmin != null ? "Air 24 h " + s.tmin.toFixed(0) + "–" + s.tmax.toFixed(0) + "°, humidity " + Math.round(s.hmin) + "–" + Math.round(s.hmax) + "%" : "",
       age: "sensor " + ago(s.at)
@@ -523,8 +640,69 @@ async function toggleTask(t, on){
     cache(); renderAll();
   } catch(e){ Object.assign(t, prev); renderAll(); setSync("Couldn't save · tap to retry", true); }
 }
+function runRows(p){
+  const T = today(), ps = k => phaseStart(p, k), flip = flipOf(p), run = p.run || {};
+  const dur = (a, b) => a && b && b >= a ? daysBetween(a, b) + " d" : null;
+  const rows = [
+    ["Germination", dur(ps("germ"), ps("grow"))],
+    ["Vegetative", dur(ps("grow"), flip && flip <= T ? flip : (phaseOf(p) === "grow" ? T : ps("dry")))],
+    ["Bloom", flip && flip <= T ? dur(flip, ps("dry") || T) : null],
+    ["Drying", dur(ps("dry"), ps("cure") || (phaseOf(p) === "dry" ? T : null))],
+    ["Curing", dur(ps("cure"), ps("done") || (phaseOf(p) === "cure" ? T : null))],
+    ["Seed to jar", dur(ps("germ") || ps("grow"), ps("cure"))]
+  ].filter(r => r[1]);
+  if (run.wet_g) rows.push(["Wet weight", run.wet_g + " g"]);
+  if (run.dry_g) rows.push(["Dry weight", run.dry_g + " g" + (run.wet_g ? " · " + Math.round(100 * run.dry_g / run.wet_g) + "% of wet" : "")]);
+  if (run.final_g) rows.push(["Final weight", run.final_g + " g"]);
+  if (run.verdict) rows.push(["Verdict", run.verdict]);
+  return rows;
+}
+function renderPhase(p){
+  const box = $("#p-phase"); box.replaceChildren(); box._fk = null; box.hidden = !p; if (!p) return;
+  const ph = phaseOf(p), T = today();
+  const rail = h("div",{class:"rail"});
+  PHASE_ORDER.forEach(k => { const d = phaseStart(p, k); rail.append(h("span",{class:"st" + (k === ph ? " on" : "") + (PHASE_ORDER.indexOf(k) < PHASE_ORDER.indexOf(ph) ? " past" : "")}, h("b",null, PHASES[k]), h("small",null, d ? short(d) : "·"))); });
+  box.append(h("div",{class:"head",style:"align-items:center"}, h("h2",null,"The run"), h("span",{class:"muted small"}, PHASES[ph])), rail);
+  const rows = runRows(p);
+  if (rows.length) box.append(h("div",{class:"runrows"}, rows.map(r => h("div",{class:"row"}, h("span",null,r[0]), h("span",{class:"lead"}), h("span",{class:"when num"}, r[1])))));
+  const nx = NEXT[ph]; if (!nx) return;
+  const form = h("form",{class:"phaseform", hidden: true});
+  const date = h("input",{type:"date", value:T, max:T});
+  const wt = nx.w ? h("input",{type:"text", inputmode:"decimal", autocomplete:"off", placeholder:"–"}) : null;
+  let verdict = null; const vbox = h("div",{class:"chips"});
+  if (ph === "cure") VERDICTS.forEach(v => vbox.append(h("button",{type:"button", class:"chip", "aria-pressed":"false", onclick:e => { verdict = v; vbox.querySelectorAll(".chip").forEach(c => c.setAttribute("aria-pressed", c === e.currentTarget ? "true" : "false")); }}, v)));
+  const note = h("input",{type:"text", autocomplete:"off", placeholder:"Optional note"});
+  const msg = h("p",{class:"status", role:"status"});
+  form.append(h("p",{class:"muted small", style:"margin:0"}, nx.hint), h("div",{class:"fields"}, h("label",{class:"f"}, "Date", date), wt ? h("label",{class:"f"}, nx.wl, wt) : null),
+    ph === "cure" ? h("fieldset",null, h("legend",null,"How did it turn out?"), vbox) : null, h("label",{class:"f"}, "Note", note),
+    h("button",{class:"btn primary", type:"submit"}, "Confirm: " + nx.btn), msg);
+  form.addEventListener("submit", async e => {
+    e.preventDefault();
+    const d = date.value || T, w = wt ? num(wt.value) : null, nt = note.value.trim();
+    msg.textContent = "Saving…";
+    try {
+      S.plants = await mutate("plants.json", list => (list || []).map(x => {
+        if (x.id !== p.id) return x;
+        const y = Object.assign({}, x); y.phase = nx.to; y.phases = Object.assign({}, x.phases || {});
+        if (!y.phases.germ && x.start && nx.to !== "grow") y.phases.germ = x.start;
+        if (!y.phases.grow && x.sprout) y.phases.grow = x.sprout;
+        y.phases[nx.to] = d;
+        if (nx.to === "grow" && !x.sprout) y.sprout = d;
+        y.run = Object.assign({}, x.run || {}); if (w != null) y.run[nx.w] = w; if (verdict) y.run.verdict = verdict;
+        if (nx.to === "done") y.status = "done";
+        return y;
+      }), "phase " + nx.to);
+      const entry = {id:"l-" + Date.now(), run:p.id, at:new Date().toISOString(), date:d, source:"app", actions:[nx.btn], note:nt, photos:[], files:[]};
+      if (w != null) entry[nx.w] = w;
+      S.logs = sortLogs(await mutate("logs.json", list => [...(list || []), entry], "log " + d));
+      cache(); renderAll(); location.hash = "#today";
+    } catch(err){ msg.textContent = err.code === "auth" ? "The access key was rejected." : "Couldn't save. Check your connection and try again."; }
+  });
+  box.append(h("button",{type:"button", class:"btn ghost", onclick:e => { form.hidden = !form.hidden; e.currentTarget.textContent = form.hidden ? "Next: " + nx.btn : "Not yet"; }}, "Next: " + nx.btn), form);
+}
 function renderPlan(){
   const p = sel(), T = today();
+  renderPhase(p);
   const bar = $("#p-bar"), lg = $("#p-legend"); bar.replaceChildren(); lg.replaceChildren(); $("#p-upd").textContent = "";
   if (p && p.start){
     const total = daysBetween(p.start, p.endEst || T) || 1;
@@ -593,19 +771,23 @@ function renderLogForm(){
   const p = sel(); if (!p) return;
   const keep = {}; document.querySelectorAll("#l-fields input").forEach(i => keep[i.dataset.k] = i.value);
   const box = $("#l-fields"); box.replaceChildren();
-  for (const k of fieldsFor(p)){
-    const l = latest(k);
-    box.append(h("label",{class:"f"}, labelFor(p,k), h("input",{type:"text", inputmode:"decimal", autocomplete:"off", "data-k":k, placeholder: l ? String(l.v) : "–", value: keep[k] || null})));
+  const ph = phaseOf(p), fl = fieldsFor(p).slice();
+  if (ph === "grow" && S.actions.has("Light changed")) fl.push("lamp");
+  $("#l-hint").textContent = ph === "germ" ? "Tap the steps you did. A photo is plenty." : ph === "dry" ? "Weigh the same sample each time. Upload the drying sensor's CSV." : ph === "cure" ? "Jar RH from the hygrometer inside the jar." : ph === "done" ? "This run is closed. You can still add notes and photos." : "Fill what you measured, skip the rest. Grey numbers are your last values.";
+  for (const k of fl){
+    const l = latest(k), ph0 = k === "lamp" && !l && p.lamp != null ? {v: p.lamp} : l;
+    box.append(h("label",{class:"f"}, labelFor(p,k), h("input",{type:"text", inputmode:"decimal", autocomplete:"off", "data-k":k, placeholder: ph0 ? String(ph0.v) : "–", value: keep[k] || null})));
   }
   const chips = $("#chips"); chips.replaceChildren();
   for (const a of actionsFor(p)){
     chips.append(h("button",{type:"button", class:"chip", "aria-pressed": S.actions.has(a) ? "true" : "false", onclick:e => {
       const on = !S.actions.has(a); on ? S.actions.add(a) : S.actions.delete(a);
       e.currentTarget.setAttribute("aria-pressed", on ? "true" : "false");
+      if (a === "Light changed") renderLogForm();
     }}, a));
   }
   const indoor = (p.where || "indoor") === "indoor";
-  $("#l-sensordrop").hidden = !indoor;
+  $("#l-sensordrop").hidden = !indoor || ph === "germ" || ph === "done";
   if (!S.edit) $("#l-title").textContent = p.name;
 }
 const countLabel = (n, none) => n ? n + " selected" : none;
@@ -654,7 +836,7 @@ $("#logform").addEventListener("submit", async e => {
     const newFiles = files.length ? await uploadFiles(files, "sensor") : [];
     const wasEdit = !!S.edit;
     if (S.edit){
-      const id = S.edit.id, shown = fieldsFor(p);
+      const id = S.edit.id, shown = [...document.querySelectorAll("#l-fields input")].map(i => i.dataset.k);
       S.logs = sortLogs(await mutate("logs.json", list => (list||[]).map(x => {
         if (x.id !== id) return x;
         const y = Object.assign({}, x, {actions, note, edited:at, photos:[...(x.photos||[]), ...newPhotos], files:[...(x.files||[]), ...newFiles]});
@@ -692,7 +874,7 @@ function renderPlantChips(){
   chipGroup("#pl-system", Object.fromEntries(SYSTEMS_FOR[S.pf.medium].map(k => [k, SYSTEMS[k]])), "system");
   chipGroup("#pl-where", WHERE, "where");
   chipGroup("#pl-status", STATUS, "status");
-  $("#pl-sensorwrap").hidden = S.pf.where !== "indoor";
+  $("#pl-sensorwrap").hidden = S.pf.where !== "indoor"; $("#pl-lampwrap").hidden = S.pf.where !== "indoor";
 }
 function openPlantForm(editing){
   const p = editing ? sel() : null;
@@ -700,7 +882,7 @@ function openPlantForm(editing){
   S.pf = p ? {medium:p.medium||"hydro", system:p.system||"dwc", where:p.where||"indoor", status:p.status||"active"} : {medium:"living-soil", system:"hand", where:"indoor", status:"active"};
   $("#pl-title").textContent = p ? "Edit " + p.name : "New plant";
   $("#pl-name").value = p ? p.name : ""; $("#pl-start").value = p && p.start || ""; $("#pl-sprout").value = p && p.sprout || "";
-  $("#pl-sensor").value = p && p.sensor || "";
+  $("#pl-sensor").value = p && p.sensor || ""; $("#pl-lamp").value = p && p.lamp != null ? p.lamp : "";
   $("#pl-save").textContent = p ? "Save" : "Add plant"; $("#pl-statusmsg").textContent = "";
   renderPlantChips();
 }
@@ -709,7 +891,7 @@ $("#plantform").addEventListener("submit", async e => {
   e.preventDefault();
   const name = $("#pl-name").value.trim(), st = $("#pl-statusmsg");
   if (!name){ st.textContent = "Give the plant a name."; return; }
-  const fields = Object.assign({}, S.pf, {name, start:$("#pl-start").value || null, sprout:$("#pl-sprout").value || null, sensor:S.pf.where === "indoor" ? ($("#pl-sensor").value.trim() || null) : null});
+  const fields = Object.assign({}, S.pf, {name, start:$("#pl-start").value || null, sprout:$("#pl-sprout").value || null, sensor:S.pf.where === "indoor" ? ($("#pl-sensor").value.trim() || null) : null, lamp:S.pf.where === "indoor" ? num($("#pl-lamp").value) : null});
   $("#pl-save").disabled = true; st.textContent = "Saving…";
   try {
     const id = S.plantEdit || "p-" + Date.now();
