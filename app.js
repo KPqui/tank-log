@@ -371,14 +371,14 @@ async function loadWeather(p){
 
 /* ---------- sync ---------- */
 function setSync(text, err){ const b = $("#sync"); b.textContent = text; b.classList.toggle("err", !!err); }
-function cache(){ try { localStorage.setItem(CACHE_KEY, JSON.stringify({plants:S.plants, tasks:S.tasks, logs:S.logs, changes:S.changes, tips:S.tips||[]})); } catch(e){} }
+function cache(){ try { localStorage.setItem(CACHE_KEY, JSON.stringify({plants:S.plants, tasks:S.tasks, logs:S.logs, changes:S.changes, tips:S.tips||[], strains:S.strains||[]})); } catch(e){} }
 function sortLogs(list){ return (list||[]).slice().sort((a,b) => (b.at||"").localeCompare(a.at||"")); }
 async function loadAll(){
   if (!S.cfg || S.busy) return;
   S.busy = true; setSync("Syncing…");
   try {
-    let [plants, tasks, logs, changes, tips] = await Promise.all(["plants.json","tasks.json","logs.json","changes.json","tips.json"].map(p => getJSON(p).catch(() => ({data:null}))));
-    S.tips = (tips && tips.data) || [];
+    let [plants, tasks, logs, changes, tips, strainsRes] = await Promise.all(["plants.json","tasks.json","logs.json","changes.json","tips.json","strains.json"].map(p => getJSON(p).catch(() => ({data:null}))));
+    S.tips = (tips && tips.data) || []; S.strains = (strainsRes && strainsRes.data) || [];
     if (!plants.data){
       const run = (await getJSON("run.json")).data;
       if (run){
@@ -397,20 +397,21 @@ async function loadAll(){
 }
 function loadCache(){
   try { const c = JSON.parse(localStorage.getItem(CACHE_KEY) || "null");
-    if (c && c.plants){ Object.assign(S, {plants:c.plants, tasks:c.tasks||[], logs:sortLogs(c.logs), changes:c.changes||[], tips:c.tips||[]}); setSync("Saved copy"); } } catch(e){}
+    if (c && c.plants){ Object.assign(S, {plants:c.plants, tasks:c.tasks||[], logs:sortLogs(c.logs), changes:c.changes||[], tips:c.tips||[], strains:c.strains||[]}); setSync("Saved copy"); } } catch(e){}
 }
 
 /* ---------- routing ---------- */
-const VIEWS = ["today","log","plan","history","setup","plant"];
+const VIEWS = ["today","log","plan","history","setup","plant","strain"];
 function route(){
   let v = location.hash.slice(1);
   if (v === "plant-new" || v === "plant-edit"){ openPlantForm(v === "plant-edit"); v = "plant"; }
   if (!VIEWS.includes(v)) v = "today";
   if (!S.cfg && v !== "setup") v = "setup";
   for (const x of VIEWS) document.getElementById("v-"+x).hidden = x !== v;
-  $("#tabs").hidden = v === "setup" || v === "plant" || !S.plants.length;
+  $("#tabs").hidden = v === "setup" || v === "plant" || v === "strain" || !S.plants.length;
   document.querySelectorAll("nav a").forEach(a => a.dataset.v === v ? a.setAttribute("aria-current","page") : a.removeAttribute("aria-current"));
   if (v === "setup") renderSetup();
+  if (v === "strain") renderStrain();
   if (v === "log"){ if (!S.edit) lnow(); renderLogForm(); }
   window.scrollTo(0,0);
   decorateSoon();
@@ -451,7 +452,7 @@ function tile(k, v, st, fx){
 }
 function renderTabs(){
   const box = $("#tabs"); box.replaceChildren();
-  const v = location.hash.slice(1); box.hidden = v === "setup" || v.startsWith("plant") || !S.plants.length;
+  const v = location.hash.slice(1); box.hidden = v === "setup" || v.startsWith("plant") || v === "strain" || !S.plants.length;
   const order = {active:0, resting:1, done:2};
   const list = S.plants.slice().sort((a,b) => (order[a.status]||0) - (order[b.status]||0));
   for (const p of list){
@@ -552,7 +553,64 @@ function renderTip(p){
   box.append(h("div",{class:"head",style:"align-items:baseline"}, h("h2",null,label),
     h("button",{type:"button", class:"btn ghost sm", "aria-label":"Another one", onclick:() => { S.tipShift++; renderTip(sel()); decorateSoon(); }}, "Another")),
     h("p",{class:"tiptext"}, t.text),
-    t.src ? h("a",{class:"small muted", href:t.src.u, target:"_blank", rel:"noopener"}, "Source: " + t.src.t) : null);
+    t.src ? h("a",{class:"small muted", href:t.src.u, target:"_blank", rel:"noopener"}, "Source: " + t.src.t) : null,
+    t.kind === "strain" && strainOf(p) ? h("a",{class:"small", href:"#strain"}, "More about " + strainOf(p).name + " →") : null);
+}
+
+/* ---------- strain sheet ---------- */
+function strainOf(p){
+  if (!p || !p.strain || !S.strains) return null;
+  const n = p.strain.toLowerCase(), b = (p.breeder || "").toLowerCase();
+  return S.strains.find(x => x.name.toLowerCase() === n && (!b || !x.breeder || x.breeder.toLowerCase() === b)) || S.strains.find(x => x.name.toLowerCase() === n) || null;
+}
+const SPEC_ICONS = {
+  moon:'<path d="M14 4a7 7 0 1 0 6 10A6 6 0 0 1 14 4z"/>',
+  body:'<circle cx="12" cy="5" r="2.2"/><path d="M12 8v7M8 10l4 2 4-2M9.5 21l2.5-6 2.5 6"/>',
+  drop:'<path d="M12 3c3 4.5 5 7.5 5 10a5 5 0 0 1-10 0c0-2.5 2-5.5 5-10z"/>',
+  spark:'<path d="M12 3v5M12 16v5M3 12h5M16 12h5M6 6l3 3M15 15l3 3M6 18l3-3M15 9l3-3"/>'
+};
+function lineageNode(n, depth){
+  const kids = (n.parents || []).map(c => lineageNode(c, depth + 1));
+  return h("li",{class:"ln"}, h("span",{class:"lname"}, n.name), n.by ? h("span",{class:"lby"}, " · " + n.by) : null,
+    n.note ? h("div",{class:"lnote"}, n.note) : null, kids.length ? h("ul",null, kids) : null);
+}
+function renderStrain(){
+  const p = sel(), x = strainOf(p), box = $("#st-body"); box.replaceChildren();
+  if (!x){ $("#st-name").textContent = p && p.strain ? p.strain : "Strain"; $("#st-by").textContent = "";
+    box.append(h("p",{class:"empty"}, p && p.strain ? "No strain sheet yet. The nightly review will research one." : "Set the strain under the gear → Edit, and a strain sheet appears here.")); decorateSoon(); return; }
+  $("#st-name").textContent = x.name; $("#st-by").textContent = [x.breeder, x.country].filter(Boolean).join(" · ");
+  const facts = [["Type", x.type], ["Genetics", x.genetics], ["THC", x.thc], ["CBD", x.cbd], ["Bloom", x.flowering], ["Height", x.height], ["Yield", x.yield]].filter(f => f[1]);
+  box.append(h("dl",{class:"facts"}, facts.flatMap(f => [h("dt",null,f[0]), h("dd",{class:"num"},f[1])])));
+  if (x.special && x.special.length) box.append(h("div",{class:"chips", style:"gap:6px"}, x.special.map(t => h("span",{class:"tag"}, t))));
+  if (x.spectra && x.spectra.length){
+    const sp = h("div",{class:"panel fr","data-soak":"0.12"}, h("h2",null,"Character"));
+    for (const v of x.spectra) sp.append(h("div",{class:"spec-row"},
+      raw('<svg aria-hidden="true" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round">' + (SPEC_ICONS[v.i] || "") + '</svg>'),
+      h("span",{class:"sl"}, v.l),
+      h("span",{class:"track", role:"img", "aria-label": v.l + " to " + v.r + ": " + Math.round(v.v * 10) + " of 10"}, h("span",{class:"dot", style:"left:calc(" + (v.v * 100) + "% - 6px)"})),
+      h("span",{class:"sr"}, v.r)));
+    if (x.spectraNote) sp.append(h("p",{class:"sub", style:"margin:0"}, x.spectraNote));
+    box.append(sp);
+  }
+  if (x.lineage){
+    const lp = h("div",{class:"panel fr","data-soak":"0.12"}, h("h2",null,"Lineage"), h("ul",{class:"tree"}, lineageNode(x.lineage, 0)));
+    if (x.story) lp.append(h("details",null, h("summary",null,"The story"), h("p",{class:"prose"}, x.story)));
+    box.append(lp);
+  }
+  const tp = h("div",{class:"panel fr","data-soak":"0.12"}, h("h2",null,"Terpenes, taste, effect"));
+  for (const t of x.terpenes || []) tp.append(h("div",{class:"terp"}, h("b",null,t.name), h("span",null," · " + t.note), t.basis ? h("div",{class:"lnote"}, t.basis) : null));
+  if (x.terpNote) tp.append(h("p",{class:"sub", style:"margin:0"}, x.terpNote));
+  if (x.taste) tp.append(h("p",{style:"margin:0"}, h("span",{class:"muted"},"Taste "), x.taste.join(", ")));
+  if (x.effects) tp.append(h("p",{style:"margin:0"}, h("span",{class:"muted"},"Effect "), x.effects.join(", ")));
+  box.append(tp);
+  if (x.growNotes && x.growNotes.length) box.append(h("div",{class:"panel fr","data-soak":"0.12"}, h("h2",null,"Growing her"), h("ul",{class:"notes"}, x.growNotes.map(t => h("li",null,t)))));
+  if (x.bio && x.bio.length){
+    const d = h("details",{class:"panel fr bio","data-soak":"0.12"}, h("summary",null, h("h2",{style:"display:inline"},"Botany lesson")));
+    x.bio.forEach(t => d.append(h("p",{class:"prose"}, t)));
+    box.append(d);
+  }
+  if (x.sources && x.sources.length) box.append(h("details",null, h("summary",{class:"small muted"},"Sources"), h("ul",{class:"notes small"}, x.sources.map(s => h("li",null, h("a",{href:s.u, target:"_blank", rel:"noopener"}, s.t))))));
+  decorateSoon();
 }
 
 function renderToday(){
@@ -577,6 +635,7 @@ function renderToday(){
     document.createTextNode(growing ? (p.stageLabel || ["Seed","Sprout","Seedling","Growth","Flower","Drying"][si]) : PHASES[ph] + (psd && ph !== "done" ? " · since " + short(psd) : "")));
   const li = lampInfo(p);
   $("#t-medium").textContent = (MEDIA[p.medium]||MEDIA.hydro).label + " · " + (SYSTEMS[p.system] || "") + " · " + (WHERE[p.where] || "");
+  const sx = strainOf(p); $("#t-strain").replaceChildren(sx ? h("a",{href:"#strain"}, "About " + sx.name + " →") : document.createTextNode(""));
   $("#t-lamp").textContent = li ? "Lamp " + Math.round(li.lamp) + " cm above rim" + (li.gap != null ? " · " + Math.round(li.gap) + " cm to canopy" : "") : "";
 
   const todays = mine(S.logs).filter(l => l.date === T);

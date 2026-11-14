@@ -69,7 +69,12 @@ a{color:var(--ink)}
 .panel{padding:12px 16px;display:flex;flex-direction:column;gap:10px}
 .logged{display:flex;align-items:center;gap:9px;font-size:17px;text-decoration:none;color:var(--ink);min-height:30px}
 .logged .box{width:20px;height:20px;flex:none}
-.task{display:flex;gap:12px;align-items:flex-start;font-size:17px}.task .tb{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1}.task .tt{all:unset;cursor:pointer;display:flex;justify-content:space-between;gap:8px;min-height:28px;align-items:baseline}.task .tt:focus-visible{outline:2px solid var(--ink)}.chev{font:400 17px var(--fell);color:var(--muted)}.tiptext{margin:0;font:italic 17px/1.4 var(--fell)}
+.task{display:flex;gap:12px;align-items:flex-start;font-size:17px}.task .tb{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1}.task .tt{all:unset;cursor:pointer;display:flex;justify-content:space-between;gap:8px;min-height:28px;align-items:baseline}.task .tt:focus-visible{outline:2px solid var(--ink)}.chev{font:400 17px var(--fell);color:var(--muted)}.facts{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;margin:0;font-size:16px}.facts dt{font-family:var(--sc);letter-spacing:.05em;color:var(--muted);font-size:14px}.facts dd{margin:0}
+.spec-row{display:grid;grid-template-columns:20px 66px 1fr 72px;gap:8px;align-items:center;font:italic 15px var(--fell)}.spec-row .sr{text-align:right}.track{position:relative;height:12px;border-bottom:1.5px dotted var(--ink)}.track .dot{position:absolute;bottom:-6px;width:12px;height:12px;border-radius:50%;background:var(--ink)}
+.tree,.tree ul{list-style:none;margin:0;padding:0}.tree ul{margin-left:10px;padding-left:14px;border-left:1.2px solid var(--ink)}.tree li{padding:4px 0}.lname{font-family:var(--sc);letter-spacing:.04em}.lby{font:italic 14px var(--fell);color:var(--muted)}.lnote{font:italic 14px var(--fell);color:var(--muted)}
+.terp{font-size:16px}.notes{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:6px}.prose{margin:8px 0 0;font:17px/1.5 var(--serif)}.bio .prose:first-of-type::first-letter{font:400 44px/0.8 var(--fell);float:left;margin:6px 6px 0 0}
+details summary{cursor:pointer}
+.tiptext{margin:0;font:italic 17px/1.4 var(--fell)}
 .task input{width:22px;height:22px;margin:3px 0 0;accent-color:var(--ink);flex:none}
 .task b{font-weight:600}.task .d{color:var(--muted);font:italic 15px var(--fell)}
 .task.done b{text-decoration:line-through;color:var(--muted)}
@@ -147,6 +152,7 @@ legend{padding:0;margin-bottom:8px;font:400 15px var(--sc);letter-spacing:.04em}
 <span class="pill" id="t-stage">Loading</span>
 <span class="kicker" id="t-medium" style="letter-spacing:.06em"></span>
 <span class="sub" id="t-lamp" style="margin:0"></span>
+<span class="small" id="t-strain" style="font-family:var(--fell);font-style:italic"></span>
 <button class="sync" id="sync" type="button" title="Tap to refresh">–</button>
 </div>
 <svg class="spec" id="t-spec" role="img" aria-label="Drawing of the plant" viewBox="0 0 120 200"></svg>
@@ -204,6 +210,11 @@ legend{padding:0;margin-bottom:8px;font:400 15px var(--sc);letter-spacing:.04em}
 <div class="panel fr" data-soak="0.15"><h2>Why things moved</h2><div id="p-changes" style="display:flex;flex-direction:column;gap:8px"></div></div>
 </section>
 
+<section id="v-strain" aria-label="Strain" hidden>
+<div class="head" style="align-items:baseline"><h1 id="st-name">Strain</h1><a href="#today" class="small">Back</a></div>
+<p class="kicker" id="st-by" style="margin-top:-8px"></p>
+<div id="st-body" style="display:flex;flex-direction:column;gap:16px"></div>
+</section>
 <section id="v-history" aria-label="History" hidden>
 <h1>History</h1>
 <div id="h-list" style="display:flex;flex-direction:column;gap:10px"></div>
@@ -260,7 +271,7 @@ legend{padding:0;margin-bottom:8px;font:400 15px var(--sc);letter-spacing:.04em}
 <a href="#plan" data-v="plan"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/></svg>Plan</a>
 <a href="#history" data-v="history"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 6h14M5 12h14M5 18h9"/></svg>History</a>
 </nav>
-<script src="specimen.js?v=6"></script>
-<script src="app.js?v=6"></script>
+<script src="specimen.js?v=7"></script>
+<script src="app.js?v=7"></script>
 </body>
 </html>
