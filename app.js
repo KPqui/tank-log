@@ -626,9 +626,9 @@ function renderToday(){
   }
   $("#t-date").textContent += " · " + p.name;
   const ph = phaseOf(p), psd = phaseStart(p, ph);
-  $("#t-day").textContent = ph === "done" ? "Finished" : p.status === "resting" ? "Resting"
+  $("#t-day").textContent = ph === "done" ? "Finished"
     : ph === "dry" && psd ? "Dry day " + (daysBetween(psd, T) + 1) : ph === "cure" && psd ? "Cure day " + (daysBetween(psd, T) + 1)
-    : (p.start ? "Day " + daysBetween(p.start, T) : p.name);
+    : p.status === "resting" ? "Resting" : (p.start ? "Day " + daysBetween(p.start, T) : p.name);
   const growing = ph === "grow" || ph === "bloom";
   const si = ph === "germ" ? 0 : ph === "bloom" ? 4 : ph === "grow" ? Math.min(3, stageIndex(p)) : 5;
   const st = $("#t-stage"); st.replaceChildren(
