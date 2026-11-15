@@ -896,12 +896,47 @@ function drawSpecimen(p){
   if (!window.Specimen){ return; }
   const st = p ? specState(p) : {phase:"germ", seed:7};
   const key = JSON.stringify(st) + document.documentElement.dataset.theme;
-  if (spec._k === key) return; spec._k = key;
+  if (spec._k === key){ heroPhoto(p); return; } spec._k = key;
   spec.setAttribute("viewBox", Specimen.VB);
   spec.innerHTML = Specimen.draw(st);
   const words = {germ:"a seed", dry:"a plant hung to dry", cure:"buds curing in a jar", done:"a finished jar"};
+  heroPhoto(p);
   spec.setAttribute("aria-label", "Ink drawing of " + (words[st.phase] || (st.nodes ? "a plant with " + st.nodes + " leaf nodes" + (st.flowerDays ? ", " + Math.round(st.flowerDays / 7) + " weeks into bloom" : "") : "a sprout")));
 }
+/* tap the drawing to see the plant as it really is: the newest photo, cut out on the phone and turned into a
+   half photo, half ink specimen (stylize.js); the result is kept per plant so it's instant next time */
+S.photoOn = {}; S.styl = {};
+function latestPhoto(p){
+  const l = mine(S.logs).find(x => x.photos && x.photos.length);
+  if (l) return {path: l.photos[l.photos.length - 1], at: l.at};
+  return p && p.plate ? {path: p.plate, at: phaseStart(p, "dry"), plate: true} : null;
+}
+async function stylized(p, ph){
+  if (ph.plate) return mediaUrl(ph.path);                     // harvest plates are already made
+  const key = "flowerphile-styl-" + p.id;
+  if (S.styl[ph.path]) return S.styl[ph.path];
+  try { const c = JSON.parse(localStorage.getItem(key) || "null"); if (c && c.path === ph.path) return S.styl[ph.path] = c.url; } catch(e){}
+  const u = await mediaUrl(ph.path); if (!u) return null;
+  const im = await new Promise(r => { const i = new Image(); i.onload = () => r(i); i.onerror = () => r(null); i.src = u; });
+  let out = null;
+  try { const cv = im && window.Stylize ? Stylize.plant(im, {photo: 0.5}) : null; out = cv ? cv.toDataURL("image/webp", 0.85) : null; } catch(e){ out = null; }
+  if (!out) return S.styl[ph.path] = u;                       // no plant found: show the plain photo
+  try { localStorage.setItem(key, JSON.stringify({path: ph.path, url: out})); } catch(e){}
+  return S.styl[ph.path] = out;
+}
+function heroPhoto(p){
+  const btn = $("#t-specbtn"), img = $("#t-photo"), spec = $("#t-spec"), hint = $("#t-spechint");
+  const ph = p ? latestPhoto(p) : null, on = !!(ph && S.photoOn[p.id]);
+  btn.disabled = !ph;
+  btn.setAttribute("aria-label", !ph ? "Drawing of the plant" : on ? "Show the drawing" : "Show the plant from the latest photo");
+  btn.setAttribute("aria-pressed", on ? "true" : "false");
+  spec.toggleAttribute("hidden", on); img.hidden = !on;
+  hint.textContent = !ph ? "" : on ? (ph.plate ? "harvest" : "photo") + (ph.at ? " · " + short(ph.at.slice(0, 10)) : "") : "tap for the real one";
+  if (on && img._p !== ph.path){ img._p = ph.path; img.removeAttribute("src"); img.alt = "The plant from its latest photo, half photo, half ink";
+    hint.textContent = "drawing it…";
+    stylized(p, ph).then(u => { if (img._p === ph.path && u){ img.src = u; hint.textContent = (ph.plate ? "harvest" : "photo") + (ph.at ? " · " + short(ph.at.slice(0, 10)) : ""); } }); }
+}
+$("#t-specbtn").addEventListener("click", () => { const p = sel(); if (!p || !latestPhoto(p)) return; S.photoOn[p.id] = !S.photoOn[p.id]; heroPhoto(p); });
 function lampInfo(p){
   if ((p.where || "indoor") !== "indoor" || !["grow","bloom"].includes(phaseOf(p))) return null;
   const l = latest("lamp"), lamp = l ? l.v : num(p.lamp); if (lamp == null) return null;
