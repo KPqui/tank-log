@@ -505,8 +505,8 @@ function route(){
   if (!VIEWS.includes(v)) v = "today";
   if (!S.cfg && v !== "setup") v = "setup";
   for (const x of VIEWS) document.getElementById("v-"+x).hidden = x !== v;
-  $("#tabs").hidden = v === "setup" || v === "plant" || !S.plants.length;
-  document.querySelectorAll("nav a").forEach(a => a.dataset.v === (v === "library" ? "strain" : v) ? a.setAttribute("aria-current","page") : a.removeAttribute("aria-current"));
+  $("#tabs").hidden = v === "setup" || v === "plant" || v === "library" || !S.plants.length;
+  document.querySelectorAll("nav a").forEach(a => a.dataset.v === v ? a.setAttribute("aria-current","page") : a.removeAttribute("aria-current"));
   if (v === "setup") renderSetup();
   if (v === "strain") renderStrain();
   if (v === "library") renderLibrary();
@@ -538,7 +538,7 @@ function swipePlant(dir){
   let x0 = 0, y0 = 0, t0 = 0, ok = false;
   addEventListener("touchstart", e => {
     const t = e.touches[0], v = location.hash.slice(1) || "today";
-    ok = e.touches.length === 1 && t.clientX > 25 && t.clientX < innerWidth - 25 && !["setup","plant","plant-new","plant-edit"].includes(v) && !S.edit && !(v === "log" && S.logDirty) &&
+    ok = e.touches.length === 1 && t.clientX > 25 && t.clientX < innerWidth - 25 && !["setup","plant","plant-new","plant-edit","library"].includes(v) && !S.edit && !(v === "log" && S.logDirty) &&
       !e.target.closest('input,select,textarea,[contenteditable],.tabs,.rail,.viewer,[data-noswipe]');
     x0 = t.clientX; y0 = t.clientY; t0 = Date.now();
   }, {passive:true});
@@ -556,7 +556,7 @@ function swipePlant(dir){
 const norm = s => (s || "").toLowerCase().replace(/\bauto(flower)?\b/g, "").replace(/[^a-z0-9]+/g, " ").trim();
 const LIB_EFFECTS = ["relaxing", "sedating", "body", "uplifting", "energetic", "creative", "euphoric", "giggly", "cerebral"];
 const LIB_TERPS = ["Myrcene", "Limonene", "Caryophyllene", "Pinene", "Linalool", "Terpinolene"];
-S.libF = {q:"", scope:"all", kind:null, eff:new Set(), terp:new Set(), fast:null, sort:"name", like:null};
+S.libF = {q:"", scope:"stash", kind:null, eff:new Set(), terp:new Set(), fast:null, sort:"name", like:null};
 S.libOpen = null; S.viewSheet = null;
 function sheetById(id){ return (S.strains || []).find(x => x.id === id) || null; }
 function libEntries(){
@@ -599,8 +599,14 @@ function libChip(label, on, fn){ return h("button",{type:"button", class:"chip",
 function renderLibrary(){
   const box = $("#lib-body"); if (!box) return; box.replaceChildren();
   const F = S.libF, p = sel(), mine_ = entryFor(p);
-  $("#lib-back").textContent = "← " + (p && p.strain ? p.strain : "Plant");
-  const search = h("input",{type:"search", id:"lib-q", placeholder:"Search name or breeder", value:F.q, "aria-label":"Search strains", oninput:e => { F.q = e.target.value; renderLibList(); }});
+  if (S.libSheet && sheetById(S.libSheet)){
+    const back = h("a",{class:"small", href:"#library", onclick:ev => { ev.preventDefault(); S.libSheet = null; renderLibrary(); window.scrollTo(0, 0); }}, "← All strains"), sub = h("div",{style:"display:flex;flex-direction:column;gap:16px"});
+    box.append(back, sub); renderStrain({sheet: sheetById(S.libSheet), box: sub, name: $("#lib-title"), by: $("#lib-kicker")}); return;
+  }
+  $("#lib-title").textContent = "Strains"; $("#lib-kicker").textContent = "Your seeds, and any strain you want to know about";
+  box.append(h("div",{class:"chips seg", role:"tablist", style:"gap:6px"}, [["stash","My seeds"],["grown","Grown"],["all","Explore"]].map(([k, l]) =>
+    h("button",{type:"button", class:"chip", role:"tab", "aria-selected": F.scope === k ? "true" : "false", "aria-pressed": F.scope === k ? "true" : "false", onclick:() => { F.scope = k; renderLibrary(); }}, l))));
+  const search = h("input",{type:"search", id:"lib-q", placeholder: F.scope === "all" ? "Look up any strain" : "Search name or breeder", value:F.q, "aria-label":"Search strains", oninput:e => { F.q = e.target.value; renderLibList(); }});
   box.append(h("label",{class:"f"}, search));
   const presets = h("div",{class:"chips", style:"gap:6px"});
   if (mine_) presets.append(libChip("Like " + mine_.name, F.like === mine_.id, () => { F.like = F.like === mine_.id ? null : mine_.id; }));
@@ -609,8 +615,7 @@ function renderLibrary(){
   presets.append(libChip("More relaxing", F.eff.has("relaxing"), () => { F.eff.has("relaxing") ? F.eff.delete("relaxing") : F.eff.add("relaxing"); }));
   box.append(presets);
   const more = h("details",{class:"panel fr","data-soak":"0.12", open: S.libMore ? "" : null, ontoggle:e => { S.libMore = e.target.open; }}, h("summary",null,"Filters"),
-    h("div",{class:"sub", style:"margin:8px 0 4px"},"Show"), h("div",{class:"chips", style:"gap:6px"}, [["all","All"],["stash","My seeds"],["grown","Grown before"],["request","To research"]].map(([k, l]) => libChip(l, F.scope === k, () => { F.scope = k; }))),
-    h("div",{class:"sub", style:"margin:10px 0 4px"},"Type"), h("div",{class:"chips", style:"gap:6px"}, [["auto","Autoflower"],["photo","Photoperiod"]].map(([k, l]) => libChip(l, F.kind === k, () => { F.kind = F.kind === k ? null : k; }))),
+    h("div",{class:"sub", style:"margin:8px 0 4px"},"Type"), h("div",{class:"chips", style:"gap:6px"}, [["auto","Autoflower"],["photo","Photoperiod"]].map(([k, l]) => libChip(l, F.kind === k, () => { F.kind = F.kind === k ? null : k; }))),
     h("div",{class:"sub", style:"margin:10px 0 4px"},"Effect"), h("div",{class:"chips", style:"gap:6px"}, LIB_EFFECTS.map(k => libChip(k, F.eff.has(k), () => { F.eff.has(k) ? F.eff.delete(k) : F.eff.add(k); }))),
     h("div",{class:"sub", style:"margin:10px 0 4px"},"Terpene"), h("div",{class:"chips", style:"gap:6px"}, LIB_TERPS.map(k => libChip(k, F.terp.has(k), () => { F.terp.has(k) ? F.terp.delete(k) : F.terp.add(k); }))),
     h("div",{class:"sub", style:"margin:10px 0 4px"},"Sort"), h("div",{class:"chips", style:"gap:6px"}, [["name","Name"],["flower","Bloom time"],["thc","THC"]].map(([k, l]) => libChip(l, F.sort === k && !F.like, () => { F.sort = k; F.like = null; }))));
@@ -637,7 +642,7 @@ function renderLibList(){
       if (e.genetics) card.append(h("p",{style:"margin:4px 0 0"}, h("span",{class:"muted"},"Genetics "), e.genetics));
       if (e.grown.length) card.append(h("p",{class:"sub", style:"margin:6px 0 0"}, "Your runs: " + e.grown.map(p => p.name + (p.run && p.run.dry_g ? " · " + p.run.dry_g + " g dry" : "") + (p.run && p.run.verdict ? " · " + p.run.verdict : "")).join("; ")));
       const acts = h("div",{class:"chips", style:"gap:6px;margin-top:8px"});
-      if (e.sh) acts.append(h("button",{type:"button", class:"btn sm", onclick:() => { S.viewSheet = e.sh.id; location.hash = "strain"; }}, "Open full sheet"));
+      if (e.sh) acts.append(h("button",{type:"button", class:"btn sm", onclick:() => { S.libSheet = e.sh.id; renderLibrary(); window.scrollTo(0, 0); }}, "Open full sheet"));
       else acts.append(h("button",{type:"button", class:"btn ghost sm", disabled: e.request ? "" : null, onclick:() => requestResearch(e)}, e.request ? "Research requested" : "Request a sourced sheet"));
       acts.append(h("button",{type:"button", class:"btn ghost sm", onclick:() => { F.like = e.id; S.libOpen = null; renderLibrary(); window.scrollTo(0, 0); }}, "Find similar"));
       card.append(acts);
@@ -662,12 +667,12 @@ async function addToLibrary(name){
 /* bottom of a plant's strain sheet: a few close relatives from the library, and the way in */
 function similarPanel(p){
   const me = entryFor(p), lib = libEntries();
-  const panel = h("div",{class:"panel fr","data-soak":"0.12"}, h("h2",null,"Strain library"));
+  const panel = h("div",{class:"panel fr","data-soak":"0.12"}, h("h2",null,"Similar strains"));
   if (me && lib.length > 1){
     const top = lib.filter(e => e.id !== me.id).map(e => [similarity(me, e), e]).sort((a, b) => b[0] - a[0]).slice(0, 3).map(x => x[1]);
-    panel.append(h("p",{class:"sub", style:"margin:0 0 6px"}, "Closest in your library"), h("ul",{class:"notes"}, top.map(e => h("li",null, h("b",null,e.name), " · " + [e.breeder, e.flower ? e.flower + " d" : null].filter(Boolean).join(" · ")))));
+    panel.append( h("ul",{class:"notes"}, top.map(e => h("li",null, h("b",null,e.name), " · " + [e.breeder, e.flower ? e.flower + " d" : null].filter(Boolean).join(" · ")))));
   }
-  panel.append(h("a",{class:"btn ghost sm", href:"#library", style:"align-self:flex-start;margin-top:6px", onclick:() => { if (me) S.libF.like = null; }}, "Browse your seeds and strains →"));
+  panel.append(h("a",{class:"btn ghost sm", href:"#library", style:"align-self:flex-start;margin-top:6px", onclick:() => { S.libSheet = null; if (me){ S.libF.scope = "all"; S.libF.like = me.id; } }}, "Find similar strains →"));
   return panel;
 }
 
@@ -700,7 +705,7 @@ function tile(k, v, st, fx){
 }
 function renderTabs(){
   const box = $("#tabs"); box.replaceChildren();
-  const v = location.hash.slice(1); box.hidden = v === "setup" || v.startsWith("plant") || !S.plants.length;
+  const v = location.hash.slice(1); box.hidden = v === "setup" || v === "library" || v.startsWith("plant") || !S.plants.length;
   const list = plantOrder();
   for (const p of list){
     const n = dueCount(p);
@@ -839,12 +844,13 @@ function lineageNode(n, depth){
   return h("li",{class:"ln"}, h("span",{class:"lname"}, n.name), n.by ? h("span",{class:"lby"}, " · " + n.by) : null,
     n.note ? h("div",{class:"lnote"}, n.note) : null, kids.length ? h("ul",null, kids) : null);
 }
-function renderStrain(){
-  const p = sel(), other = S.viewSheet ? sheetById(S.viewSheet) : null, x = other || strainOf(p), box = $("#st-body"); box.replaceChildren();
-  if (other) box.append(h("a",{class:"small", href:"#strain", onclick:() => { S.viewSheet = null; renderStrain(); }}, "← Back to " + (p && p.strain ? p.strain : "your plant")));
-  if (!x){ $("#st-name").textContent = p && p.strain ? p.strain : "Strain"; $("#st-by").textContent = "";
+/* a strain sheet; by default the selected plant's, on the Plant tab. The Strains tab passes another sheet and its own box. */
+function renderStrain(T){
+  T = T || {};
+  const p = sel(), other = T.sheet || null, x = other || strainOf(p), box = T.box || $("#st-body"), nameEl = T.name || nameEl, byEl = T.by || byEl; box.replaceChildren();
+  if (!x){ nameEl.textContent = p && p.strain ? p.strain : "Strain"; byEl.textContent = "";
     box.append(h("p",{class:"empty"}, p && p.strain ? "No strain sheet yet. The nightly review will research one." : "Set the strain under the gear → Edit, and a strain sheet appears here."), similarPanel(p)); decorateSoon(); return; }
-  $("#st-name").textContent = x.name; $("#st-by").textContent = [x.breeder, x.country].filter(Boolean).join(" · ");
+  nameEl.textContent = x.name; byEl.textContent = [x.breeder, x.country].filter(Boolean).join(" · ");
   const facts = [["Type", x.type], ["Genetics", x.genetics], ["THC", x.thc], ["CBD", x.cbd], ["Bloom", x.flowering], ["Height", x.height], ["Yield", x.yield]].filter(f => f[1]);
   box.append(h("dl",{class:"facts"}, facts.flatMap(f => [h("dt",null,f[0]), h("dd",{class:"num"},f[1])])));
   if (x.special && x.special.length) box.append(h("div",{class:"chips", style:"gap:6px"}, x.special.map(t => h("span",{class:"tag"}, t))));

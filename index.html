@@ -127,8 +127,8 @@ ol.plan li .when.due{color:var(--ink);font-weight:700}
 .thumbs{display:flex;gap:8px;flex-wrap:wrap}
 .thumbs img{width:76px;height:76px;object-fit:cover;border-radius:6px;border:1.2px solid var(--ink);background:var(--paper-2)}
 .tag{font:small-caps 400 13px var(--sc);letter-spacing:.04em;border:1px solid var(--muted);border-radius:999px;padding:1px 9px;color:var(--ink)}
-nav,nav.fr{position:fixed;left:max(14px,env(safe-area-inset-left,0px));right:max(14px,env(safe-area-inset-right,0px));bottom:calc(10px + env(safe-area-inset-bottom,0px));height:62px;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));z-index:5;max-width:560px;margin:0 auto}
-nav a{min-height:52px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;font:small-caps 400 13px var(--sc);letter-spacing:.06em;color:var(--ink);opacity:.62;text-decoration:none}
+nav,nav.fr{position:fixed;left:max(14px,env(safe-area-inset-left,0px));right:max(14px,env(safe-area-inset-right,0px));bottom:calc(10px + env(safe-area-inset-bottom,0px));height:62px;display:grid;grid-template-columns:repeat(6,minmax(0,1fr));z-index:5;max-width:560px;margin:0 auto}
+nav a{min-height:52px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;font:small-caps 400 13px var(--sc);letter-spacing:0;color:var(--ink);opacity:.62;text-decoration:none}
 nav a[aria-current=page]{opacity:1}
 nav svg{width:20px;height:20px}
 .empty{color:var(--muted);font:italic 16px var(--fell);margin:0}
@@ -221,9 +221,8 @@ legend{padding:0;margin-bottom:8px;font:small-caps 400 15px var(--sc);letter-spa
 <div id="st-body" style="display:flex;flex-direction:column;gap:16px"></div>
 </section>
 <section id="v-library" aria-label="Strain library" hidden>
-<a class="small" id="lib-back" href="#strain">← Plant</a>
-<div class="head" style="align-items:baseline"><h1>Strain library</h1></div>
-<p class="kicker" style="margin-top:-8px">Your seeds, strains you grew, strains to look into</p>
+<div class="head" style="align-items:baseline"><h1 id="lib-title">Strains</h1></div>
+<p class="kicker" id="lib-kicker" style="margin-top:-8px"></p>
 <div id="lib-body" style="display:flex;flex-direction:column;gap:12px"></div>
 </section>
 <section id="v-history" aria-label="History" hidden>
@@ -281,10 +280,11 @@ legend{padding:0;margin-bottom:8px;font:small-caps 400 15px var(--sc);letter-spa
 <a href="#log" data-v="log"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Log</a>
 <a href="#plan" data-v="plan"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/></svg>Plan</a>
 <a href="#strain" data-v="strain"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21V9"/><path d="M12 13c-3-.5-6-3-6.5-7 4 .3 6.3 3 6.5 7z"/><path d="M12 11c2.5-.4 5.5-2.6 6-6.5-3.8.3-5.8 2.9-6 6.5z"/></svg>Plant</a>
+<a href="#library" data-v="library"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.5c3.6 2.6 5.5 6.2 5.5 9.6a5.5 5.5 0 0 1-11 0c0-3.4 1.9-7 5.5-9.6z"/><path d="M12 6.5c-1.3 3-1.3 8.6 0 12"/></svg>Strains</a>
 <a href="#history" data-v="history"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 6h14M5 12h14M5 18h9"/></svg>History</a>
 </nav>
-<script src="specimen.js?v=25"></script>
-<script src="bgart.js?v=25"></script>
-<script src="app.js?v=25"></script>
+<script src="specimen.js?v=26"></script>
+<script src="bgart.js?v=26"></script>
+<script src="app.js?v=26"></script>
 </body>
 </html>
