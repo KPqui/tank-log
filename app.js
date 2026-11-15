@@ -508,7 +508,7 @@ function route(){
   document.querySelectorAll("nav a").forEach(a => a.dataset.v === v ? a.setAttribute("aria-current","page") : a.removeAttribute("aria-current"));
   if (v === "setup") renderSetup();
   if (v === "strain") renderStrain();
-  if (v === "log"){ if (!S.edit) lnow(); renderLogForm(); }
+  if (v === "log"){ if (!S.edit) lnow(); renderLogForm(); S.logDirty = false; }
   window.scrollTo(0,0);
   decorateSoon();
 }
@@ -518,6 +518,35 @@ function selectPlant(id){
   S.sel = id; try { localStorage.setItem(SEL_KEY, id); } catch(e){}
   renderAll(); if (!$("#v-log").hidden) renderLogForm();
 }
+
+/* ---------- swipe between plants ----------
+   A horizontal swipe on the page switches to the next/previous plant (same order as the tabs) and keeps the
+   current section. Ignored near the screen edges (Android back gesture), on inputs and scrollable rows, and
+   in the plant form, settings and the log form while editing. */
+function plantOrder(){ const order = {active:0, resting:1, done:2}; return S.plants.slice().sort((a,b) => (order[a.status]||0) - (order[b.status]||0)); }
+function swipePlant(dir){
+  const list = plantOrder(); if (list.length < 2) return;
+  const i = Math.max(0, list.findIndex(p => p.id === S.sel)), next = list[(i + dir + list.length) % list.length];
+  const sec = document.querySelector("main > section:not([hidden])");
+  selectPlant(next.id); decorateSoon();
+  if (sec && !matchMedia("(prefers-reduced-motion: reduce)").matches)
+    sec.animate([{transform:`translateX(${dir * 48}px)`, opacity:0.2}, {transform:"none", opacity:1}], {duration:220, easing:"cubic-bezier(.2,.7,.3,1)"});
+}
+(() => {
+  let x0 = 0, y0 = 0, t0 = 0, ok = false;
+  addEventListener("touchstart", e => {
+    const t = e.touches[0], v = location.hash.slice(1) || "today";
+    ok = e.touches.length === 1 && t.clientX > 25 && t.clientX < innerWidth - 25 && !["setup","plant","plant-new","plant-edit"].includes(v) && !S.edit && !(v === "log" && S.logDirty) &&
+      !e.target.closest('input,select,textarea,[contenteditable],.tabs,.rail,.viewer,[data-noswipe]');
+    x0 = t.clientX; y0 = t.clientY; t0 = Date.now();
+  }, {passive:true});
+  addEventListener("input", e => { if (e.target.closest && e.target.closest("#v-log")) S.logDirty = true; }, true);
+  addEventListener("touchend", e => {
+    if (!ok) return; ok = false;
+    const t = e.changedTouches[0], dx = t.clientX - x0, dy = t.clientY - y0;
+    if (Math.abs(dx) > 60 && Math.abs(dx) > 1.8 * Math.abs(dy) && Date.now() - t0 < 700) swipePlant(dx < 0 ? 1 : -1);
+  }, {passive:true});
+})();
 
 /* ---------- derived ---------- */
 function latest(k){ for (const l of mine(S.logs)){ const n = num(l[k]); if (n != null) return {v:n, at:l.at}; } return null; }
@@ -549,8 +578,7 @@ function tile(k, v, st, fx){
 function renderTabs(){
   const box = $("#tabs"); box.replaceChildren();
   const v = location.hash.slice(1); box.hidden = v === "setup" || v.startsWith("plant") || !S.plants.length;
-  const order = {active:0, resting:1, done:2};
-  const list = S.plants.slice().sort((a,b) => (order[a.status]||0) - (order[b.status]||0));
+  const list = plantOrder();
   for (const p of list){
     const n = dueCount(p);
     box.append(h("button",{type:"button", class:"ptab"+(p.status !== "active" ? " rest" : ""), role:"tab", style:"--c:"+colorOf(p),
