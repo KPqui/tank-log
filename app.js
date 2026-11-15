@@ -530,10 +530,15 @@ function selectPlant(id){
 function plantOrder(){ const order = {active:0, resting:1, done:2}; return S.plants.slice().sort((a,b) => (order[a.status]||0) - (order[b.status]||0)); }
 function swipePlant(dir){
   const list = plantOrder(); if (list.length < 2) return;
-  const i = Math.max(0, list.findIndex(p => p.id === S.sel)), next = list[(i + dir + list.length) % list.length];
-  const sec = document.querySelector("main > section:not([hidden])");
+  const i = Math.max(0, list.findIndex(p => p.id === S.sel)), sec = document.querySelector("main > section:not([hidden])");
+  const calm = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (i + dir < 0 || i + dir >= list.length){            // hard stop at the first and last plant: a small bump, no wrap
+    if (sec && !calm) sec.animate([{transform:"none"}, {transform:`translateX(${-dir * 14}px)`}, {transform:"none"}], {duration:260, easing:"ease-out"});
+    return;
+  }
+  const next = list[i + dir];
   S.viewSheet = null; selectPlant(next.id); decorateSoon();
-  if (sec && !matchMedia("(prefers-reduced-motion: reduce)").matches)
+  if (sec && !calm)
     sec.animate([{transform:`translateX(${dir * 48}px)`, opacity:0.2}, {transform:"none", opacity:1}], {duration:220, easing:"cubic-bezier(.2,.7,.3,1)"});
 }
 (() => {
