@@ -636,7 +636,8 @@ function coreTiles(p){
 /* ---------- tip of the day: alternates sourced facts and forum lore; strain notes when the plant has them ---------- */
 S.tipShift = 0;
 function tipFor(p){
-  const all = (S.tips || []).filter(t => !t.plant || (p && t.plant === p.id) || (p && t.strain && p.strain && t.strain.toLowerCase() === p.strain.toLowerCase()));
+  // Today only gets general facts and lore (or ones tied to this plant); strain trivia lives on that strain's own sheet
+  const all = (S.tips || []).filter(t => t.kind !== "strain" && !t.strain && (!t.plant || (p && t.plant === p.id)));
   if (!all.length) return null;
   const d = Math.floor(Date.now() / 864e5) + S.tipShift, want = d % 2 ? "lore" : "fact";
   const pool = all.filter(t => (t.kind === "strain" ? "fact" : t.kind) === want); const list = pool.length ? pool : all;
@@ -650,7 +651,7 @@ function renderTip(p){
     h("button",{type:"button", class:"btn ghost sm", "aria-label":"Another one", onclick:() => { S.tipShift++; renderTip(sel()); decorateSoon(); }}, "Another")),
     h("p",{class:"tiptext"}, t.text),
     t.src ? h("a",{class:"small muted", href:t.src.u, target:"_blank", rel:"noopener"}, "Source: " + t.src.t) : null,
-    t.kind === "strain" && strainOf(p) ? h("a",{class:"small", href:"#strain"}, "More about " + strainOf(p).name + " →") : null];
+    null];
   box.append(...parts.filter(Boolean));
 }
 
@@ -706,6 +707,9 @@ function renderStrain(){
     x.bio.forEach(t => d.append(h("p",{class:"prose"}, t)));
     box.append(h("div",{class:"panel fr","data-soak":"0.12"}, d));
   }
+  const triv = (S.tips || []).filter(t => t.strain && t.strain.toLowerCase() === x.name.toLowerCase());
+  if (triv.length) box.append(h("div",{class:"panel fr","data-soak":"0.12"}, h("h2",null,"Did you know"),
+    h("ul",{class:"notes"}, triv.map(t => h("li",null, t.text, t.src ? h("a",{class:"small muted", href:t.src.u, target:"_blank", rel:"noopener", style:"display:block"}, "Source: " + t.src.t) : null)))));
   if (x.sources && x.sources.length) box.append(h("details",null, h("summary",{class:"small muted"},"Sources"), h("ul",{class:"notes small"}, x.sources.map(s => h("li",null, h("a",{href:s.u, target:"_blank", rel:"noopener"}, s.t))))));
   decorateSoon();
 }
