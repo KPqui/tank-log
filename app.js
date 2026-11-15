@@ -932,7 +932,7 @@ function lineageNode(n, depth){
 /* a strain sheet; by default the selected plant's, on the Plant tab. The Strains tab passes another sheet and its own box. */
 function renderStrain(T){
   T = T || {};
-  const p = sel(), other = T.sheet || null, x = other || strainOf(p), box = T.box || $("#st-body"), nameEl = T.name || nameEl, byEl = T.by || byEl; box.replaceChildren();
+  const p = sel(), other = T.sheet || null, x = other || strainOf(p), box = T.box || $("#st-body"), nameEl = T.name || $("#st-name"), byEl = T.by || $("#st-by"); box.replaceChildren();
   if (!x){ nameEl.textContent = p && p.strain ? p.strain : "Strain"; byEl.textContent = "";
     box.append(h("p",{class:"empty"}, p && p.strain ? "No strain sheet yet. The nightly review will research one." : "Set the strain under the gear → Edit, and a strain sheet appears here."), similarPanel(p)); decorateSoon(); return; }
   nameEl.textContent = x.name; byEl.textContent = [x.breeder, x.country].filter(Boolean).join(" · ");
