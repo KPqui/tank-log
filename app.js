@@ -913,13 +913,13 @@ function latestPhoto(p){
 }
 async function stylized(p, ph){
   if (ph.plate) return mediaUrl(ph.path);                     // harvest plates are already made
-  const key = "flowerphile-styl-" + p.id;
+  const key = "flowerphile-styl2-" + p.id;
   if (S.styl[ph.path]) return S.styl[ph.path];
   try { const c = JSON.parse(localStorage.getItem(key) || "null"); if (c && c.path === ph.path) return S.styl[ph.path] = c.url; } catch(e){}
   const u = await mediaUrl(ph.path); if (!u) return null;
   const im = await new Promise(r => { const i = new Image(); i.onload = () => r(i); i.onerror = () => r(null); i.src = u; });
   let out = null;
-  try { const cv = im && window.Stylize ? Stylize.plant(im, {photo: 0.5}) : null; out = cv ? cv.toDataURL("image/webp", 0.85) : null; } catch(e){ out = null; }
+  try { const cv = im && window.Stylize ? Stylize.plant(im, {photo: 0.75}) : null; out = cv ? cv.toDataURL("image/webp", 0.85) : null; } catch(e){ out = null; }
   if (!out) return S.styl[ph.path] = u;                       // no plant found: show the plain photo
   try { localStorage.setItem(key, JSON.stringify({path: ph.path, url: out})); } catch(e){}
   return S.styl[ph.path] = out;

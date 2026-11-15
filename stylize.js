@@ -74,8 +74,9 @@
     const g = c.getContext("2d", {willReadFrequently: true}); g.drawImage(img, 0, 0, w, h);
     const px = g.getImageData(0, 0, w, h).data, N = w * h;
 
-    // 1. plant mask
-    let m = new Uint8Array(N);
+    // 1. plant mask, with hysteresis: clearly green pixels seed it, faintly green ones (the pale stem under the
+    //    lamp, leaf edges in glare) join only where they touch the seeded plant
+    const strong = new Uint8Array(N), weak = new Uint8Array(N);
     for (let i = 0; i < N; i++){
       const r = px[i * 4] / 255, gg = px[i * 4 + 1] / 255, b = px[i * 4 + 2] / 255;
       const mx = Math.max(r, gg, b), mn = Math.min(r, gg, b), s = mx ? (mx - mn) / mx : 0;
@@ -83,14 +84,53 @@
       if (mx !== mn){ if (mx === r) hue = 60 * (((gg - b) / (mx - mn)) % 6); else if (mx === gg) hue = 60 * ((b - r) / (mx - mn) + 2); else hue = 60 * ((r - gg) / (mx - mn) + 4); }
       if (hue < 0) hue += 360;
       const exg = 2 * gg - r - b;
-      m[i] = (exg > 0.07 && hue > 55 && hue < 170 && s > 0.16 && mx > 0.1) ? 1 : 0;
+      strong[i] = (exg > 0.07 && hue > 55 && hue < 170 && s > 0.16 && mx > 0.1) ? 1 : 0;
+      weak[i] = strong[i] || (exg > 0.025 && hue > 45 && hue < 180 && s > 0.07 && mx > 0.08) ? 1 : 0;
     }
-    m = morph(morph(m, w, h, 3, true), w, h, 3, false);           // close small gaps
+    let m = morph(morph(strong, w, h, 3, true), w, h, 3, false);           // close small gaps
+    // main plant from the strong pixels alone
+    let cc0 = components(m, w, h), big0 = 0;
+    for (let i = 1; i < cc0.sizes.length; i++) if (cc0.sizes[i] > cc0.sizes[big0]) big0 = i;
+    if (!big0 || cc0.sizes[big0] < N * 0.004) return null;                // no plant found
+    let sx0 = w, sy0 = h, sx1 = 0, sy1 = 0;
+    for (let i = 0; i < N; i++) if (cc0.lab[i] === big0){ const x = i % w, y = (i / w) | 0; if (x < sx0) sx0 = x; if (x > sx1) sx1 = x; if (y < sy0) sy0 = y; if (y > sy1) sy1 = y; }
+    // find the stem: the column under the leaves with the most faintly-green pixels
+    const yA = Math.round(sy1 - (sy1 - sy0) * 0.15), yB = Math.min(h - 1, Math.round(sy1 + (sy1 - sy0) * 0.6));
+    const colc = new Float32Array(w);
+    for (let x = Math.round(sx0 + (sx1 - sx0) * 0.2); x <= sx1 - (sx1 - sx0) * 0.2; x++){ let c = 0; for (let y = yA; y <= yB; y++) c += weak[y * w + x]; colc[x] = c; }
+    let cx = (sx0 + sx1) / 2, bestc = -1;
+    for (let x = 2; x < w - 2; x++){ const c = colc[x - 2] + colc[x - 1] + colc[x] + colc[x + 1] + colc[x + 2]; if (c > bestc){ bestc = c; cx = x; } }
+    const half = Math.max(5, (sx1 - sx0) * 0.03), yEnd = Math.min(h - 1, sy1 + (sy1 - sy0) * 0.8);
+    // faint pixels join only next to the plant (leaf edges) or inside a narrow corridor under it (the stem)
+    const near = morph(m, w, h, 3, true);
+    for (let i = 0; i < N; i++){
+      if (!weak[i] || m[i]) continue;
+      const x = i % w, y = (i / w) | 0;
+      if (near[i] || (Math.abs(x - cx) <= half && y >= (sy0 + sy1) / 2 && y <= yEnd)) m[i] = 1;
+    }
+    // bridge the stem where glare or the pebbles broke it: per row, the centre and width of the faint-green
+    // pixels in the corridor; gaps up to ~4 % of the image height are filled by interpolation
+    { const rows = []; let lastY = -1;
+      for (let y = Math.round((sy0 + sy1) / 2); y <= yEnd; y++){
+        let a0 = -1, a1 = -1; for (let x = Math.round(cx - half); x <= cx + half; x++){ if (x < 0 || x >= w) continue; if (weak[y * w + x]){ if (a0 < 0) a0 = x; a1 = x; } }
+        if (a0 >= 0){ if (lastY >= 0 && y - lastY > h * 0.04) break; rows.push([y, (a0 + a1) / 2, a1 - a0 + 1]); lastY = y; }
+      }
+      if (rows.length > 6){
+        const ws = rows.map(r => r[2]).sort((a, b) => a - b), sw = Math.max(2, ws[ws.length >> 1] / 2);
+        for (let k = 1; k < rows.length; k++){
+          const [ya, xa] = rows[k - 1], [yb, xb] = rows[k];
+          for (let y = ya; y <= yb; y++){ const xc = xa + (xb - xa) * (y - ya) / Math.max(1, yb - ya);
+            for (let x = Math.round(xc - sw); x <= xc + sw; x++) if (x >= 0 && x < w) m[y * w + x] = 1; }
+        }
+      }
+    }
+    m = morph(morph(m, w, h, 1, true), w, h, 1, false);
     const {lab, sizes} = components(m, w, h);
     let big = 0; for (let i = 1; i < sizes.length; i++) if (sizes[i] > sizes[big]) big = i;
-    if (!big || sizes[big] < N * 0.004) return null;                // no plant found
-    const keep = new Uint8Array(sizes.length);
+    const keep = new Uint8Array(sizes.length); keep[big] = 1;
     for (let i = 1; i < sizes.length; i++) if (sizes[i] > sizes[big] * 0.04) keep[i] = 1;
+    // stem pieces broken by glare: keep corridor fragments too
+    for (let i = 0; i < N; i++) if (m[i] && !keep[lab[i]]){ const x = i % w, y = (i / w) | 0; if (Math.abs(x - cx) <= half && y > sy1 - 2 && y <= yEnd) keep[lab[i]] = 1; }
     let x0 = w, y0 = h, x1 = 0, y1 = 0;
     for (let i = 0; i < N; i++){ m[i] = keep[lab[i]]; if (m[i]){ const x = i % w, y = (i / w) | 0; if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; } }
     // only the main cluster: drop kept pieces far from the biggest one's box
@@ -120,7 +160,7 @@
     const og = out.getContext("2d"), od = og.createImageData(ow, oh), o = od.data;
     for (let y = cy0; y <= cy1; y++) for (let x = cx0; x <= cx1; x++){
       const i = y * w + x, j = ((y - cy0) * ow + (x - cx0)) * 4;
-      const fade = Math.min(1, Math.max(0, (y1 - y) / (0.12 * H)));
+      const fade = Math.min(1, Math.max(0, (y1 - y) / (0.05 * H)));
       const a = Math.min(1, mf[i]) * fade;
       if (a <= 0.01){ o[j + 3] = 0; continue; }
       const t = tone(gray[i]), sat = 0.78;
