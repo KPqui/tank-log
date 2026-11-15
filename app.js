@@ -498,9 +498,10 @@ function loadCache(){
 }
 
 /* ---------- routing ---------- */
-const VIEWS = ["today","log","plan","history","setup","plant","strain","library"];
+const VIEWS = ["today","log","plan","setup","plant","strain","library"];
 function route(){
   let v = location.hash.slice(1);
+  if (v === "history"){ S.planSeg = "book"; v = "plan"; }   // the log book now lives inside Plan
   if (v === "plant-new" || v === "plant-edit"){ openPlantForm(v === "plant-edit"); v = "plant"; }
   if (!VIEWS.includes(v)) v = "today";
   if (!S.cfg && v !== "setup") v = "setup";
@@ -510,6 +511,7 @@ function route(){
   if (v === "setup") renderSetup();
   if (v === "strain") renderStrain();
   if (v === "library") renderLibrary();
+  if (v === "plan") planSeg();
   if (v === "log"){ if (!S.edit) lnow(); renderLogForm(); S.logDirty = false; }
   window.scrollTo(0,0);
   decorateSoon();
@@ -556,7 +558,7 @@ function swipePlant(dir){
 const norm = s => (s || "").toLowerCase().replace(/\bauto(flower)?\b/g, "").replace(/[^a-z0-9]+/g, " ").trim();
 const LIB_EFFECTS = ["relaxing", "sedating", "body", "uplifting", "energetic", "creative", "euphoric", "giggly", "cerebral"];
 const LIB_TERPS = ["Myrcene", "Limonene", "Caryophyllene", "Pinene", "Linalool", "Terpinolene"];
-S.libF = {q:"", scope:"stash", kind:null, eff:new Set(), terp:new Set(), fast:null, sort:"name", like:null};
+S.libF = {q:"", scope:"stash", kind:null, eff:new Set(), terp:new Set(), fast:null, sort:"name", dir:1, like:null};
 S.libOpen = null; S.viewSheet = null;
 function sheetById(id){ return (S.strains || []).find(x => x.id === id) || null; }
 function libEntries(){
@@ -567,6 +569,8 @@ function libEntries(){
       terps: e.terps || (sh && sh.terpenes ? sh.terpenes.map(t => t.name.split(/[ (]/)[0]) : []),
       effects: e.effects || (sh && sh.effects) || [],
       taste: e.taste || (sh && sh.taste) || [],
+      thcMax: e.thcMax || (sh && sh.thc && +(String(sh.thc).match(/\d+(\.\d+)?/) || [])[0]) || null,
+      flower: e.flower || (sh && sh.flowering && +(String(sh.flowering).match(/~(\d+) days\)/) || [])[1]) || null,
       grown, sh});
   });
 }
@@ -585,13 +589,11 @@ function libFiltered(){
   const F = S.libF, q = norm(F.q);
   let L = libEntries().filter(e =>
     (!q || norm(e.name + " " + e.breeder).includes(q)) &&
-    (F.scope === "all" || (F.scope === "stash" ? e.inStash && e.seeds !== 0 : F.scope === "grown" ? e.grown.length : e.request)) &&
+    (F.scope === "all" ? (F.like || !(e.inStash && e.seeds !== 0) && !e.grown.length) : F.scope === "stash" ? e.inStash && e.seeds !== 0 : F.scope === "grown" ? e.grown.length : e.request) &&
     (!F.kind || e.kind === F.kind) &&
     [...F.eff].every(k => effHas(e, k)) && [...F.terp].every(t => e.terps.includes(t)) &&
     (!F.fast || (e.flower && e.flower <= F.fast)));
   if (F.like){ const ref = libEntries().find(e => e.id === F.like); if (ref) L = L.filter(e => e.id !== ref.id).map(e => [similarity(ref, e), e]).sort((a, b) => b[0] - a[0]).map(x => x[1]); }
-  else if (F.sort === "flower") L.sort((a, b) => (a.flower || 999) - (b.flower || 999));
-  else if (F.sort === "thc") L.sort((a, b) => (b.thcMax || 0) - (a.thcMax || 0));
   else L.sort((a, b) => a.name.localeCompare(b.name));
   return L;
 }
@@ -617,42 +619,74 @@ function renderLibrary(){
   const more = h("details",{class:"panel fr","data-soak":"0.12", open: S.libMore ? "" : null, ontoggle:e => { S.libMore = e.target.open; }}, h("summary",null,"Filters"),
     h("div",{class:"sub", style:"margin:8px 0 4px"},"Type"), h("div",{class:"chips", style:"gap:6px"}, [["auto","Autoflower"],["photo","Photoperiod"]].map(([k, l]) => libChip(l, F.kind === k, () => { F.kind = F.kind === k ? null : k; }))),
     h("div",{class:"sub", style:"margin:10px 0 4px"},"Effect"), h("div",{class:"chips", style:"gap:6px"}, LIB_EFFECTS.map(k => libChip(k, F.eff.has(k), () => { F.eff.has(k) ? F.eff.delete(k) : F.eff.add(k); }))),
-    h("div",{class:"sub", style:"margin:10px 0 4px"},"Terpene"), h("div",{class:"chips", style:"gap:6px"}, LIB_TERPS.map(k => libChip(k, F.terp.has(k), () => { F.terp.has(k) ? F.terp.delete(k) : F.terp.add(k); }))),
-    h("div",{class:"sub", style:"margin:10px 0 4px"},"Sort"), h("div",{class:"chips", style:"gap:6px"}, [["name","Name"],["flower","Bloom time"],["thc","THC"]].map(([k, l]) => libChip(l, F.sort === k && !F.like, () => { F.sort = k; F.like = null; }))));
+    h("div",{class:"sub", style:"margin:10px 0 4px"},"Terpene"), h("div",{class:"chips", style:"gap:6px"}, LIB_TERPS.map(k => libChip(k, F.terp.has(k), () => { F.terp.has(k) ? F.terp.delete(k) : F.terp.add(k); }))));
   box.append(more);
   box.append(h("div",{id:"lib-list", style:"display:flex;flex-direction:column;gap:10px"}));
   renderLibList(); decorateSoon();
 }
+/* how calm or lifting a strain reads: the sheet's own spectrum if there is one, else a rough read of the effect words */
+function feelOf(e){
+  if (e.sh && e.sh.spectra && e.sh.spectra[0]) return e.sh.spectra[0].v;
+  const w = e.effects.join(" ").toLowerCase(); if (!w) return null;
+  const up = (w.match(/energ|uplift|creativ|cerebral|giggl|function|clear|happy|focus/g) || []).length;
+  const down = (w.match(/relax|sedat|couch|body|calm|heavy|sleep|insomnia|warming/g) || []).length;
+  return 0.5 + 0.5 * Math.tanh((up - down) / 2);
+}
+function feelBar(v){
+  if (v == null) return h("span",{class:"muted"},"–");
+  return h("span",{class:"mini", role:"img", "aria-label": v < 0.4 ? "calming" : v > 0.6 ? "lifting" : "balanced"}, h("span",{class:"dot", style:"left:calc(" + Math.round(v * 100) + "% - 4px)"}));
+}
 function renderLibList(){
   const list = $("#lib-list"); if (!list) return; list.replaceChildren();
-  const L = libFiltered(), F = S.libF;
-  list.append(h("p",{class:"sub", style:"margin:0"}, L.length + (L.length === 1 ? " strain" : " strains") + (F.like ? " · most similar first" : "")));
-  for (const e of L){
-    const open = S.libOpen === e.id;
-    const meta = [e.kind === "auto" ? "Auto" : e.kind === "photo" ? "Photo" : null, e.flower ? e.flower + " d bloom" : null, e.thc ? "THC " + e.thc : null].filter(Boolean).join(" · ");
-    const badges = [e.seeds ? e.seeds + (e.seeds === 1 ? " seed" : " seeds") : e.inStash ? "in stash" : null, e.grown.length ? "grown" : null, e.request ? "to research" : null].filter(Boolean);
-    const card = h("div",{class:"panel fr","data-soak":"0.12", style:"padding:12px 14px"},
-      h("button",{type:"button", class:"tt", "aria-expanded": open ? "true" : "false", style:"width:100%;text-align:left", onclick:() => { S.libOpen = open ? null : e.id; renderLibList(); decorateSoon(); }},
-        h("b",{style:"font-size:19px"}, e.name), h("span",{class:"chev", "aria-hidden":"true"}, open ? "–" : "+")),
-      h("div",{class:"sub", style:"margin:2px 0 0"}, [e.breeder, meta].filter(Boolean).join(" · ")),
-      badges.length || e.terps.length ? h("div",{class:"chips", style:"gap:5px;margin-top:6px"}, badges.map(b => h("span",{class:"tag", style:"border-color:var(--ink)"}, b)).concat(e.terps.slice(0, 3).map(t => h("span",{class:"tag"}, t)))) : null);
-    if (open){
-      if (e.effects.length) card.append(h("p",{style:"margin:8px 0 0"}, h("span",{class:"muted"},"Effect "), e.effects.join(", ")));
-      if (e.taste.length) card.append(h("p",{style:"margin:4px 0 0"}, h("span",{class:"muted"},"Taste "), e.taste.join(", ")));
-      if (e.genetics) card.append(h("p",{style:"margin:4px 0 0"}, h("span",{class:"muted"},"Genetics "), e.genetics));
-      if (e.grown.length) card.append(h("p",{class:"sub", style:"margin:6px 0 0"}, "Your runs: " + e.grown.map(p => p.name + (p.run && p.run.dry_g ? " · " + p.run.dry_g + " g dry" : "") + (p.run && p.run.verdict ? " · " + p.run.verdict : "")).join("; ")));
-      const acts = h("div",{class:"chips", style:"gap:6px;margin-top:8px"});
-      if (e.sh) acts.append(h("button",{type:"button", class:"btn sm", onclick:() => { S.libSheet = e.sh.id; renderLibrary(); window.scrollTo(0, 0); }}, "Open full sheet"));
-      else acts.append(h("button",{type:"button", class:"btn ghost sm", disabled: e.request ? "" : null, onclick:() => requestResearch(e)}, e.request ? "Research requested" : "Request a sourced sheet"));
-      acts.append(h("button",{type:"button", class:"btn ghost sm", onclick:() => { F.like = e.id; S.libOpen = null; renderLibrary(); window.scrollTo(0, 0); }}, "Find similar"));
-      card.append(acts);
-      card.append(h("p",{class:"sub", style:"margin:6px 0 0;font-size:13px"}, e.sh ? "Sourced sheet" : "From " + (e.src || "your list") + "."));
-    }
-    list.append(card);
+  const F = S.libF;
+  let L = libFiltered();
+  if (!F.like){
+    const key = {flower: e => e.flower || 999, thc: e => -(e.thcMax || 0), feel: e => feelOf(e) == null ? 9 : feelOf(e), seeds: e => -(e.seeds || 0)}[F.sort];
+    if (key){ L = L.slice().sort((a, b) => key(a) - key(b)); if (F.dir < 0) L.reverse(); }
+    else if (F.dir < 0) L = L.slice().reverse();
   }
-  if (F.q.trim() && !L.some(e => norm(e.name) === norm(F.q)))
-    list.append(h("div",{class:"panel fr","data-soak":"0.12"}, h("p",{style:"margin:0"}, "Not in your library yet."),
-      h("button",{type:"button", class:"btn sm", style:"margin-top:8px", onclick:() => addToLibrary(F.q.trim())}, "Add “" + F.q.trim() + "” for research")));
+  if (F.scope === "all" && !L.length){
+    list.append(h("div",{class:"panel fr","data-soak":"0.12"}, h("h2",null,"Look something up"),
+      h("p",{style:"margin:0"}, "Explore is for strains you don't have yet: something a friend recommended, a pharmacy option, or a candidate for the next run. Type a name above; anything not here yet gets a sourced sheet researched for you."),
+      h("p",{class:"sub", style:"margin:8px 0 0"}, "Strains you looked up or asked about collect here.")));
+  }
+  if (L.length){
+    list.append(h("p",{class:"sub", style:"margin:0"}, L.length + (L.length === 1 ? " strain" : " strains") + (F.like ? " · most similar first" : "")));
+    const th = (k, label, cls) => h("th",{class:cls || "", scope:"col"}, k ? h("button",{type:"button", class:"sortb" + (F.sort === k && !F.like ? " on" : ""), onclick:() => { if (F.sort === k){ F.dir = -(F.dir || 1); } else { F.sort = k; F.dir = 1; } F.like = null; renderLibList(); }}, label, F.sort === k && !F.like ? (F.dir < 0 ? " ↑" : " ↓") : "") : label);
+    const tbl = h("table",{class:"lib"}, h("thead",null, h("tr",null, th("name","Strain"), th("flower","Bloom","n"), th("thc","THC","n"), th("feel","Feel","c"), F.scope === "stash" ? th("seeds","#","n") : th(null,"","n"))));
+    const tb = h("tbody");
+    for (const e of L){
+      const open = S.libOpen === e.id, fv = feelOf(e);
+      const tag = e.grown.length && F.scope !== "grown" ? " ✓" : e.request ? " ?" : "";
+      tb.append(h("tr",{class:"lrow" + (open ? " open" : ""), tabindex:"0", "aria-expanded": open ? "true" : "false", onclick:() => { S.libOpen = open ? null : e.id; renderLibList(); },
+          onkeydown:ev => { if (ev.key === "Enter" || ev.key === " "){ ev.preventDefault(); S.libOpen = open ? null : e.id; renderLibList(); } }},
+        h("td",null, h("b",null, e.name), tag ? h("span",{class:"muted", title: tag.includes("✓") ? "grown before" : "research requested"}, tag) : null,
+          h("div",{class:"by"}, [e.breeder, e.kind === "auto" ? "auto" : e.kind === "photo" ? "photo" : null].filter(Boolean).join(" · "))),
+        h("td",{class:"n"}, e.flower ? e.flower + "d" : "–"),
+        h("td",{class:"n"}, e.thcMax ? Math.round(e.thcMax) + "%" : "–"),
+        h("td",{class:"c"}, feelBar(fv)),
+        h("td",{class:"n"}, F.scope === "stash" ? String(e.seeds || "–") : "")));
+      if (open){
+        const d = h("div",{class:"libdet"});
+        if (e.effects.length) d.append(h("p",null, h("span",{class:"muted"},"Effect "), e.effects.join(", ")));
+        if (e.taste.length) d.append(h("p",null, h("span",{class:"muted"},"Taste "), e.taste.join(", ")));
+        if (e.terps.length) d.append(h("p",null, h("span",{class:"muted"},"Terpenes "), e.terps.join(", ")));
+        if (e.genetics || e.thc) d.append(h("p",null, h("span",{class:"muted"},"Genetics "), [e.genetics, e.thc ? "THC " + e.thc : null].filter(Boolean).join(" · ")));
+        if (e.grown.length) d.append(h("p",{class:"sub"}, "Your runs: " + e.grown.map(p => p.name + (p.run && p.run.dry_g ? " · " + p.run.dry_g + " g dry" : "") + (p.run && p.run.verdict ? " · " + p.run.verdict : "")).join("; ")));
+        const acts = h("div",{class:"chips", style:"gap:6px"});
+        if (e.sh) acts.append(h("button",{type:"button", class:"btn sm", onclick:ev => { ev.stopPropagation(); S.libSheet = e.sh.id; renderLibrary(); window.scrollTo(0, 0); }}, "Open full sheet"));
+        else acts.append(h("button",{type:"button", class:"btn ghost sm", disabled: e.request ? "" : null, onclick:ev => { ev.stopPropagation(); requestResearch(e); }}, e.request ? "Research requested" : "Request a sourced sheet"));
+        acts.append(h("button",{type:"button", class:"btn ghost sm", onclick:ev => { ev.stopPropagation(); F.like = e.id; F.scope = "all"; S.libOpen = null; renderLibrary(); window.scrollTo(0, 0); }}, "Find similar"));
+        d.append(acts, h("p",{class:"sub", style:"font-size:13px"}, e.sh ? "Sourced sheet" : "From " + (e.src || "your list") + "."));
+        tb.append(h("tr",{class:"ldet"}, h("td",{colspan:"5"}, d)));
+      }
+    }
+    tbl.append(tb);
+    list.append(h("div",{class:"panel fr","data-soak":"0.12", style:"padding:10px 10px 6px"}, tbl));
+  }
+  if (F.q.trim() && !libEntries().some(e => norm(e.name) === norm(F.q)))
+    list.append(h("div",{class:"panel fr","data-soak":"0.12"}, h("p",{style:"margin:0"}, "“" + F.q.trim() + "” isn't in your library yet."),
+      h("button",{type:"button", class:"btn sm", style:"margin-top:8px", onclick:() => addToLibrary(F.q.trim())}, "Research it")));
   decorateSoon();
 }
 async function requestResearch(e){
@@ -675,6 +709,15 @@ function similarPanel(p){
   panel.append(h("a",{class:"btn ghost sm", href:"#library", style:"align-self:flex-start;margin-top:6px", onclick:() => { S.libSheet = null; if (me){ S.libF.scope = "all"; S.libF.like = me.id; } }}, "Find similar strains →"));
   return panel;
 }
+
+/* Plan has two halves: what's ahead (tasks, run rail, why things moved) and the log book (every entry, newest first) */
+S.planSeg = "ahead";
+function planSeg(){
+  const seg = S.planSeg === "book" ? "book" : "ahead";
+  $("#p-ahead").hidden = seg !== "ahead"; $("#p-book").hidden = seg !== "book";
+  document.querySelectorAll("#p-seg .chip").forEach(c => { const on = c.dataset.seg === seg; c.setAttribute("aria-pressed", on ? "true" : "false"); c.setAttribute("aria-selected", on ? "true" : "false"); });
+}
+document.addEventListener("click", e => { const c = e.target.closest && e.target.closest("#p-seg .chip"); if (!c) return; S.planSeg = c.dataset.seg; planSeg(); decorateSoon(); });
 
 /* ---------- derived ---------- */
 function latest(k){ for (const l of mine(S.logs)){ const n = num(l[k]); if (n != null) return {v:n, at:l.at}; } return null; }
@@ -1230,7 +1273,7 @@ function endEdit(){
   $("#f-save").textContent = "Save"; $("#f-cancel").hidden = true;
   $("#f-photo-n").textContent = "camera or gallery"; $("#f-file-n").textContent = "CSV export";
 }
-$("#f-cancel").addEventListener("click", () => { endEdit(); location.hash = "#history"; });
+$("#f-cancel").addEventListener("click", () => { endEdit(); S.planSeg = "book"; location.hash = "#plan"; });
 async function delLog(l){
   if (S.armDel !== l.id){ S.armDel = l.id; renderHistory(); setTimeout(() => { if (S.armDel === l.id){ S.armDel = null; renderHistory(); } }, 4000); return; }
   S.armDel = null;
@@ -1271,7 +1314,7 @@ $("#logform").addEventListener("submit", async e => {
     }
     cache(); endEdit(); renderAll();
     st.textContent = sensor ? "Saved. Sensor data up to " + fmtTime(sensor.at) + "." : "Saved.";
-    setTimeout(() => { st.textContent = ""; location.hash = wasEdit ? "#history" : "#today"; }, sensor ? 1600 : 800);
+    setTimeout(() => { st.textContent = ""; if (wasEdit) S.planSeg = "book"; location.hash = wasEdit ? "#plan" : "#today"; }, sensor ? 1600 : 800);
   } catch(err){
     st.textContent = err.code === "auth" ? "The access key was rejected. Open Settings and paste a new one."
       : err.code === "too_large" ? "A file is too big. Pick a smaller one and save again."

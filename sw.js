@@ -1,6 +1,6 @@
 // App shell cache: network first, cache as fallback. Data calls to api.github.com are never cached.
-const CACHE = "flowerphile-v26";
-const SHELL = ["./", "./index.html", "./manifest.webmanifest", "./specimen.js?v=26", "./bgart.js?v=26", "./app.js?v=26", "./icons/icon-192.png", "./icons/icon-512.png"];
+const CACHE = "flowerphile-v27";
+const SHELL = ["./", "./index.html", "./manifest.webmanifest", "./specimen.js?v=27", "./bgart.js?v=27", "./app.js?v=27", "./icons/icon-192.png", "./icons/icon-512.png"];
 self.addEventListener("install", e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL))); self.skipWaiting(); });
 self.addEventListener("activate", e => {
   e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE).map(k => caches.delete(k)))));
