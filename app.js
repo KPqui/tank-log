@@ -636,9 +636,12 @@ function feelBar(v){
   if (v == null) return h("span",{class:"muted"},"–");
   return h("span",{class:"mini", role:"img", "aria-label": v < 0.4 ? "calming" : v > 0.6 ? "lifting" : "balanced"}, h("span",{class:"dot", style:"left:calc(" + Math.round(v * 100) + "% - 4px)"}));
 }
+S.libGroup = "none"; S.libShut = new Set(); S.libPick = null; S.libCompare = false;
+function runsText(e){ return e.grown.map(p => p.name + (p.run && p.run.dry_g ? " · " + p.run.dry_g + " g dry" : "") + (p.run && p.run.verdict ? " · " + p.run.verdict : "")).join("; "); }
 function renderLibList(){
   const list = $("#lib-list"); if (!list) return; list.replaceChildren();
   const F = S.libF;
+  if (S.libCompare && S.libPick && S.libPick.size >= 2){ renderCompare(list); return; }
   let L = libFiltered();
   if (!F.like){
     const key = {flower: e => e.flower || 999, thc: e => -(e.thcMax || 0), feel: e => feelOf(e) == null ? 9 : feelOf(e), seeds: e => -(e.seeds || 0)}[F.sort];
@@ -651,42 +654,81 @@ function renderLibList(){
       h("p",{class:"sub", style:"margin:8px 0 0"}, "Strains you looked up or asked about collect here.")));
   }
   if (L.length){
-    list.append(h("p",{class:"sub", style:"margin:0"}, L.length + (L.length === 1 ? " strain" : " strains") + (F.like ? " · most similar first" : "")));
+    // tools: grouping and compare
+    const picking = !!S.libPick;
+    list.append(h("div",{style:"display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap"},
+      h("div",{class:"chips", style:"gap:6px;align-items:center"}, h("span",{class:"sub"},"Group"),
+        [["none","None"],["breeder","Breeder"],["kind","Type"]].map(([k, l]) => h("button",{type:"button", class:"chip", style:"min-height:32px;font-size:15px;padding:0 10px", "aria-pressed": S.libGroup === k ? "true" : "false", onclick:() => { S.libGroup = k; renderLibList(); }}, l))),
+      h("button",{type:"button", class:"btn ghost sm", "aria-pressed": picking ? "true" : "false", onclick:() => { S.libPick = picking ? null : new Set(); S.libOpen = null; renderLibList(); }}, picking ? "Cancel" : "Compare")));
+    if (picking) list.append(h("p",{class:"sub", style:"margin:0"}, "Tap up to 3 strains to compare."));
+    else list.append(h("p",{class:"sub", style:"margin:0"}, L.length + (L.length === 1 ? " strain" : " strains") + (F.like ? " · most similar first" : "")));
     const th = (k, label, cls) => h("th",{class:cls || "", scope:"col"}, k ? h("button",{type:"button", class:"sortb" + (F.sort === k && !F.like ? " on" : ""), onclick:() => { if (F.sort === k){ F.dir = -(F.dir || 1); } else { F.sort = k; F.dir = 1; } F.like = null; renderLibList(); }}, label, F.sort === k && !F.like ? (F.dir < 0 ? " ↑" : " ↓") : "") : label);
     const tbl = h("table",{class:"lib"}, h("thead",null, h("tr",null, th("name","Strain"), th("flower","Bloom","n"), th("thc","THC","n"), th("feel","Feel","c"), F.scope === "stash" ? th("seeds","#","n") : th(null,"","n"))));
-    const tb = h("tbody");
-    for (const e of L){
-      const open = S.libOpen === e.id, fv = feelOf(e);
-      const tag = e.grown.length && F.scope !== "grown" ? " ✓" : e.request ? " ?" : "";
-      tb.append(h("tr",{class:"lrow" + (open ? " open" : ""), tabindex:"0", "aria-expanded": open ? "true" : "false", onclick:() => { S.libOpen = open ? null : e.id; renderLibList(); },
-          onkeydown:ev => { if (ev.key === "Enter" || ev.key === " "){ ev.preventDefault(); S.libOpen = open ? null : e.id; renderLibList(); } }},
-        h("td",null, h("b",null, e.name), tag ? h("span",{class:"muted", title: tag.includes("✓") ? "grown before" : "research requested"}, tag) : null,
-          h("div",{class:"by"}, [e.breeder, e.kind === "auto" ? "auto" : e.kind === "photo" ? "photo" : null].filter(Boolean).join(" · "))),
-        h("td",{class:"n"}, e.flower ? e.flower + "d" : "–"),
-        h("td",{class:"n"}, e.thcMax ? Math.round(e.thcMax) + "%" : "–"),
-        h("td",{class:"c"}, feelBar(fv)),
-        h("td",{class:"n"}, F.scope === "stash" ? String(e.seeds || "–") : "")));
-      if (open){
-        const d = h("div",{class:"libdet"});
-        if (e.effects.length) d.append(h("p",null, h("span",{class:"muted"},"Effect "), e.effects.join(", ")));
-        if (e.taste.length) d.append(h("p",null, h("span",{class:"muted"},"Taste "), e.taste.join(", ")));
-        if (e.terps.length) d.append(h("p",null, h("span",{class:"muted"},"Terpenes "), e.terps.join(", ")));
-        if (e.genetics || e.thc) d.append(h("p",null, h("span",{class:"muted"},"Genetics "), [e.genetics, e.thc ? "THC " + e.thc : null].filter(Boolean).join(" · ")));
-        if (e.grown.length) d.append(h("p",{class:"sub"}, "Your runs: " + e.grown.map(p => p.name + (p.run && p.run.dry_g ? " · " + p.run.dry_g + " g dry" : "") + (p.run && p.run.verdict ? " · " + p.run.verdict : "")).join("; ")));
-        const acts = h("div",{class:"chips", style:"gap:6px"});
-        if (e.sh) acts.append(h("button",{type:"button", class:"btn sm", onclick:ev => { ev.stopPropagation(); S.libSheet = e.sh.id; renderLibrary(); window.scrollTo(0, 0); }}, "Open full sheet"));
-        else acts.append(h("button",{type:"button", class:"btn ghost sm", disabled: e.request ? "" : null, onclick:ev => { ev.stopPropagation(); requestResearch(e); }}, e.request ? "Research requested" : "Request a sourced sheet"));
-        acts.append(h("button",{type:"button", class:"btn ghost sm", onclick:ev => { ev.stopPropagation(); F.like = e.id; F.scope = "all"; S.libOpen = null; renderLibrary(); window.scrollTo(0, 0); }}, "Find similar"));
-        d.append(acts, h("p",{class:"sub", style:"font-size:13px"}, e.sh ? "Sourced sheet" : "From " + (e.src || "your list") + "."));
-        tb.append(h("tr",{class:"ldet"}, h("td",{colspan:"5"}, d)));
+    // groups keep the current sort inside them
+    const gk = e => S.libGroup === "breeder" ? (e.breeder || "Unknown breeder") : S.libGroup === "kind" ? (e.kind === "auto" ? "Autoflower" : e.kind === "photo" ? "Photoperiod" : "Type unknown") : "";
+    const groups = [];
+    for (const e of L){ const k = gk(e); let g = groups.find(x => x.k === k); if (!g) groups.push(g = {k, items: []}); g.items.push(e); }
+    if (S.libGroup !== "none") groups.sort((a, b) => a.k.localeCompare(b.k));
+    for (const g of groups){
+      const tb = h("tbody");
+      const shut = S.libGroup !== "none" && S.libShut.has(S.libGroup + ":" + g.k);
+      if (S.libGroup !== "none"){
+        const seeds = g.items.reduce((t, e) => t + (e.seeds || 0), 0);
+        tb.append(h("tr",{class:"lgrp", tabindex:"0", "aria-expanded": shut ? "false" : "true", onclick:() => { const id = S.libGroup + ":" + g.k; S.libShut.has(id) ? S.libShut.delete(id) : S.libShut.add(id); renderLibList(); }},
+          h("td",{colspan:"5"}, h("span",{class:"chev", "aria-hidden":"true"}, shut ? "+ " : "– "), h("b",null, g.k), h("span",{class:"muted"}, " · " + g.items.length + (g.items.length === 1 ? " strain" : " strains") + (F.scope === "stash" && seeds ? " · " + seeds + " seeds" : "")))));
       }
+      if (!shut) for (const e of g.items) libRow(tb, e, F);
+      tbl.append(tb);
     }
-    tbl.append(tb);
     list.append(h("div",{class:"panel fr","data-soak":"0.12", style:"padding:10px 10px 6px"}, tbl));
+    if (picking && S.libPick.size >= 2) list.append(h("button",{type:"button", class:"btn", style:"position:sticky;bottom:96px;align-self:center;z-index:3", onclick:() => { S.libCompare = true; renderLibList(); window.scrollTo(0, 0); }}, "Compare " + S.libPick.size + " →"));
   }
   if (F.q.trim() && !libEntries().some(e => norm(e.name) === norm(F.q)))
     list.append(h("div",{class:"panel fr","data-soak":"0.12"}, h("p",{style:"margin:0"}, "“" + F.q.trim() + "” isn't in your library yet."),
       h("button",{type:"button", class:"btn sm", style:"margin-top:8px", onclick:() => addToLibrary(F.q.trim())}, "Research it")));
+  decorateSoon();
+}
+function libRow(tb, e, F){
+  const picking = !!S.libPick, picked = picking && S.libPick.has(e.id), open = !picking && S.libOpen === e.id, fv = feelOf(e);
+  const tag = e.grown.length && F.scope !== "grown" ? " ✓" : e.request ? " ?" : "";
+  const act = () => { if (picking){ picked ? S.libPick.delete(e.id) : S.libPick.size < 3 && S.libPick.add(e.id); } else S.libOpen = open ? null : e.id; renderLibList(); };
+  tb.append(h("tr",{class:"lrow" + (open ? " open" : "") + (picked ? " picked" : ""), tabindex:"0", "aria-expanded": picking ? null : open ? "true" : "false", "aria-pressed": picking ? (picked ? "true" : "false") : null, onclick:act,
+      onkeydown:ev => { if (ev.key === "Enter" || ev.key === " "){ ev.preventDefault(); act(); } }},
+    h("td",null, picking ? h("span",{class:"pick", "aria-hidden":"true"}, picked ? "●" : "○") : null, h("b",null, e.name), tag ? h("span",{class:"muted", title: tag.includes("✓") ? "grown before" : "research requested"}, tag) : null,
+      h("div",{class:"by"}, [S.libGroup === "breeder" ? null : e.breeder, S.libGroup === "kind" ? null : e.kind === "auto" ? "auto" : e.kind === "photo" ? "photo" : null].filter(Boolean).join(" · "))),
+    h("td",{class:"n"}, e.flower ? e.flower + "d" : "–"),
+    h("td",{class:"n"}, e.thcMax ? Math.round(e.thcMax) + "%" : "–"),
+    h("td",{class:"c"}, feelBar(fv)),
+    h("td",{class:"n"}, F.scope === "stash" ? String(e.seeds || "–") : "")));
+  if (open){
+    const d = h("div",{class:"libdet"});
+    if (e.effects.length) d.append(h("p",null, h("span",{class:"muted"},"Effect "), e.effects.join(", ")));
+    if (e.taste.length) d.append(h("p",null, h("span",{class:"muted"},"Taste "), e.taste.join(", ")));
+    if (e.terps.length) d.append(h("p",null, h("span",{class:"muted"},"Terpenes "), e.terps.join(", ")));
+    if (e.genetics || e.thc) d.append(h("p",null, h("span",{class:"muted"},"Genetics "), [e.genetics, e.thc ? "THC " + e.thc : null].filter(Boolean).join(" · ")));
+    if (e.grown.length) d.append(h("p",{class:"sub"}, "Your runs: " + runsText(e)));
+    const acts = h("div",{class:"chips", style:"gap:6px"});
+    if (e.sh) acts.append(h("button",{type:"button", class:"btn sm", onclick:ev => { ev.stopPropagation(); S.libSheet = e.sh.id; renderLibrary(); window.scrollTo(0, 0); }}, "Open full sheet"));
+    else acts.append(h("button",{type:"button", class:"btn ghost sm", disabled: e.request ? "" : null, onclick:ev => { ev.stopPropagation(); requestResearch(e); }}, e.request ? "Research requested" : "Request a sourced sheet"));
+    acts.append(h("button",{type:"button", class:"btn ghost sm", onclick:ev => { ev.stopPropagation(); F.like = e.id; F.scope = "all"; S.libOpen = null; renderLibrary(); window.scrollTo(0, 0); }}, "Find similar"));
+    d.append(acts, h("p",{class:"sub", style:"font-size:13px"}, e.sh ? "Sourced sheet" : "From " + (e.src || "your list") + "."));
+    tb.append(h("tr",{class:"ldet"}, h("td",{colspan:"5"}, d)));
+  }
+}
+/* side by side: one column per strain, one row per property */
+function renderCompare(list){
+  const E = libEntries().filter(e => S.libPick.has(e.id));
+  const rows = [["Breeder", e => e.breeder], ["Type", e => e.kind === "auto" ? "Autoflower" : e.kind === "photo" ? "Photoperiod" : null], ["Genetics", e => e.genetics],
+    ["Bloom", e => e.flower ? e.flower + " days" : null], ["THC", e => e.thc || (e.thcMax ? e.thcMax + " %" : null)], ["Feel", e => feelBar(feelOf(e))],
+    ["Terpenes", e => e.terps.join(", ")], ["Taste", e => e.taste.join(", ")], ["Effect", e => e.effects.join(", ")], ["Seeds", e => e.seeds != null ? String(e.seeds) : null], ["Your runs", e => runsText(e)]];
+  list.append(h("div",{style:"display:flex;justify-content:space-between;align-items:center"}, h("h2",{style:"margin:0"}, "Compare"),
+    h("button",{type:"button", class:"btn ghost sm", onclick:() => { S.libCompare = false; renderLibList(); }}, "← Back to the list")));
+  const tbl = h("table",{class:"lib cmp"}, h("thead",null, h("tr",null, h("th",{scope:"col"},""), E.map(e => h("th",{scope:"col"}, h("b",{style:"font:700 16px var(--serif);color:var(--ink);font-variant:normal;letter-spacing:0;white-space:normal"}, e.name))))));
+  const tb = h("tbody");
+  for (const [label, fn] of rows){ const vals = E.map(fn); if (vals.every(v => v == null || v === "")) continue;
+    tb.append(h("tr",null, h("th",{scope:"row"}, label), vals.map(v => h("td",null, v == null || v === "" ? h("span",{class:"muted"},"–") : v)))); }
+  tbl.append(tb);
+  list.append(h("div",{class:"panel fr","data-soak":"0.12", style:"padding:10px 10px 6px"}, tbl));
   decorateSoon();
 }
 async function requestResearch(e){
