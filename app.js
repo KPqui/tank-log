@@ -661,15 +661,31 @@ function coreTiles(p){
   return null;
 }
 
-/* ---------- tip of the day: alternates sourced facts and forum lore; strain notes when the plant has them ---------- */
+/* ---------- tip: a new one each time the app opens ----------
+   Pool = general facts and lore, plus trivia for THIS plant's strain only (so swiping plants swaps it).
+   Kinds rotate fact → lore → strain; tips already seen on this device are skipped until the pool runs out. */
+const SEEN_KEY = "flowerphile-seen-tips";
 S.tipShift = 0;
+S.tipOpen = (() => { try { const n = +(localStorage.getItem("flowerphile-opens") || 0) + 1; localStorage.setItem("flowerphile-opens", n); return n; } catch(e){ return Math.floor(Date.now() / 864e5); } })();
+function seenTips(){ try { return JSON.parse(localStorage.getItem(SEEN_KEY) || "[]"); } catch(e){ return []; } }
+S.tipPick = {};
 function tipFor(p){
-  // Today only gets general facts and lore (or ones tied to this plant); strain trivia lives on that strain's own sheet
-  const all = (S.tips || []).filter(t => t.kind !== "strain" && !t.strain && (!t.plant || (p && t.plant === p.id)));
+  const key = (p ? p.id : "-") + ":" + S.tipShift;
+  if (S.tipPick[key] !== undefined) return S.tipPick[key];
+  return S.tipPick[key] = pickTip(p);
+}
+function pickTip(p){
+  const ps = p && p.strain ? p.strain.toLowerCase() : null;
+  const all = (S.tips || []).filter(t => (t.strain ? ps && t.strain.toLowerCase() === ps : t.kind !== "strain") && (!t.plant || (p && t.plant === p.id)));
   if (!all.length) return null;
-  const d = Math.floor(Date.now() / 864e5) + S.tipShift, want = d % 2 ? "lore" : "fact";
-  const pool = all.filter(t => (t.kind === "strain" ? "fact" : t.kind) === want); const list = pool.length ? pool : all;
-  return list[((d >> 1) % list.length + list.length) % list.length];
+  const kinds = ["fact", "lore", "strain"].filter(k => all.some(t => t.kind === k));
+  const want = kinds[(S.tipOpen + S.tipShift) % kinds.length];
+  const pool = all.filter(t => t.kind === want), seen = seenTips();
+  let fresh = pool.filter(t => !seen.includes(t.id));
+  if (!fresh.length){ try { localStorage.setItem(SEEN_KEY, JSON.stringify(seen.filter(id => !pool.some(t => t.id === id)))); } catch(e){} fresh = pool; }
+  const t = fresh[(S.tipOpen * 7 + S.tipShift) % fresh.length];
+  try { if (!seen.includes(t.id)) localStorage.setItem(SEEN_KEY, JSON.stringify(seen.concat(t.id).slice(-500))); } catch(e){}
+  return t;
 }
 function renderTip(p){
   const box = $("#t-tip"); if (!box) return; box.replaceChildren(); box._fk = null;
@@ -679,7 +695,7 @@ function renderTip(p){
     h("button",{type:"button", class:"btn ghost sm", "aria-label":"Another one", onclick:() => { S.tipShift++; renderTip(sel()); decorateSoon(); }}, "Another")),
     h("p",{class:"tiptext"}, t.text),
     t.src ? h("a",{class:"small muted", href:t.src.u, target:"_blank", rel:"noopener"}, "Source: " + t.src.t) : null,
-    null];
+    t.kind === "strain" && strainOf(p) ? h("a",{class:"small", href:"#strain"}, "More about " + strainOf(p).name + " →") : null];
   box.append(...parts.filter(Boolean));
 }
 
