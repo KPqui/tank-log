@@ -121,6 +121,7 @@ const ymd = d => d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate());
 const parseYmd = s => { const [y,m,d] = s.split("-").map(Number); return new Date(y, m-1, d); };
 const daysBetween = (a,b) => Math.round((parseYmd(b) - parseYmd(a)) / 864e5);
 const today = () => ymd(new Date());
+const addDays = (d, n) => { const x = new Date(d + "T12:00:00"); x.setDate(x.getDate() + n); return ymd(x); };
 const short = s => parseYmd(s).toLocaleDateString("en-GB",{day:"numeric",month:"short"});
 const hm = iso => { const d = new Date(iso); return pad(d.getHours())+":"+pad(d.getMinutes()); };
 function fmtDay(s){
@@ -889,8 +890,33 @@ function taskRow(t){
     ? h("button",{type:"button", class:"tt", "aria-expanded": open ? "true" : "false", onclick:() => { S.openTask.has(t.id) ? S.openTask.delete(t.id) : S.openTask.add(t.id); renderToday(); }},
         h("b",null,t.title), h("span",{class:"chev", "aria-hidden":"true"}, open ? "–" : "+"))
     : h("label",{for:id, class:"tt"}, h("b",null,t.title));
+  const ask = !done && /check in with claude/i.test(t.title);
   return h("div",{class:"task"+(done?" done":"")}, cb, h("div",{class:"tb"}, title,
-    open ? h("span",{class:"d"}, t.detail || "", t.trigger ? (t.detail ? " · " : "") + "Trigger: " + t.trigger : "") : null));
+    open ? h("span",{class:"d"}, t.detail || "", t.trigger ? (t.detail ? " · " : "") + "Trigger: " + t.trigger : "") : null,
+    ask ? h("button",{type:"button", class:"btn ghost sm", style:"align-self:flex-start;margin-top:4px", onclick:() => openCheckin(t)}, "Copy check-in & open chat") : null));
+}
+/* check-in: copy a short summary of the plant to the clipboard, then open the plant's Claude chat (link set in the plant form) */
+function checkinText(t){
+  const p = sel(); if (!p) return "";
+  const v = k => { const x = latest(k); return x ? x.v : null; };
+  const vals = [["pH", v("ph")], ["EC", v("ec")], ["water", v("water"), " °C"], ["height", v("height"), " cm"], ["nodes", v("nodes")], ["PPFD", v("ppfd")]]
+    .filter(x => x[1] != null).map(x => x[0] + " " + x[1] + (x[2] || "")).join(", ");
+  const sn = latestSensor();
+  const lines = ["Check-in for " + (p.strain || p.name) + " (" + (p.stageLabel || PHASES[phaseOf(p)] || "") + ", " + today() + ")"];
+  if (t && t.detail) lines.push("Why: " + t.detail);
+  if (vals) lines.push("Latest: " + vals);
+  if (p.lamp) lines.push("Lamp " + p.lamp + " cm above the rim");
+  if (sn) lines.push("Air last 24 h: " + [sn.tmin != null ? sn.tmin + "–" + sn.tmax + " °C" : sn.temp + " °C", sn.hmin != null ? "RH " + sn.hmin + "–" + sn.hmax + " %" : sn.rh != null ? "RH " + sn.rh + " %" : null].filter(Boolean).join(", "));
+  const notes = mine(S.logs).filter(l => l.note || (l.actions && l.actions.length)).slice(0, 4);
+  if (notes.length){ lines.push("Recent:"); for (const l of notes) lines.push("- " + (l.at || "").slice(5, 16).replace("T", " ") + " " + [(l.actions || []).join(", "), l.note].filter(Boolean).join(": ")); }
+  const soon = openTasks().filter(x => x.id !== (t && t.id) && x.due && x.due <= addDays(today(), 3)).sort(sortTasks);
+  if (soon.length) lines.push("Coming up: " + soon.map(x => x.title + " (" + x.due.slice(5) + ")").join("; "));
+  return lines.join("\n");
+}
+async function openCheckin(t){
+  const p = sel(), url = (p && p.chat) || "https://claude.ai/new";
+  try { await navigator.clipboard.writeText(checkinText(t)); setSync("Check-in copied · paste it in the chat"); } catch(e){}
+  window.open(url, "_blank", "noopener");
 }
 async function toggleTask(t, on){
   const prev = {status:t.status, doneAt:t.doneAt};
@@ -1147,7 +1173,7 @@ function openPlantForm(editing){
   S.pf = p ? {medium:p.medium||"hydro", system:p.system||"dwc", where:p.where||"indoor", status:p.status||"active"} : {medium:"living-soil", system:"hand", where:"indoor", status:"active"};
   $("#pl-title").textContent = p ? "Edit " + p.name : "New plant";
   $("#pl-name").value = p ? p.name : ""; $("#pl-start").value = p && p.start || ""; $("#pl-sprout").value = p && p.sprout || "";
-  $("#pl-strain").value = p && p.strain || ""; $("#pl-breeder").value = p && p.breeder || "";
+  $("#pl-strain").value = p && p.strain || ""; $("#pl-breeder").value = p && p.breeder || ""; $("#pl-chat").value = p && p.chat || "";
   $("#pl-sensor").value = p && p.sensor || ""; $("#pl-lamp").value = p && p.lamp != null ? p.lamp : "";
   $("#pl-save").textContent = p ? "Save" : "Add plant"; $("#pl-statusmsg").textContent = "";
   renderPlantChips();
@@ -1157,7 +1183,7 @@ $("#plantform").addEventListener("submit", async e => {
   e.preventDefault();
   const name = $("#pl-name").value.trim(), st = $("#pl-statusmsg");
   if (!name){ st.textContent = "Give the plant a name."; return; }
-  const fields = Object.assign({}, S.pf, {name, start:$("#pl-start").value || null, sprout:$("#pl-sprout").value || null, sensor:S.pf.where === "indoor" ? ($("#pl-sensor").value.trim() || null) : null, lamp:S.pf.where === "indoor" ? num($("#pl-lamp").value) : null, strain:$("#pl-strain").value.trim() || null, breeder:$("#pl-breeder").value.trim() || null});
+  const fields = Object.assign({}, S.pf, {name, start:$("#pl-start").value || null, sprout:$("#pl-sprout").value || null, sensor:S.pf.where === "indoor" ? ($("#pl-sensor").value.trim() || null) : null, lamp:S.pf.where === "indoor" ? num($("#pl-lamp").value) : null, strain:$("#pl-strain").value.trim() || null, breeder:$("#pl-breeder").value.trim() || null, chat:/^https:\/\/claude\.ai\//.test($("#pl-chat").value.trim()) ? $("#pl-chat").value.trim() : null});
   $("#pl-save").disabled = true; st.textContent = "Saving…";
   try {
     const id = S.plantEdit || "p-" + Date.now();
