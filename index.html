@@ -71,6 +71,7 @@ a{color:var(--ink)}
 .logged{display:flex;align-items:center;gap:7px;font:italic 15px var(--fell);text-decoration:none;color:var(--ink);min-height:30px}
 .logged .box{width:20px;height:20px;flex:none}
 .task{display:flex;gap:12px;align-items:flex-start;font-size:17px}.task .tb{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1}.task .tt{all:unset;cursor:pointer;display:flex;justify-content:space-between;gap:8px;min-height:28px;align-items:baseline}.task .tt:focus-visible{outline:2px solid var(--ink)}
+.task.urgent .tt{color:var(--high);font-weight:700}.task.urgent .tt::before{content:"! ";}
 #v-library button.tt{all:unset;box-sizing:border-box;width:100%;cursor:pointer;display:flex;justify-content:space-between;align-items:baseline;gap:8px}
 #lib-q{font-weight:400;font-size:19px}
 table.lib{width:100%;table-layout:fixed;border-collapse:collapse;font-variant-numeric:lining-nums tabular-nums}
@@ -299,8 +300,8 @@ legend{padding:0;margin-bottom:8px;font:small-caps 400 15px var(--sc);letter-spa
 <a href="#library" data-v="library"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.5c3.6 2.6 5.5 6.2 5.5 9.6a5.5 5.5 0 0 1-11 0c0-3.4 1.9-7 5.5-9.6z"/><path d="M12 6.5c-1.3 3-1.3 8.6 0 12"/></svg>Strains</a>
 
 </nav>
-<script src="specimen.js?v=33"></script>
-<script src="bgart.js?v=33"></script><script src="stylize.js?v=33"></script>
-<script src="app.js?v=33"></script>
+<script src="specimen.js?v=34"></script>
+<script src="bgart.js?v=34"></script><script src="stylize.js?v=34"></script><script src="rules.js?v=34"></script>
+<script src="app.js?v=34"></script>
 </body>
 </html>

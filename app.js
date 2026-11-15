@@ -488,6 +488,7 @@ async function loadAll(){
     if (!S.plants.find(p => p.id === S.sel)) S.sel = (S.plants.find(p => p.status !== "done") || S.plants[0] || {}).id || null;
     S.synced = new Date(); cache();
     setSync("↻ " + hm(S.synced.toISOString()));
+    setTimeout(keepPlans, 400);
   } catch(e){
     setSync(e.code === "auth" ? "Key rejected · open Settings" : "Offline · tap to retry", true);
   } finally { S.busy = false; renderAll(); }
@@ -827,6 +828,38 @@ function askCard(p){
   if (latest.length) box.append(h("details",{style:"margin-top:10px"}, h("summary",{class:"small muted"}, "Your notes so far (" + latest.length + ")"),
     h("ul",{class:"notes small"}, latest.map(l => { const q2 = ASK.find(x => x.id === l.ask); return h("li",null, (q2 ? q2.q.replace(/\?$/, "") : l.ask) + ": ", h("b",null, (l.answer || []).join(", ")), l.cureDay != null ? h("span",{class:"muted"}, " · cure day " + l.cureDay) : null); }))));
   return box;
+}
+
+/* ---------- the app's own plan keeping (rules.js) ---------- */
+function ruleCtx(p){ const ph = phaseOf(p); return {today: today(), phase: ph, phaseStart: phaseStart(p, ph === "done" ? "cure" : ph), tasks: S.tasks, logs: S.logs}; }
+async function applyRules(byPlant, label){
+  const add = [], ch = [], T = today();
+  for (const [pid, r] of byPlant){ if (!r.tasks.length) continue;
+    add.push(...r.tasks);
+    ch.push({id:"c-" + T.replace(/-/g, "") + "-a" + Math.random().toString(36).slice(2, 6), run:pid, date:T, src:"app",
+      text: label === "plan" ? "Plan kept going by the app: " + groupSteps(r.tasks) + "."
+                             : "Added right after your log (" + r.why.join("; ") + ")."}); }
+  if (!add.length) return 0;
+  S.tasks = await mutate("tasks.json", list => { const L = list || [], ids = new Set(L.map(t => t.id)), gens = new Set(L.filter(t => t.gen).map(t => t.run + "|" + t.gen));
+    return L.concat(add.filter(t => !ids.has(t.id) && !gens.has(t.run + "|" + t.gen))); }, label === "plan" ? "app: keep plans going" : "app: react to log");
+  try { S.changes = (await mutate("changes.json", list => (list || []).concat(ch), "app: why things moved")).slice().sort((a,b) => (b.date||"").localeCompare(a.date||"")); } catch(e){}
+  cache(); return add.length;
+}
+function groupSteps(tasks){
+  const g = new Map(); for (const t of tasks.slice().sort((a, b) => a.due.localeCompare(b.due))){ const k = t.title; if (!g.has(k)) g.set(k, []); g.get(k).push(t.due); }
+  return [...g].map(([k, ds]) => k.toLowerCase() + " " + (ds.length > 1 ? short(ds[0]) + "–" + short(ds[ds.length - 1]) + " (" + ds.length + "×)" : short(ds[0]))).join(", ");
+}
+S.planRan = null;
+async function keepPlans(){
+  if (!window.Rules || S.planRan === today() || !S.plants.length) return;
+  S.planRan = today();
+  const by = []; for (const p of S.plants){ const tasks = Rules.plan(p, ruleCtx(p)); if (tasks.length) by.push([p.id, {tasks, why: []}]); }
+  try { const n = await applyRules(by, "plan"); if (n){ renderAll(); setSync("Plans updated · " + n + " step" + (n === 1 ? "" : "s") + " added"); } } catch(e){ S.planRan = null; }
+}
+async function reactToLog(p, entry){
+  if (!window.Rules) return;
+  const r = Rules.afterLog(p, entry, ruleCtx(p)); if (!r.tasks.length) return;
+  try { await applyRules([[p.id, r]], "log"); renderAll(); setSync(r.tasks.some(t => t.urgent) ? "Needs a look · check-in added" : "Plan updated after your log"); } catch(e){}
 }
 
 /* ---------- derived ---------- */
@@ -1211,7 +1244,7 @@ function taskRow(t){
         h("b",null,t.title), h("span",{class:"chev", "aria-hidden":"true"}, open ? "–" : "+"))
     : h("label",{for:id, class:"tt"}, h("b",null,t.title));
   const ask = !done && /check in with claude/i.test(t.title);
-  return h("div",{class:"task"+(done?" done":"")}, cb, h("div",{class:"tb"}, title,
+  return h("div",{class:"task"+(done?" done":"")+(t.urgent && !done ? " urgent" : "")}, cb, h("div",{class:"tb"}, title,
     open ? h("span",{class:"d"}, t.detail || "", t.trigger ? (t.detail ? " · " : "") + "Trigger: " + t.trigger : "") : null,
     ask ? h("button",{type:"button", class:"btn ghost sm", style:"align-self:flex-start;margin-top:4px", onclick:() => openCheckin(t)}, "Copy check-in & open chat") : null));
 }
@@ -1458,6 +1491,7 @@ $("#logform").addEventListener("submit", async e => {
       const entry = Object.assign({id:"l-" + Date.now(), run:p.id, at, date:today(), source:"app", actions, note, photos:newPhotos, files:newFiles}, vals);
       if (sensor) entry.sensor = sensor;
       S.logs = sortLogs(await mutate("logs.json", list => [...(list||[]), entry], "log " + entry.date));
+      reactToLog(p, entry);
     }
     cache(); endEdit(); renderAll();
     st.textContent = sensor ? "Saved. Sensor data up to " + fmtTime(sensor.at) + "." : "Saved.";
