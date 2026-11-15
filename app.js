@@ -761,6 +761,69 @@ function planSeg(){
 }
 document.addEventListener("click", e => { const c = e.target.closest && e.target.closest("#p-seg .chip"); if (!c) return; S.planSeg = c.dataset.seg; planSeg(); decorateSoon(); });
 
+/* ---------- quick questions about finished buds ----------
+   For plants curing or in storage: one multiple-choice question at a time on Today. Answers are saved as small
+   log entries (actions ["Review"], note "Question: answer"), so they show in the Log book and travel with the data.
+   `again` = days before a question may come back (taste and strength change during the cure); 0 = ask once. */
+const ASK = [
+  {id:"jar",    q:"How strong is the jar smell?", o:["Faint","Medium","Loud","Room-filling"], again:14},
+  {id:"aroma",  q:"Which smells come through?", o:["Sweet","Fruity","Citrus","Berry","Earthy","Pine","Gas","Skunk","Spice","Herbal","Cheese","Floral","Creamy"], multi:true, again:21},
+  {id:"dry",    q:"How do the buds feel?", o:["Too moist","Just right","A bit dry","Crispy"], again:10},
+  {id:"taste",  q:"How does it taste?", o:["Sweet","Fruity","Citrus","Berry","Earthy","Pine","Gas","Skunk","Spice","Herbal","Hashy","Bland"], multi:true, again:21},
+  {id:"smooth", q:"How smooth is it?", o:["Harsh","Okay","Smooth","Very smooth"], again:14},
+  {id:"vape",   q:"How long does a session keep its flavour?", o:["A drag or two","A few minutes","Long and tasty","I don't vape it"], again:21},
+  {id:"ash",    q:"What colour is the ash?", o:["White","Grey","Dark","I don't smoke it"], again:30},
+  {id:"strong", q:"How strong is it?", o:["Mild","Medium","Strong","Very strong"], again:14},
+  {id:"onset",  q:"How fast does it kick in?", o:["Right away","After a few minutes","Slow creeper"], again:0},
+  {id:"length", q:"How long does it last?", o:["Under 1 h","1–2 h","2–3 h","Longer"], again:0},
+  {id:"where",  q:"Where do you feel it most?", o:["Mostly head","Both","Mostly body"], again:21},
+  {id:"mood",   q:"How does it leave you?", o:["Relaxed","Happy","Creative","Focused","Giggly","Dreamy","Sleepy","Hungry","Anxious","Foggy"], multi:true, again:21},
+  {id:"music",  q:"Good for getting lost in music or a film?", o:["Not really","A bit","Yes","Perfect"], again:0},
+  {id:"helps",  q:"Did it help with anything for you?", o:["Aches or pain","Sleep","Appetite","Stress","Nausea","Muscle tension","Nothing noticeable"], multi:true, again:30, note:"Your own experience, kept private."},
+  {id:"again",  q:"Would you grow it again?", o:["No","Maybe","Yes","Definitely"], again:0},
+  {id:"best",   q:"Compared to your best homegrown?", o:["Weaker","About the same","Better","New favourite"], again:0}
+];
+S.askPick = {}; S.askSel = null;
+function askAnswers(p){ return S.logs.filter(l => l.run === p.id && l.ask).sort((a, b) => (b.at || "").localeCompare(a.at || "")); }
+function askNext(p){
+  const key = p.id + ":" + (S.askSkip || 0);
+  if (S.askPick[key] !== undefined) return S.askPick[key];
+  const ans = askAnswers(p), T = today();
+  const due = ASK.filter(q => { const last = ans.find(l => l.ask === q.id); if (!last) return true; if (!q.again) return false; return daysBetween(last.date || last.at.slice(0, 10), T) >= q.again; });
+  const fresh = due.filter(q => !ans.some(l => l.ask === q.id));        // never-answered ones first
+  const pool = fresh.length ? fresh : due;
+  return S.askPick[key] = pool.length ? pool[((S.tipOpen || 0) + (S.askSkip || 0)) % pool.length] : null;
+}
+async function askSave(p, q, picks){
+  const now = new Date(), entry = {id:"l-" + Date.now(), run:p.id, at:now.toISOString(), date:today(), source:"app", actions:["Review"], ask:q.id, answer:picks, note:q.q.replace(/\?$/, "") + ": " + picks.join(", ")};
+  const cs = phaseStart(p, "cure"); if (cs) entry.cureDay = daysBetween(cs, today());
+  try { S.logs = sortLogs(await mutate("logs.json", list => [...(list || []), entry], "review " + p.id)); cache(); S.askSel = null; S.askDone = q.id; S.askPick = {}; renderToday(); }
+  catch(err){ setSync("Couldn't save · tap to retry", true); }
+}
+function askCard(p){
+  const ph = phaseOf(p); if (ph !== "cure" && ph !== "done") return null;
+  const q = askNext(p), ans = askAnswers(p);
+  const box = h("div",{class:"panel fr","data-soak":"0.12", id:"t-ask"});
+  if (S.askDone && (!q || q.id !== S.askDone)){ box.append(h("p",{class:"sub", style:"margin:0 0 6px"}, "Saved, thanks.")); }
+  if (!q){ box.append(h("h2",null,"Your verdict"), h("p",{class:"empty"},"All questions answered for now. Some come back as the cure goes on.")); }
+  else {
+    box.append(h("div",{class:"head", style:"align-items:baseline"}, h("h2",null,"A quick one"), h("button",{type:"button", class:"donebtn", onclick:() => { S.askSkip = (S.askSkip || 0) + 1; S.askSel = null; S.askDone = null; renderToday(); }}, "Skip")),
+      h("p",{style:"margin:0 0 8px;font-size:19px"}, q.q));
+    const sel_ = S.askSel && S.askSel.q === q.id ? S.askSel.v : new Set();
+    const chips = h("div",{class:"chips", style:"gap:6px"}, q.o.map(o => h("button",{type:"button", class:"chip", "aria-pressed": sel_.has(o) ? "true" : "false", onclick:() => {
+      if (!q.multi){ askSave(p, q, [o]); return; }
+      const v = new Set(sel_); v.has(o) ? v.delete(o) : v.add(o); S.askSel = {q:q.id, v}; renderToday(); }}, o)));
+    box.append(chips);
+    if (q.multi) box.append(h("button",{type:"button", class:"btn sm", style:"margin-top:10px;align-self:flex-start", disabled: sel_.size ? null : "", onclick:() => askSave(p, q, [...sel_])}, "Save"));
+    if (q.note) box.append(h("p",{class:"sub", style:"margin:8px 0 0;font-size:13px"}, q.note));
+  }
+  // what's been said so far: the latest answer per question
+  const latest = []; for (const l of ans) if (!latest.some(x => x.ask === l.ask)) latest.push(l);
+  if (latest.length) box.append(h("details",{style:"margin-top:10px"}, h("summary",{class:"small muted"}, "Your notes so far (" + latest.length + ")"),
+    h("ul",{class:"notes small"}, latest.map(l => { const q2 = ASK.find(x => x.id === l.ask); return h("li",null, (q2 ? q2.q.replace(/\?$/, "") : l.ask) + ": ", h("b",null, (l.answer || []).join(", ")), l.cureDay != null ? h("span",{class:"muted"}, " · cure day " + l.cureDay) : null); }))));
+  return box;
+}
+
 /* ---------- derived ---------- */
 function latest(k){ for (const l of mine(S.logs)){ const n = num(l[k]); if (n != null) return {v:n, at:l.at}; } return null; }
 function latestSensor(){ for (const l of mine(S.logs)) if (l.sensor && (l.sensor.temp != null || l.sensor.rh != null)) return l.sensor; return null; }
@@ -1059,6 +1122,8 @@ function renderToday(){
       ...(summ.length > 3 ? [h("button",{type:"button", class:"donebtn", onclick:() => { S.sumOpen = open ? null : p.id; renderToday(); }}, open ? "Less" : "More (" + (summ.length - 3) + ")")] : []));
   }
   for (const t of next) nb.append(h("div",{class:"row"}, h("span",null,t.title), h("span",{class:"lead"}), h("span",{class:"when"}, t.due ? fmtDay(t.due) : (t.trigger || "when ready"))));
+  const old = $("#t-ask"); if (old) old.remove();
+  const ask = askCard(p); if (ask) sb.after(ask);
   decorateSoon();
 }
 function envTiles(p){
