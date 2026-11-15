@@ -468,14 +468,14 @@ async function loadWeather(p){
 
 /* ---------- sync ---------- */
 function setSync(text, err){ const b = $("#sync"); b.textContent = text; b.classList.toggle("err", !!err); }
-function cache(){ try { localStorage.setItem(CACHE_KEY, JSON.stringify({plants:S.plants, tasks:S.tasks, logs:S.logs, changes:S.changes, tips:S.tips||[], strains:S.strains||[]})); } catch(e){} }
+function cache(){ try { localStorage.setItem(CACHE_KEY, JSON.stringify({plants:S.plants, tasks:S.tasks, logs:S.logs, changes:S.changes, tips:S.tips||[], strains:S.strains||[], library:S.library||[]})); } catch(e){} }
 function sortLogs(list){ return (list||[]).slice().sort((a,b) => (b.at||"").localeCompare(a.at||"")); }
 async function loadAll(){
   if (!S.cfg || S.busy) return;
   S.busy = true; setSync("Syncing…");
   try {
-    let [plants, tasks, logs, changes, tips, strainsRes] = await Promise.all(["plants.json","tasks.json","logs.json","changes.json","tips.json","strains.json"].map(p => getJSON(p).catch(() => ({data:null}))));
-    S.tips = (tips && tips.data) || []; S.strains = (strainsRes && strainsRes.data) || [];
+    let [plants, tasks, logs, changes, tips, strainsRes, libRes] = await Promise.all(["plants.json","tasks.json","logs.json","changes.json","tips.json","strains.json","library.json"].map(p => getJSON(p).catch(() => ({data:null}))));
+    S.tips = (tips && tips.data) || []; S.strains = (strainsRes && strainsRes.data) || []; S.library = (libRes && libRes.data) || [];
     if (!plants.data){
       const run = (await getJSON("run.json")).data;
       if (run){
@@ -494,11 +494,11 @@ async function loadAll(){
 }
 function loadCache(){
   try { const c = JSON.parse(localStorage.getItem(CACHE_KEY) || "null");
-    if (c && c.plants){ Object.assign(S, {plants:c.plants, tasks:c.tasks||[], logs:sortLogs(c.logs), changes:c.changes||[], tips:c.tips||[], strains:c.strains||[]}); setSync("Saved copy"); } } catch(e){}
+    if (c && c.plants){ Object.assign(S, {plants:c.plants, tasks:c.tasks||[], logs:sortLogs(c.logs), changes:c.changes||[], tips:c.tips||[], strains:c.strains||[], library:c.library||[]}); setSync("Saved copy"); } } catch(e){}
 }
 
 /* ---------- routing ---------- */
-const VIEWS = ["today","log","plan","history","setup","plant","strain"];
+const VIEWS = ["today","log","plan","history","setup","plant","strain","library"];
 function route(){
   let v = location.hash.slice(1);
   if (v === "plant-new" || v === "plant-edit"){ openPlantForm(v === "plant-edit"); v = "plant"; }
@@ -506,9 +506,10 @@ function route(){
   if (!S.cfg && v !== "setup") v = "setup";
   for (const x of VIEWS) document.getElementById("v-"+x).hidden = x !== v;
   $("#tabs").hidden = v === "setup" || v === "plant" || !S.plants.length;
-  document.querySelectorAll("nav a").forEach(a => a.dataset.v === v ? a.setAttribute("aria-current","page") : a.removeAttribute("aria-current"));
+  document.querySelectorAll("nav a").forEach(a => a.dataset.v === (v === "library" ? "strain" : v) ? a.setAttribute("aria-current","page") : a.removeAttribute("aria-current"));
   if (v === "setup") renderSetup();
   if (v === "strain") renderStrain();
+  if (v === "library") renderLibrary();
   if (v === "log"){ if (!S.edit) lnow(); renderLogForm(); S.logDirty = false; }
   window.scrollTo(0,0);
   decorateSoon();
@@ -529,7 +530,7 @@ function swipePlant(dir){
   const list = plantOrder(); if (list.length < 2) return;
   const i = Math.max(0, list.findIndex(p => p.id === S.sel)), next = list[(i + dir + list.length) % list.length];
   const sec = document.querySelector("main > section:not([hidden])");
-  selectPlant(next.id); decorateSoon();
+  S.viewSheet = null; selectPlant(next.id); decorateSoon();
   if (sec && !matchMedia("(prefers-reduced-motion: reduce)").matches)
     sec.animate([{transform:`translateX(${dir * 48}px)`, opacity:0.2}, {transform:"none", opacity:1}], {duration:220, easing:"cubic-bezier(.2,.7,.3,1)"});
 }
@@ -548,6 +549,127 @@ function swipePlant(dir){
     if (Math.abs(dx) > 60 && Math.abs(dx) > 1.8 * Math.abs(dy) && Date.now() - t0 < 700) swipePlant(dx < 0 ? 1 : -1);
   }, {passive:true});
 })();
+
+/* ---------- strain library ----------
+   library.json: the seeds you own plus strains you asked about. Light entries come from the seed list (to be
+   verified); full sourced sheets live in strains.json and are linked by `sheet`. Opened from the Plant tab only. */
+const norm = s => (s || "").toLowerCase().replace(/\bauto(flower)?\b/g, "").replace(/[^a-z0-9]+/g, " ").trim();
+const LIB_EFFECTS = ["relaxing", "sedating", "body", "uplifting", "energetic", "creative", "euphoric", "giggly", "cerebral"];
+const LIB_TERPS = ["Myrcene", "Limonene", "Caryophyllene", "Pinene", "Linalool", "Terpinolene"];
+S.libF = {q:"", scope:"all", kind:null, eff:new Set(), terp:new Set(), fast:null, sort:"name", like:null};
+S.libOpen = null; S.viewSheet = null;
+function sheetById(id){ return (S.strains || []).find(x => x.id === id) || null; }
+function libEntries(){
+  return (S.library || []).map(e => {
+    const sh = e.sheet ? sheetById(e.sheet) : null;
+    const grown = S.plants.filter(p => p.strain && norm(p.strain) === norm(e.name));
+    return Object.assign({}, e, {
+      terps: e.terps || (sh && sh.terpenes ? sh.terpenes.map(t => t.name.split(/[ (]/)[0]) : []),
+      effects: e.effects || (sh && sh.effects) || [],
+      taste: e.taste || (sh && sh.taste) || [],
+      grown, sh});
+  });
+}
+const effHas = (e, k) => e.effects.some(x => x.toLowerCase().includes(k === "relaxing" ? "relax" : k === "body" ? "body" : k));
+function similarity(a, b){
+  if (a.id === b.id) return -1;
+  const ta = new Set(a.terps), tb = new Set(b.terps), ti = [...ta].filter(x => tb.has(x)).length;
+  const ea = new Set(LIB_EFFECTS.filter(k => effHas(a, k))), eb = new Set(LIB_EFFECTS.filter(k => effHas(b, k))), ei = [...ea].filter(x => eb.has(x)).length;
+  let s = ti * 1.2 + ei * 1.5 - Math.abs(ea.size - eb.size) * 0.3;
+  if (a.kind && a.kind === b.kind) s += 0.5;
+  if (a.flower && b.flower) s -= Math.abs(a.flower - b.flower) / 20;
+  return s;
+}
+function entryFor(p){ if (!p || !p.strain) return null; return libEntries().find(e => norm(e.name) === norm(p.strain)) || null; }
+function libFiltered(){
+  const F = S.libF, q = norm(F.q);
+  let L = libEntries().filter(e =>
+    (!q || norm(e.name + " " + e.breeder).includes(q)) &&
+    (F.scope === "all" || (F.scope === "stash" ? e.inStash && e.seeds !== 0 : F.scope === "grown" ? e.grown.length : e.request)) &&
+    (!F.kind || e.kind === F.kind) &&
+    [...F.eff].every(k => effHas(e, k)) && [...F.terp].every(t => e.terps.includes(t)) &&
+    (!F.fast || (e.flower && e.flower <= F.fast)));
+  if (F.like){ const ref = libEntries().find(e => e.id === F.like); if (ref) L = L.filter(e => e.id !== ref.id).map(e => [similarity(ref, e), e]).sort((a, b) => b[0] - a[0]).map(x => x[1]); }
+  else if (F.sort === "flower") L.sort((a, b) => (a.flower || 999) - (b.flower || 999));
+  else if (F.sort === "thc") L.sort((a, b) => (b.thcMax || 0) - (a.thcMax || 0));
+  else L.sort((a, b) => a.name.localeCompare(b.name));
+  return L;
+}
+function libChip(label, on, fn){ return h("button",{type:"button", class:"chip", style:"min-height:34px;font-size:15px", "aria-pressed": on ? "true" : "false", onclick:() => { fn(); renderLibrary(); }}, label); }
+function renderLibrary(){
+  const box = $("#lib-body"); if (!box) return; box.replaceChildren();
+  const F = S.libF, p = sel(), mine_ = entryFor(p);
+  $("#lib-back").textContent = "← " + (p && p.strain ? p.strain : "Plant");
+  const search = h("input",{type:"search", id:"lib-q", placeholder:"Search name or breeder", value:F.q, "aria-label":"Search strains", oninput:e => { F.q = e.target.value; renderLibList(); }});
+  box.append(h("label",{class:"f"}, search));
+  const presets = h("div",{class:"chips", style:"gap:6px"});
+  if (mine_) presets.append(libChip("Like " + mine_.name, F.like === mine_.id, () => { F.like = F.like === mine_.id ? null : mine_.id; }));
+  presets.append(libChip("Faster (≤ 63 d)", F.fast === 63, () => { F.fast = F.fast === 63 ? null : 63; }));
+  presets.append(libChip("More uplifting", F.eff.has("uplifting"), () => { F.eff.has("uplifting") ? F.eff.delete("uplifting") : F.eff.add("uplifting"); }));
+  presets.append(libChip("More relaxing", F.eff.has("relaxing"), () => { F.eff.has("relaxing") ? F.eff.delete("relaxing") : F.eff.add("relaxing"); }));
+  box.append(presets);
+  const more = h("details",{class:"panel fr","data-soak":"0.12", open: S.libMore ? "" : null, ontoggle:e => { S.libMore = e.target.open; }}, h("summary",null,"Filters"),
+    h("div",{class:"sub", style:"margin:8px 0 4px"},"Show"), h("div",{class:"chips", style:"gap:6px"}, [["all","All"],["stash","My seeds"],["grown","Grown before"],["request","To research"]].map(([k, l]) => libChip(l, F.scope === k, () => { F.scope = k; }))),
+    h("div",{class:"sub", style:"margin:10px 0 4px"},"Type"), h("div",{class:"chips", style:"gap:6px"}, [["auto","Autoflower"],["photo","Photoperiod"]].map(([k, l]) => libChip(l, F.kind === k, () => { F.kind = F.kind === k ? null : k; }))),
+    h("div",{class:"sub", style:"margin:10px 0 4px"},"Effect"), h("div",{class:"chips", style:"gap:6px"}, LIB_EFFECTS.map(k => libChip(k, F.eff.has(k), () => { F.eff.has(k) ? F.eff.delete(k) : F.eff.add(k); }))),
+    h("div",{class:"sub", style:"margin:10px 0 4px"},"Terpene"), h("div",{class:"chips", style:"gap:6px"}, LIB_TERPS.map(k => libChip(k, F.terp.has(k), () => { F.terp.has(k) ? F.terp.delete(k) : F.terp.add(k); }))),
+    h("div",{class:"sub", style:"margin:10px 0 4px"},"Sort"), h("div",{class:"chips", style:"gap:6px"}, [["name","Name"],["flower","Bloom time"],["thc","THC"]].map(([k, l]) => libChip(l, F.sort === k && !F.like, () => { F.sort = k; F.like = null; }))));
+  box.append(more);
+  box.append(h("div",{id:"lib-list", style:"display:flex;flex-direction:column;gap:10px"}));
+  renderLibList(); decorateSoon();
+}
+function renderLibList(){
+  const list = $("#lib-list"); if (!list) return; list.replaceChildren();
+  const L = libFiltered(), F = S.libF;
+  list.append(h("p",{class:"sub", style:"margin:0"}, L.length + (L.length === 1 ? " strain" : " strains") + (F.like ? " · most similar first" : "")));
+  for (const e of L){
+    const open = S.libOpen === e.id;
+    const meta = [e.kind === "auto" ? "Auto" : e.kind === "photo" ? "Photo" : null, e.flower ? e.flower + " d bloom" : null, e.thc ? "THC " + e.thc : null].filter(Boolean).join(" · ");
+    const badges = [e.seeds ? e.seeds + (e.seeds === 1 ? " seed" : " seeds") : e.inStash ? "in stash" : null, e.grown.length ? "grown" : null, e.request ? "to research" : null].filter(Boolean);
+    const card = h("div",{class:"panel fr","data-soak":"0.12", style:"padding:12px 14px"},
+      h("button",{type:"button", class:"tt", "aria-expanded": open ? "true" : "false", style:"width:100%;text-align:left", onclick:() => { S.libOpen = open ? null : e.id; renderLibList(); decorateSoon(); }},
+        h("b",{style:"font-size:19px"}, e.name), h("span",{class:"chev", "aria-hidden":"true"}, open ? "–" : "+")),
+      h("div",{class:"sub", style:"margin:2px 0 0"}, [e.breeder, meta].filter(Boolean).join(" · ")),
+      badges.length || e.terps.length ? h("div",{class:"chips", style:"gap:5px;margin-top:6px"}, badges.map(b => h("span",{class:"tag", style:"border-color:var(--ink)"}, b)).concat(e.terps.slice(0, 3).map(t => h("span",{class:"tag"}, t)))) : null);
+    if (open){
+      if (e.effects.length) card.append(h("p",{style:"margin:8px 0 0"}, h("span",{class:"muted"},"Effect "), e.effects.join(", ")));
+      if (e.taste.length) card.append(h("p",{style:"margin:4px 0 0"}, h("span",{class:"muted"},"Taste "), e.taste.join(", ")));
+      if (e.genetics) card.append(h("p",{style:"margin:4px 0 0"}, h("span",{class:"muted"},"Genetics "), e.genetics));
+      if (e.grown.length) card.append(h("p",{class:"sub", style:"margin:6px 0 0"}, "Your runs: " + e.grown.map(p => p.name + (p.run && p.run.dry_g ? " · " + p.run.dry_g + " g dry" : "") + (p.run && p.run.verdict ? " · " + p.run.verdict : "")).join("; ")));
+      const acts = h("div",{class:"chips", style:"gap:6px;margin-top:8px"});
+      if (e.sh) acts.append(h("button",{type:"button", class:"btn sm", onclick:() => { S.viewSheet = e.sh.id; location.hash = "strain"; }}, "Open full sheet"));
+      else acts.append(h("button",{type:"button", class:"btn ghost sm", disabled: e.request ? "" : null, onclick:() => requestResearch(e)}, e.request ? "Research requested" : "Request a sourced sheet"));
+      acts.append(h("button",{type:"button", class:"btn ghost sm", onclick:() => { F.like = e.id; S.libOpen = null; renderLibrary(); window.scrollTo(0, 0); }}, "Find similar"));
+      card.append(acts);
+      card.append(h("p",{class:"sub", style:"margin:6px 0 0;font-size:13px"}, e.sh ? "Sourced sheet" : "From " + (e.src || "your list") + "."));
+    }
+    list.append(card);
+  }
+  if (F.q.trim() && !L.some(e => norm(e.name) === norm(F.q)))
+    list.append(h("div",{class:"panel fr","data-soak":"0.12"}, h("p",{style:"margin:0"}, "Not in your library yet."),
+      h("button",{type:"button", class:"btn sm", style:"margin-top:8px", onclick:() => addToLibrary(F.q.trim())}, "Add “" + F.q.trim() + "” for research")));
+  decorateSoon();
+}
+async function requestResearch(e){
+  try { S.library = await mutate("library.json", list => (list || []).map(x => x.id === e.id ? Object.assign({}, x, {request: today()}) : x), "library: research request");
+    cache(); renderLibList(); setSync("Requested · the nightly review researches it"); } catch(err){ setSync("Couldn't save · tap to retry", true); }
+}
+async function addToLibrary(name){
+  const id = norm(name).replace(/ /g, "-") + "-" + Date.now().toString(36).slice(-4);
+  try { S.library = await mutate("library.json", list => (list || []).concat([{id, name, inStash:false, request: today(), src:"your request"}]), "library: add " + id);
+    S.libF.q = ""; S.libOpen = id; cache(); renderLibrary(); setSync("Added · the nightly review researches it"); } catch(err){ setSync("Couldn't save · tap to retry", true); }
+}
+/* bottom of a plant's strain sheet: a few close relatives from the library, and the way in */
+function similarPanel(p){
+  const me = entryFor(p), lib = libEntries();
+  const panel = h("div",{class:"panel fr","data-soak":"0.12"}, h("h2",null,"Strain library"));
+  if (me && lib.length > 1){
+    const top = lib.filter(e => e.id !== me.id).map(e => [similarity(me, e), e]).sort((a, b) => b[0] - a[0]).slice(0, 3).map(x => x[1]);
+    panel.append(h("p",{class:"sub", style:"margin:0 0 6px"}, "Closest in your library"), h("ul",{class:"notes"}, top.map(e => h("li",null, h("b",null,e.name), " · " + [e.breeder, e.flower ? e.flower + " d" : null].filter(Boolean).join(" · ")))));
+  }
+  panel.append(h("a",{class:"btn ghost sm", href:"#library", style:"align-self:flex-start;margin-top:6px", onclick:() => { if (me) S.libF.like = null; }}, "Browse your seeds and strains →"));
+  return panel;
+}
 
 /* ---------- derived ---------- */
 function latest(k){ for (const l of mine(S.logs)){ const n = num(l[k]); if (n != null) return {v:n, at:l.at}; } return null; }
@@ -718,9 +840,10 @@ function lineageNode(n, depth){
     n.note ? h("div",{class:"lnote"}, n.note) : null, kids.length ? h("ul",null, kids) : null);
 }
 function renderStrain(){
-  const p = sel(), x = strainOf(p), box = $("#st-body"); box.replaceChildren();
+  const p = sel(), other = S.viewSheet ? sheetById(S.viewSheet) : null, x = other || strainOf(p), box = $("#st-body"); box.replaceChildren();
+  if (other) box.append(h("a",{class:"small", href:"#strain", onclick:() => { S.viewSheet = null; renderStrain(); }}, "← Back to " + (p && p.strain ? p.strain : "your plant")));
   if (!x){ $("#st-name").textContent = p && p.strain ? p.strain : "Strain"; $("#st-by").textContent = "";
-    box.append(h("p",{class:"empty"}, p && p.strain ? "No strain sheet yet. The nightly review will research one." : "Set the strain under the gear → Edit, and a strain sheet appears here.")); decorateSoon(); return; }
+    box.append(h("p",{class:"empty"}, p && p.strain ? "No strain sheet yet. The nightly review will research one." : "Set the strain under the gear → Edit, and a strain sheet appears here."), similarPanel(p)); decorateSoon(); return; }
   $("#st-name").textContent = x.name; $("#st-by").textContent = [x.breeder, x.country].filter(Boolean).join(" · ");
   const facts = [["Type", x.type], ["Genetics", x.genetics], ["THC", x.thc], ["CBD", x.cbd], ["Bloom", x.flowering], ["Height", x.height], ["Yield", x.yield]].filter(f => f[1]);
   box.append(h("dl",{class:"facts"}, facts.flatMap(f => [h("dt",null,f[0]), h("dd",{class:"num"},f[1])])));
@@ -756,6 +879,7 @@ function renderStrain(){
   if (triv.length) box.append(h("div",{class:"panel fr","data-soak":"0.12"}, h("h2",null,"Did you know"),
     h("ul",{class:"notes"}, triv.map(t => h("li",null, t.text, t.src ? h("a",{class:"small muted", href:t.src.u, target:"_blank", rel:"noopener", style:"display:block"}, "Source: " + t.src.t) : null)))));
   if (x.sources && x.sources.length) box.append(h("details",null, h("summary",{class:"small muted"},"Sources"), h("ul",{class:"notes small"}, x.sources.map(s => h("li",null, h("a",{href:s.u, target:"_blank", rel:"noopener"}, s.t))))));
+  if (!other) box.append(similarPanel(p));
   decorateSoon();
 }
 
@@ -1054,7 +1178,7 @@ function renderHistory(){
         h("button",{type:"button", class:"btn ghost sm", style:S.armDel===l.id ? "color:var(--bad);border-color:var(--bad)" : null, onclick:() => delLog(l)}, S.armDel===l.id ? "Tap again to delete" : "Delete"))));
   }
 }
-function renderAll(){ renderTabs(); renderToday(); renderPlan(); renderHistory(); if (!$("#v-strain").hidden) renderStrain(); if (!$("#v-setup").hidden) renderSetup(); decorateSoon(); }
+function renderAll(){ renderTabs(); renderToday(); renderPlan(); renderHistory(); if (!$("#v-strain").hidden) renderStrain(); if (!$("#v-library").hidden) renderLibrary(); if (!$("#v-setup").hidden) renderSetup(); decorateSoon(); }
 
 /* ---------- log form ---------- */
 function renderLogForm(){

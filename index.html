@@ -70,7 +70,9 @@ a{color:var(--ink)}
 .donebtn{all:unset;cursor:pointer;font:italic 15px var(--fell);color:var(--muted);min-height:28px}
 .logged{display:flex;align-items:center;gap:7px;font:italic 15px var(--fell);text-decoration:none;color:var(--ink);min-height:30px}
 .logged .box{width:20px;height:20px;flex:none}
-.task{display:flex;gap:12px;align-items:flex-start;font-size:17px}.task .tb{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1}.task .tt{all:unset;cursor:pointer;display:flex;justify-content:space-between;gap:8px;min-height:28px;align-items:baseline}.task .tt:focus-visible{outline:2px solid var(--ink)}.chev{font:400 17px var(--fell);color:var(--muted)}.facts{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;margin:0;font-size:16px}.facts dt{font-family:var(--sc);font-variant:small-caps;letter-spacing:.05em;color:var(--muted);font-size:14px}.facts dd{margin:0}
+.task{display:flex;gap:12px;align-items:flex-start;font-size:17px}.task .tb{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1}.task .tt{all:unset;cursor:pointer;display:flex;justify-content:space-between;gap:8px;min-height:28px;align-items:baseline}.task .tt:focus-visible{outline:2px solid var(--ink)}
+#v-library button.tt{all:unset;box-sizing:border-box;width:100%;cursor:pointer;display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+#lib-q{font-weight:400;font-size:19px}.chev{font:400 17px var(--fell);color:var(--muted)}.facts{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;margin:0;font-size:16px}.facts dt{font-family:var(--sc);font-variant:small-caps;letter-spacing:.05em;color:var(--muted);font-size:14px}.facts dd{margin:0}
 .spec-row{display:grid;grid-template-columns:20px 66px 1fr 72px;gap:8px;align-items:center;font:italic 15px var(--fell)}.spec-row .sr{text-align:right}.track{position:relative;height:12px;border-bottom:1.5px dotted var(--ink)}.track .dot{position:absolute;bottom:-6px;width:12px;height:12px;border-radius:50%;background:var(--ink)}
 .tree,.tree ul{list-style:none;margin:0;padding:0}.tree ul{margin-left:10px;padding-left:14px;border-left:1.2px solid var(--ink)}.tree li{padding:4px 0}.lname{font-family:var(--sc);font-variant:small-caps;letter-spacing:.04em}.lby{font:italic 14px var(--fell);color:var(--muted)}.lnote{font:italic 14px var(--fell);color:var(--muted)}
 .terp{font-size:16px}.notes{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:6px}.prose{margin:8px 0 0;font:17px/1.5 var(--serif)}.bio .prose:first-of-type::first-letter{font:400 44px/0.8 var(--fell);float:left;margin:6px 6px 0 0}
@@ -98,7 +100,7 @@ details summary{cursor:pointer}
 form{display:flex;flex-direction:column;gap:14px}
 .fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
 label.f{display:flex;flex-direction:column;gap:3px;font:small-caps 400 15px var(--sc);letter-spacing:.04em;color:var(--ink)}
-input[type=text],input[type=password],input[type=date],textarea{min-height:46px;border:0;border-bottom:1.5px solid var(--ink);border-radius:0;padding:0 2px;font:700 22px var(--serif);color:var(--ink);background:transparent;width:100%;font-variant-numeric:lining-nums}
+input[type=text],input[type=password],input[type=date],input[type=search],input[type=url],textarea{min-height:46px;border:0;border-bottom:1.5px solid var(--ink);border-radius:0;padding:0 2px;font:700 22px var(--serif);color:var(--ink);background:transparent;width:100%;font-variant-numeric:lining-nums}
 input::placeholder,textarea::placeholder{color:var(--muted);opacity:.7;font-weight:400}
 textarea{border:1.2px solid var(--ink);border-radius:6px;padding:10px 12px;font:17px var(--serif);resize:vertical;min-height:76px}
 .chips{display:flex;flex-wrap:wrap;gap:8px}
@@ -218,6 +220,12 @@ legend{padding:0;margin-bottom:8px;font:small-caps 400 15px var(--sc);letter-spa
 <p class="kicker" id="st-by" style="margin-top:-8px"></p>
 <div id="st-body" style="display:flex;flex-direction:column;gap:16px"></div>
 </section>
+<section id="v-library" aria-label="Strain library" hidden>
+<a class="small" id="lib-back" href="#strain">← Plant</a>
+<div class="head" style="align-items:baseline"><h1>Strain library</h1></div>
+<p class="kicker" style="margin-top:-8px">Your seeds, strains you grew, strains to look into</p>
+<div id="lib-body" style="display:flex;flex-direction:column;gap:12px"></div>
+</section>
 <section id="v-history" aria-label="History" hidden>
 <h1>History</h1>
 <div id="h-list" style="display:flex;flex-direction:column;gap:10px"></div>
@@ -275,8 +283,8 @@ legend{padding:0;margin-bottom:8px;font:small-caps 400 15px var(--sc);letter-spa
 <a href="#strain" data-v="strain"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21V9"/><path d="M12 13c-3-.5-6-3-6.5-7 4 .3 6.3 3 6.5 7z"/><path d="M12 11c2.5-.4 5.5-2.6 6-6.5-3.8.3-5.8 2.9-6 6.5z"/></svg>Plant</a>
 <a href="#history" data-v="history"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 6h14M5 12h14M5 18h9"/></svg>History</a>
 </nav>
-<script src="specimen.js?v=24"></script>
-<script src="bgart.js?v=24"></script>
-<script src="app.js?v=24"></script>
+<script src="specimen.js?v=25"></script>
+<script src="bgart.js?v=25"></script>
+<script src="app.js?v=25"></script>
 </body>
 </html>
