@@ -1429,8 +1429,8 @@ function renderLogForm(){
       if (a === "Light changed") renderLogForm();
     }}, a));
   }
-  const indoor = (p.where || "indoor") === "indoor";
-  $("#l-sensordrop").hidden = !indoor || ph === "germ" || ph === "done";
+  // a sensor file fits any phase: outdoor plants still dry and cure indoors, and jars get sensors too
+  $("#l-sensordrop").hidden = false;
   if (!S.edit) $("#l-title").textContent = p.name;
 }
 const countLabel = (n, none) => n ? n + " selected" : none;
@@ -1475,6 +1475,8 @@ $("#logform").addEventListener("submit", async e => {
     let sensor = null;
     for (const f of files) if (isCsv(f)){ const s = parseSensorCsv(await f.text()); if (s && (!sensor || s.at > sensor.at)) sensor = s; }
     if (files.some(isCsv) && !sensor) st.textContent = "Uploading… (couldn't read values from the CSV, saving it anyway)";
+    // a sensor in the jar: its 24 h average becomes the jar RH unless one was typed
+    if (sensor && sensor.havg != null && phaseOf(p) === "cure" && vals.jar_rh == null) vals.jar_rh = Math.round(sensor.havg * 10) / 10;
     const newPhotos = photos.length ? await uploadFiles(photos, "photo") : [];
     const newFiles = files.length ? await uploadFiles(files, "sensor") : [];
     const wasEdit = !!S.edit;
