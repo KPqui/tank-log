@@ -63,6 +63,13 @@ function targetsOf(p){
   if (ph === "cure" || ph === "done") return Object.assign({}, DRY_TARGETS, CURE_TARGETS, p.cureTargets);
   return p.targets || {};
 }
+/* stage in days only (no weeks anywhere): "Veg · day 21" counted from the sprout, "Bloom · day 9" from the flip */
+function stageText(p){
+  const ph = phaseOf(p), T = today(), f = flipOf(p);
+  if (ph === "bloom" && f) return "Bloom · day " + (daysBetween(f, T) + 1);
+  if (ph === "grow" && p.sprout) return "Veg · day " + (daysBetween(p.sprout, T) + 1);
+  return PHASES[ph] || "";
+}
 function flipOf(p){ return p.flip || (p.phases && p.phases.bloom) || (p.stage === "flower" ? p.flipEst : null); }
 
 function fieldsFor(p){
@@ -420,6 +427,18 @@ function parseStamp(s){
   const t = Date.parse(s); return Number.isFinite(t) ? new Date(t) : null;
 }
 function parseSensorCsv(text){
+  const rows = parseSensorRows(text); if (!rows) return null;
+  const last = rows[rows.length-1], from = last.at - 864e5;
+  const day = rows.filter(x => x.at >= from);
+  const ts = day.map(x => x.t).filter(v => v != null), rs = day.map(x => x.r).filter(v => v != null);
+  const r1 = v => v == null ? null : Math.round(v*10)/10;
+  return { at:last.at.toISOString(), first:rows[0].at.toISOString(), n:rows.length,
+    temp:r1(last.t), rh:r1(last.r),
+    tmin: ts.length ? r1(Math.min(...ts)) : null, tmax: ts.length ? r1(Math.max(...ts)) : null,
+    hmin: rs.length ? r1(Math.min(...rs)) : null, hmax: rs.length ? r1(Math.max(...rs)) : null,
+    tavg: ts.length ? r1(ts.reduce((a,b)=>a+b,0)/ts.length) : null, havg: rs.length ? r1(rs.reduce((a,b)=>a+b,0)/rs.length) : null };
+}
+function parseSensorRows(text){
   const lines = text.replace(/^﻿/,"").split(/\r?\n/).filter(l => l.trim());
   if (lines.length < 2) return null;
   const sep = lines[0].includes(";") ? ";" : lines[0].includes("\t") ? "\t" : ",";
@@ -440,15 +459,7 @@ function parseSensorCsv(text){
   }
   if (!rows.length) return null;
   rows.sort((a,b) => a.at - b.at);
-  const last = rows[rows.length-1], from = last.at - 864e5;
-  const day = rows.filter(x => x.at >= from);
-  const ts = day.map(x => x.t).filter(v => v != null), rs = day.map(x => x.r).filter(v => v != null);
-  const r1 = v => v == null ? null : Math.round(v*10)/10;
-  return { at:last.at.toISOString(), first:rows[0].at.toISOString(), n:rows.length,
-    temp:r1(last.t), rh:r1(last.r),
-    tmin: ts.length ? r1(Math.min(...ts)) : null, tmax: ts.length ? r1(Math.max(...ts)) : null,
-    hmin: rs.length ? r1(Math.min(...rs)) : null, hmax: rs.length ? r1(Math.max(...rs)) : null,
-    tavg: ts.length ? r1(ts.reduce((a,b)=>a+b,0)/ts.length) : null, havg: rs.length ? r1(rs.reduce((a,b)=>a+b,0)/rs.length) : null };
+  return rows;
 }
 function vpd(t, rh){ if (t == null || rh == null) return null; const svp = 0.6108 * Math.exp(17.27*t/(t+237.3)); return Math.round(svp*(1-rh/100)*100)/100; }
 
@@ -468,14 +479,14 @@ async function loadWeather(p){
 
 /* ---------- sync ---------- */
 function setSync(text, err){ const b = $("#sync"); b.textContent = text; b.classList.toggle("err", !!err); }
-function cache(){ try { localStorage.setItem(CACHE_KEY, JSON.stringify({plants:S.plants, tasks:S.tasks, logs:S.logs, changes:S.changes, tips:S.tips||[], strains:S.strains||[], library:S.library||[]})); } catch(e){} }
+function cache(){ try { localStorage.setItem(CACHE_KEY, JSON.stringify({plants:S.plants, tasks:S.tasks, logs:S.logs, changes:S.changes, tips:S.tips||[], strains:S.strains||[], library:S.library||[], experiments:S.experiments||[]})); } catch(e){} }
 function sortLogs(list){ return (list||[]).slice().sort((a,b) => (b.at||"").localeCompare(a.at||"")); }
 async function loadAll(){
   if (!S.cfg || S.busy) return;
   S.busy = true; setSync("Syncing…");
   try {
-    let [plants, tasks, logs, changes, tips, strainsRes, libRes] = await Promise.all(["plants.json","tasks.json","logs.json","changes.json","tips.json","strains.json","library.json"].map(p => getJSON(p).catch(() => ({data:null}))));
-    S.tips = (tips && tips.data) || []; S.strains = (strainsRes && strainsRes.data) || []; S.library = (libRes && libRes.data) || [];
+    let [plants, tasks, logs, changes, tips, strainsRes, libRes, expRes] = await Promise.all(["plants.json","tasks.json","logs.json","changes.json","tips.json","strains.json","library.json","experiments.json"].map(p => getJSON(p).catch(() => ({data:null}))));
+    S.tips = (tips && tips.data) || []; S.experiments = (expRes && expRes.data) || []; S.strains = (strainsRes && strainsRes.data) || []; S.library = (libRes && libRes.data) || [];
     if (!plants.data){
       const run = (await getJSON("run.json")).data;
       if (run){
@@ -495,21 +506,31 @@ async function loadAll(){
 }
 function loadCache(){
   try { const c = JSON.parse(localStorage.getItem(CACHE_KEY) || "null");
-    if (c && c.plants){ Object.assign(S, {plants:c.plants, tasks:c.tasks||[], logs:sortLogs(c.logs), changes:c.changes||[], tips:c.tips||[], strains:c.strains||[], library:c.library||[]}); setSync("Saved copy"); } } catch(e){}
+    if (c && c.plants){ Object.assign(S, {plants:c.plants, tasks:c.tasks||[], logs:sortLogs(c.logs), changes:c.changes||[], tips:c.tips||[], strains:c.strains||[], library:c.library||[], experiments:c.experiments||[]}); setSync("Saved copy"); } } catch(e){}
 }
 
 /* ---------- routing ---------- */
-const VIEWS = ["today","log","plan","setup","plant","strain","library"];
+const VIEWS = ["today","log","plan","setup","plant","quiz","strain","library"];
+const GEAR_SVG = '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="3.2"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1"/></svg>';
 function route(){
   let v = location.hash.slice(1);
   if (v === "history"){ S.planSeg = "book"; v = "plan"; }   // the log book now lives inside Plan
-  if (v === "plant-new" || v === "plant-edit"){ openPlantForm(v === "plant-edit"); v = "plant"; }
+  if (v === "plant-new" || v === "plant-setup"){ if (!S.qz || S.qz.mode !== (v === "plant-new" ? "new" : "edit") || (S.qz.mode === "edit" && S.qz.pid !== S.sel)) openQuiz(v === "plant-new" ? "new" : "edit"); v = "quiz"; }
+  if (v === "plant-full" || v === "plant-edit"){ openPlantForm(v === "plant-edit"); v = "plant"; }
   if (!VIEWS.includes(v)) v = "today";
   if (!S.cfg && v !== "setup") v = "setup";
   for (const x of VIEWS) document.getElementById("v-"+x).hidden = x !== v;
-  $("#tabs").hidden = v === "setup" || v === "plant" || v === "library" || !S.plants.length;
+  // the gear opens settings; in settings (and the plant forms reached from there) the same corner closes them again
+  const away = v === "setup" || v === "plant" || v === "quiz";
+  if (!away) S.back = v;
+  const gear = $("#gear");
+  gear.setAttribute("href", away ? "#" + (S.back || "today") : "#setup");
+  gear.setAttribute("aria-label", away ? "Close" : "Settings and plants");
+  gear.innerHTML = away ? '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>' : GEAR_SVG;
+  $("#tabs").hidden = v === "setup" || v === "plant" || v === "quiz" || v === "library" || !S.plants.length;
   document.querySelectorAll("nav a").forEach(a => a.dataset.v === v ? a.setAttribute("aria-current","page") : a.removeAttribute("aria-current"));
   if (v === "setup") renderSetup();
+  if (v === "quiz") renderQuiz();
   if (v === "strain") renderStrain();
   if (v === "library") renderLibrary();
   if (v === "plan") planSeg();
@@ -546,7 +567,7 @@ function swipePlant(dir){
   let x0 = 0, y0 = 0, t0 = 0, ok = false;
   addEventListener("touchstart", e => {
     const t = e.touches[0], v = location.hash.slice(1) || "today";
-    ok = e.touches.length === 1 && t.clientX > 25 && t.clientX < innerWidth - 25 && !["setup","plant","plant-new","plant-edit","library"].includes(v) && !S.edit && !(v === "log" && S.logDirty) &&
+    ok = e.touches.length === 1 && t.clientX > 25 && t.clientX < innerWidth - 25 && !["setup","plant","plant-new","plant-edit","plant-full","plant-setup","library"].includes(v) && !S.edit && !(v === "log" && S.logDirty) &&
       !e.target.closest('input,select,textarea,[contenteditable],.tabs,.rail,.viewer,[data-noswipe]');
     x0 = t.clientX; y0 = t.clientY; t0 = Date.now();
   }, {passive:true});
@@ -642,7 +663,7 @@ function feelBar(v){
   if (v == null) return h("span",{class:"muted"},"–");
   return h("span",{class:"mini", role:"img", "aria-label": v < 0.4 ? "calming" : v > 0.6 ? "lifting" : "balanced"}, h("span",{class:"dot", style:"left:calc(" + Math.round(v * 100) + "% - 4px)"}));
 }
-S.libGroup = "none"; S.libShut = new Set(); S.libPick = null; S.libCompare = false;
+S.libGroup = "none"; S.libGrpOpen = new Set(); S.libPick = null; S.libCompare = false;
 function runsText(e){ return e.grown.map(p => p.name + (p.run && p.run.dry_g ? " · " + p.run.dry_g + " g dry" : "") + (p.run && p.run.verdict ? " · " + p.run.verdict : "")).join("; "); }
 function renderLibList(){
   const list = $("#lib-list"); if (!list) return; list.replaceChildren();
@@ -677,11 +698,11 @@ function renderLibList(){
     if (S.libGroup !== "none") groups.sort((a, b) => a.k.localeCompare(b.k));
     for (const g of groups){
       const tb = h("tbody");
-      const shut = S.libGroup !== "none" && S.libShut.has(S.libGroup + ":" + g.k);
+      const shut = S.libGroup !== "none" && !S.libF.q.trim() && !S.libGrpOpen.has(S.libGroup + ":" + g.k);   // groups start collapsed; a search opens them
       if (S.libGroup !== "none"){
         const seeds = g.items.reduce((t, e) => t + (e.seeds || 0), 0);
-        tb.append(h("tr",{class:"lgrp", tabindex:"0", "aria-expanded": shut ? "false" : "true", onclick:() => { const id = S.libGroup + ":" + g.k; S.libShut.has(id) ? S.libShut.delete(id) : S.libShut.add(id); renderLibList(); }},
-          h("td",{colspan:"5"}, h("span",{class:"chev", "aria-hidden":"true"}, shut ? "+ " : "– "), h("b",null, g.k), h("span",{class:"muted"}, " · " + g.items.length + (g.items.length === 1 ? " strain" : " strains") + (F.scope === "stash" && seeds ? " · " + seeds + " seeds" : "")))));
+        tb.append(h("tr",{class:"lgrp", tabindex:"0", "aria-expanded": shut ? "false" : "true", onclick:() => { const id = S.libGroup + ":" + g.k; S.libGrpOpen.has(id) ? S.libGrpOpen.delete(id) : S.libGrpOpen.add(id); renderLibList(); }},
+          h("td",{colspan:"5"}, h("span",{class:"chev", "aria-hidden":"true"}, shut ? "+ " : "– "), h("b",null, g.k), h("span",{class:"muted"}, " · " + g.items.length + (g.items.length === 1 ? " strain" : " strains") + (F.scope === "stash" && seeds ? " · " + seeds + (seeds === 1 ? " seed" : " seeds") : "")))));
       }
       if (!shut) for (const e of g.items) libRow(tb, e, F);
       tbl.append(tb);
@@ -833,32 +854,45 @@ function askCard(p){
 /* ---------- the app's own plan keeping (rules.js) ---------- */
 function ruleCtx(p){ const ph = phaseOf(p); return {today: today(), phase: ph, phaseStart: phaseStart(p, ph === "done" ? "cure" : ph), tasks: S.tasks, logs: S.logs}; }
 async function applyRules(byPlant, label){
-  const add = [], ch = [], T = today();
-  for (const [pid, r] of byPlant){ if (!r.tasks.length) continue;
-    add.push(...r.tasks);
-    ch.push({id:"c-" + T.replace(/-/g, "") + "-a" + Math.random().toString(36).slice(2, 6), run:pid, date:T, src:"app",
-      text: label === "plan" ? "Plan kept going by the app: " + groupSteps(r.tasks) + "."
-                             : "Added right after your log (" + r.why.join("; ") + ")."}); }
-  if (!add.length) return 0;
-  S.tasks = await mutate("tasks.json", list => { const L = list || [], ids = new Set(L.map(t => t.id)), gens = new Set(L.filter(t => t.gen).map(t => t.run + "|" + t.gen));
+  const add = [], mv = [], ch = [], T = today();
+  for (const [pid, r] of byPlant){ const moves = r.moves || []; if (!r.tasks.length && !moves.length) continue;
+    add.push(...r.tasks); mv.push(...moves);
+    const cid = () => "c-" + T.replace(/-/g, "") + "-a" + Math.random().toString(36).slice(2, 6);
+    if (r.tasks.length) ch.push({id:cid(), run:pid, date:T, src:"app",
+      text: (r.kind || label) === "plan" ? "Plan kept going by the app: " + groupSteps(r.tasks) + "."
+                             : "Added right after your log (" + r.why.join("; ") + ")."});
+    for (const m of moves) ch.push({id:cid(), run:pid, date:T, src:"app", text:m.why}); }
+  if (!add.length && !mv.length) return 0;
+  S.tasks = await mutate("tasks.json", list => { const L = (list || []).map(t => { const m = mv.find(x => x.id === t.id); return m && t.status !== "done" ? Object.assign({}, t, {due:m.due, moved:T}) : t; });
+    const ids = new Set(L.map(t => t.id)), gens = new Set(L.filter(t => t.gen).map(t => t.run + "|" + t.gen));
     return L.concat(add.filter(t => !ids.has(t.id) && !gens.has(t.run + "|" + t.gen))); }, label === "plan" ? "app: keep plans going" : "app: react to log");
   try { S.changes = (await mutate("changes.json", list => (list || []).concat(ch), "app: why things moved")).slice().sort((a,b) => (b.date||"").localeCompare(a.date||"")); } catch(e){}
-  cache(); return add.length;
+  cache(); return add.length + mv.length;
 }
 function groupSteps(tasks){
   const g = new Map(); for (const t of tasks.slice().sort((a, b) => a.due.localeCompare(b.due))){ const k = t.title; if (!g.has(k)) g.set(k, []); g.get(k).push(t.due); }
   return [...g].map(([k, ds]) => k.toLowerCase() + " " + (ds.length > 1 ? short(ds[0]) + "–" + short(ds[ds.length - 1]) + " (" + ds.length + "×)" : short(ds[0]))).join(", ");
 }
 S.planRan = null;
+const REACTED_KEY = "ff-reacted";
 async function keepPlans(){
   if (!window.Rules || S.planRan === today() || !S.plants.length) return;
   S.planRan = today();
   const by = []; for (const p of S.plants){ const tasks = Rules.plan(p, ruleCtx(p)); if (tasks.length) by.push([p.id, {tasks, why: []}]); }
-  try { const n = await applyRules(by, "plan"); if (n){ renderAll(); setSync("Plans updated · " + n + " step" + (n === 1 ? "" : "s") + " added"); } } catch(e){ S.planRan = null; }
+  // the newest log of each plant also gets the instant reaction once (catches logs saved before an update or on another phone)
+  let seen = []; try { seen = JSON.parse(localStorage.getItem(REACTED_KEY) || "[]"); } catch(e){}
+  for (const p of S.plants.filter(x => x.status === "active")){
+    const l = S.logs.find(x => plantOf(x) === p.id); if (!l || seen.includes(l.id) || l.date < addDays(today(), -1)) continue;
+    const r = Rules.afterLog(p, l, ruleCtx(p)); seen.push(l.id);
+    if (r.tasks.length || (r.moves || []).length) by.push([p.id, Object.assign(r, {kind: "log"})]);
+  }
+  try { localStorage.setItem(REACTED_KEY, JSON.stringify(seen.slice(-50))); } catch(e){}
+  try { const n = await applyRules(by, "plan"); if (n){ renderAll(); setSync("Plans updated · " + n + " step" + (n === 1 ? "" : "s") + " changed"); } } catch(e){ S.planRan = null; }
 }
 async function reactToLog(p, entry){
   if (!window.Rules) return;
-  const r = Rules.afterLog(p, entry, ruleCtx(p)); if (!r.tasks.length) return;
+  const r = Rules.afterLog(p, entry, ruleCtx(p)); try { const seen = JSON.parse(localStorage.getItem(REACTED_KEY) || "[]"); localStorage.setItem(REACTED_KEY, JSON.stringify(seen.concat(entry.id).slice(-50))); } catch(e){}
+  if (!r.tasks.length && !(r.moves || []).length) return;
   try { await applyRules([[p.id, r]], "log"); renderAll(); setSync(r.tasks.some(t => t.urgent) ? "Needs a look · check-in added" : "Plan updated after your log"); } catch(e){}
 }
 
@@ -883,7 +917,9 @@ const dueCount = p => S.tasks.filter(t => plantOf(t) === p.id && t.status !== "d
 /* ---------- render ---------- */
 function tile(k, v, st, fx){
   fx = fx || {};
-  const el = h("div",{class:"tile fr", "data-soak": fx.soak, "data-warm": fx.warm, "data-frost": fx.frost, "data-state": st.cls === "ok" ? "ok" : null},
+  const el = h("div",{class:"tile fr" + (fx.key ? " tap" : ""), "data-soak": fx.soak, "data-warm": fx.warm, "data-frost": fx.frost, "data-state": st.cls === "ok" ? "ok" : null,
+    role: fx.key ? "button" : null, tabindex: fx.key ? "0" : null, "aria-label": fx.key ? k + " " + v + ", show the chart" : null,
+    onclick: fx.key ? () => openChart(fx.key, k) : null, onkeydown: fx.key ? e => { if (e.key === "Enter" || e.key === " "){ e.preventDefault(); openChart(fx.key, k); } } : null},
     h("span",{class:"k"}, k), h("span",{class:"v num"}, v));
   if (st.word) el.append(h("span",null, washSpan(st.word, st.cls)));
   if (st.txt) el.append(h("span",{class:"r"}, st.txt));
@@ -939,7 +975,7 @@ function drawSpecimen(p){
   spec.innerHTML = Specimen.draw(st);
   const words = {germ:"a seed", dry:"a plant hung to dry", cure:"buds curing in a jar", done:"a finished jar"};
   heroPhoto(p);
-  spec.setAttribute("aria-label", "Ink drawing of " + (words[st.phase] || (st.nodes ? "a plant with " + st.nodes + " leaf nodes" + (st.flowerDays ? ", " + Math.round(st.flowerDays / 7) + " weeks into bloom" : "") : "a sprout")));
+  spec.setAttribute("aria-label", "Ink drawing of " + (words[st.phase] || (st.nodes ? "a plant with " + st.nodes + " leaf nodes" + (st.flowerDays ? ", bloom day " + (st.flowerDays + 1) : "") : "a sprout")));
 }
 /* tap the drawing to see the plant as it really is: the newest photo, cut out on the phone and turned into a
    half photo, half ink specimen (stylize.js); the result is kept per plant so it's instant next time */
@@ -993,21 +1029,91 @@ function coreTiles(p){
     const ds = phaseStart(p, "dry"), w = latestSince("weight", ds), wet = num(run.wet_g);
     const lost = w && wet ? Math.round(100 * (1 - w.v / wet)) : null;
     const snap = lastAction(["Stems snap","Still bendy"]);
-    return [["Weight", w ? fmtv("weight", w.v) : "–", {cls:"none", word:"", txt: wet ? "wet " + wet + " g" : "weigh a sample"}],
-      ["Lost", lost != null ? lost + "%" : "–", lost != null ? (lost >= 70 ? {cls:"ok", word:"near", txt:"jars at ~72–75%"} : {cls:"none", word:"", txt:"jars at ~72–75%"}) : {cls:"none", word:"", txt:"needs wet + now"}],
+    return [["Weight", w ? fmtv("weight", w.v) : "–", {cls:"none", word:"", txt: wet ? "wet " + wet + " g" : "weigh a sample"}, "weight"],
+      ["Lost", lost != null ? lost + "%" : "–", lost != null ? (lost >= 70 ? {cls:"ok", word:"near", txt:"jars at ~72–75%"} : {cls:"none", word:"", txt:"jars at ~72–75%"}) : {cls:"none", word:"", txt:"needs wet + now"}, wet ? "lost" : null],
       ["Day", ds ? String(daysBetween(ds, T) + 1) : "–", snap ? (snap.actions.includes("Stems snap") ? {cls:"ok", word:"snaps", txt:"ready for jars?"} : {cls:"none", word:"", txt:"still bendy"}) : {cls:"none", word:"", txt:"usually 7–14"}]];
   }
   if (ph === "cure"){
     const cs = phaseStart(p, "cure"), j = latestSince("jar_rh", cs), w = latestSince("weight", cs), b = lastAction(["Burped"]);
     const bd = b ? daysBetween(b.date, T) : null;
-    return [["Jar RH", j ? fmtv("jar_rh", j.v) : "–", statusOf("jar_rh", j && j.v)],
-      ["Burped", bd == null ? "–" : bd === 0 ? "today" : bd + " d ago", bd != null && bd > 2 && cs && daysBetween(cs, T) < 14 ? {cls:"high", word:"due", txt:"daily in week 1–2"} : {cls:"none", word:"", txt: cs && daysBetween(cs, T) >= 14 ? "every few days now" : "daily in week 1–2"}],
-      ["Weight", w ? fmtv("weight", w.v) : (run.dry_g ? run.dry_g + " g" : "–"), {cls:"none", word:"", txt: run.dry_g ? "jarred at " + run.dry_g + " g" : ""}]];
+    return [["Jar RH", j ? fmtv("jar_rh", j.v) : "–", statusOf("jar_rh", j && j.v), "jar_rh"],
+      ["Burped", bd == null ? "–" : bd === 0 ? "today" : bd + " d ago", bd != null && bd > 2 && cs && daysBetween(cs, T) < 14 ? {cls:"high", word:"due", txt:"daily, days 1–14"} : {cls:"none", word:"", txt: cs && daysBetween(cs, T) >= 14 ? "every 7 days now" : "daily, days 1–14"}],
+      ["Weight", w ? fmtv("weight", w.v) : (run.dry_g ? run.dry_g + " g" : "–"), {cls:"none", word:"", txt: run.dry_g ? "jarred at " + run.dry_g + " g" : ""}, "weight"]];
   }
   if (ph === "done"){
     return [["Wet", run.wet_g ? run.wet_g + " g" : "–", none], ["Dry", run.dry_g ? run.dry_g + " g" : "–", run.wet_g && run.dry_g ? {cls:"none", word:"", txt: Math.round(100 * run.dry_g / run.wet_g) + "% of wet"} : none], ["Verdict", run.verdict || "–", none]];
   }
   return null;
+}
+
+
+/* ---------- charts: tap a tile → its values over a chosen time frame ----------
+   Logged values (pH, EC, water, height, weight, jar RH …) come from the logs; air, humidity and VPD from the
+   sensor CSVs attached to logs (fetched once, merged, cached), falling back to the 24 h summaries. */
+const RANGES = [["3 d", 3], ["7 d", 7], ["14 d", 14], ["30 d", 30], ["Run", 0]];
+const EVENT_MARK = {"Fed":"F", "Water change":"W", "Topped off":"T", "pH adjusted":"pH", "Light changed":"L", "Trained":"Tr", "Trimmed":"Tm", "Burped":"B", "Humidity pack in":"HP", "Sensor moved":"S"};
+const EVENTS_FOR = {ph:["Fed","Water change","Topped off","pH adjusted"], ec:["Fed","Water change","Topped off"], water:["Water change","Topped off"], height:["Trained","Trimmed","Light changed"],
+  air:["Light changed","Sensor moved"], rh:["Sensor moved","Humidity pack in"], vpd:["Light changed","Sensor moved"], jar_rh:["Burped","Humidity pack in"], weight:[], lost:[]};
+const textCache = new Map();
+function fetchText(path){ if (!textCache.has(path)) textCache.set(path, api(path, null, "application/vnd.github.raw").then(r => r.ok ? r.text() : null).catch(() => null)); return textCache.get(path); }
+S.chartRange = (() => { try { return +(localStorage.getItem("ff-chart-range") ?? 7); } catch(e){ return 7; } })();
+async function sensorPoints(p, from){
+  const rows = new Map();
+  const logs = mine(S.logs).filter(l => (l.files || []).some(f => /\.(csv|txt)$/i.test(f)));
+  for (const l of logs){                                  // newest first; stop once the files reach back far enough
+    for (const f of l.files.filter(f => /\.(csv|txt)$/i.test(f))){ const t = await fetchText(f); const r = t && parseSensorRows(t); if (r) for (const x of r) rows.set(+x.at, x); }
+    const first = Math.min(...rows.keys()); if (rows.size && first <= from) break;
+  }
+  if (!rows.size){                                        // no files: the 24 h summaries stored on the logs
+    for (const l of mine(S.logs)) if (l.sensor && l.sensor.at) rows.set(Date.parse(l.sensor.at), {at:new Date(l.sensor.at), t:l.sensor.tavg ?? l.sensor.temp, r:l.sensor.havg ?? l.sensor.rh});
+  }
+  return [...rows.values()].sort((a, b) => a.at - b.at);
+}
+async function chartData(p, key, from){
+  if (key === "air" || key === "rh" || key === "vpd"){
+    const rows = await sensorPoints(p, from);
+    const pts = rows.map(x => ({t:+x.at, v: key === "air" ? x.t : key === "rh" ? x.r : vpd(x.t, x.r)})).filter(x => x.v != null);
+    if (pts.length) return {pts, dots: pts.length < 30, src: "sensor"};
+    const k2 = key === "vpd" ? null : key;                // manual entries
+    return {pts: k2 ? mine(S.logs).map(l => ({t:Date.parse(l.at), v:num(l[k2])})).filter(x => x.v != null).reverse() : [], dots:true, src:"log"};
+  }
+  if (key === "lost"){ const wet = num((p.run || {}).wet_g);
+    return {pts: mine(S.logs).map(l => ({t:Date.parse(l.at), v: num(l.weight) != null && wet ? 100 * (1 - num(l.weight) / wet) : null})).filter(x => x.v != null).reverse(), dots:true, src:"log"}; }
+  return {pts: mine(S.logs).map(l => ({t:Date.parse(l.at), v:num(l[key])})).filter(x => x.v != null).reverse(), dots:true, src:"log"};
+}
+async function openChart(key, label){
+  const p = sel(); if (!p || !window.Chart) return;
+  const old = $("#chartview"); if (old) old.remove();
+  const box = h("div",{class:"chartbox"}), close = () => { v.remove(); removeEventListener("keydown", esc); };
+  const esc = e => { if (e.key === "Escape") close(); };
+  const v = h("div",{class:"viewer paper", id:"chartview", role:"dialog", "aria-modal":"true", "aria-label": label + " chart", "data-noswipe":""}, box);
+  document.body.append(v); addEventListener("keydown", esc);
+  const unit = {air:" °C", water:" °C", rh:" %", jar_rh:" %", lost:" %", weight:" g", height:" cm", vpd:" kPa"}[key] || "";
+  const digits = {vpd:2, ph:1, ec:1, air:1, water:1}[key] ?? 0;
+  const band = key === "vpd" ? [0.8, 1.2] : key === "lost" ? [72, 75] : (targetsOf(p)[key] || null);
+  async function draw(){
+    const now = Date.now(), runStart = Date.parse((p.start || phaseStart(p, phaseOf(p)) || today()) + "T00:00:00");
+    const from = S.chartRange ? now - S.chartRange * 864e5 : runStart;
+    box.replaceChildren(
+      h("div",{class:"head", style:"align-items:center"}, h("h2",null, label), h("button",{type:"button", class:"gear", "aria-label":"Close chart", onclick:close}, raw('<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>'))),
+      h("p",{class:"kicker", style:"margin:-6px 0 0"}, (p.strain || p.name)),
+      h("div",{class:"chips", role:"tablist", style:"gap:6px"}, RANGES.map(([l, d]) => h("button",{type:"button", class:"chip", role:"tab", style:"min-height:36px;font-size:15px;padding:0 12px", "aria-pressed": S.chartRange === d ? "true" : "false",
+        onclick:() => { S.chartRange = d; try { localStorage.setItem("ff-chart-range", d); } catch(e){} draw(); }}, l))),
+      h("p",{class:"sub"}, "Loading…"));
+    const data = await chartData(p, key, from);
+    if (!v.isConnected) return;
+    const evs = mine(S.logs).flatMap(l => (l.actions || []).filter(a => (EVENTS_FOR[key] || []).includes(a)).map(a => ({t:Date.parse(l.at), k:EVENT_MARK[a], a})));
+    const to = now, f2 = data.pts.length && !S.chartRange ? Math.min(from, data.pts[0].t) : from;
+    const svg = Chart.svg([{pts:data.pts, dots:data.dots}], {from:f2, to, band, digits, events:evs, title:label, minSpan: {ph:0.4, ec:0.3, vpd:0.3}[key] || 2});
+    box.lastChild.remove();
+    if (!svg){ box.append(h("p",{class:"empty"}, data.pts.length ? "Nothing in this time frame. Try a longer one." : key === "vpd" || key === "air" || key === "rh" ? "No sensor data yet. Add a CSV export with a log." : "Nothing logged yet.")); return; }
+    const inR = data.pts.filter(x => x.t >= f2 && x.t <= to), st = Chart.stats(inR), fx = n => (+n).toFixed(digits) + unit;
+    const used = [...new Set(evs.filter(e => e.t >= f2).map(e => e.k + " " + e.a.toLowerCase()))];
+    box.append(raw(svg),
+      h("p",{class:"sub", style:"margin:0"}, "Low " + fx(st.min) + " · high " + fx(st.max) + " · average " + fx(st.avg) + (band ? " · target " + band[0] + "–" + band[1] + unit : "")),
+      h("p",{class:"sub", style:"margin:0"}, (data.src === "sensor" ? "From your sensor files" : st.n + (st.n === 1 ? " entry" : " entries") + " from your logs") + (used.length ? " · " + used.join(", ") : "")));
+  }
+  draw();
 }
 
 /* ---------- tip: a new one each time the app opens ----------
@@ -1025,7 +1131,9 @@ function tipFor(p){
 }
 function pickTip(p){
   const ps = p && p.strain ? p.strain.toLowerCase() : null;
-  const all = (S.tips || []).filter(t => (t.strain ? ps && t.strain.toLowerCase() === ps : t.kind !== "strain") && (!t.plant || (p && t.plant === p.id)));
+  // tips can be tagged for a stage (phase: ["grow","bloom"]) and/or a medium (medium: ["hydro"]); untagged ones fit everyone
+  const ph = p ? phaseOf(p) : null, fits = t => (!t.phase || (ph && [].concat(t.phase).includes(ph))) && (!t.medium || (p && [].concat(t.medium).includes(p.medium)));
+  const all = (S.tips || []).filter(t => (t.strain ? ps && t.strain.toLowerCase() === ps : t.kind !== "strain") && (!t.plant || (p && t.plant === p.id)) && fits(t));
   if (!all.length) return null;
   const kinds = ["fact", "lore", "strain"].filter(k => all.some(t => t.kind === k));
   const want = kinds[(S.tipOpen + S.tipShift) % kinds.length];
@@ -1129,7 +1237,7 @@ function renderToday(){
   const si = ph === "germ" ? 0 : ph === "bloom" ? 4 : ph === "grow" ? Math.min(3, stageIndex(p)) : 5;
   const st = $("#t-stage"); st.replaceChildren(
     raw('<svg aria-hidden="true" width="22" height="25" viewBox="0 0 30 34"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">' + GLYPHS[si] + '</g></svg>'),
-    document.createTextNode(ph === "bloom" && !(p.stageLabel || "").startsWith("Bloom") && flipOf(p) ? "Bloom · wk " + (Math.floor(daysBetween(flipOf(p), T) / 7) + 1) : growing ? (p.stageLabel || ["Seed","Sprout","Seedling","Growth","Flower","Drying"][si]) : PHASES[ph] + (psd && ph !== "done" ? " · since " + short(psd) : "")));
+    document.createTextNode(growing ? stageText(p) : PHASES[ph] + (psd && ph !== "done" ? " · since " + short(psd) : "")));
   const li = lampInfo(p);
   $("#t-medium").textContent = (MEDIA[p.medium]||MEDIA.hydro).label + " · " + (SYSTEMS[p.system] || "") + " · " + (WHERE[p.where] || "");
   const sx = strainOf(p); $("#t-strain").replaceChildren(sx ? h("a",{href:"#strain"}, "About " + sx.name + " →") : document.createTextNode(""));
@@ -1162,13 +1270,13 @@ function renderToday(){
   const grid = $("#t-grid"); grid.replaceChildren();
   let newest = null;
   const ct = coreTiles(p);
-  if (ct){ ct.forEach(t => grid.append(tile(t[0], t[1], t[2], {soak:0.22, warm, frost}))); const l0 = mine(S.logs)[0]; if (l0) newest = l0.at; }
+  if (ct){ ct.forEach(t => grid.append(tile(t[0], t[1], t[2], {soak:0.22, warm, frost, key:t[3]}))); const l0 = mine(S.logs)[0]; if (l0) newest = l0.at; }
   else core.slice(0,3).forEach((k, i) => {
     const l = latest(k);
     if (l && (!newest || l.at > newest)) newest = l.at;
-    grid.append(tile(labelFor(p,k,true), l ? fmtv(k, l.v) : "–", statusOf(k, l && l.v), {soak:0.22, warm, frost}));
+    grid.append(tile(labelFor(p,k,true), l ? fmtv(k, l.v) : "–", statusOf(k, l && l.v), {soak:0.22, warm, frost, key:k}));
   });
-  if (ph !== "done") env.tiles.forEach(t => grid.append(tile(t[0], t[1], t[2], {soak:0.55})));
+  if (ph !== "done") env.tiles.forEach(t => grid.append(tile(t[0], t[1], t[2], {soak:0.55, key:t[3]})));
   const extra = (ct ? [] : fields.filter(k => !core.slice(0,3).includes(k))).map(k => { const l = latest(k); return l ? labelFor(p,k,true) + " " + fmtv(k, l.v) : null; }).filter(Boolean);
   if (env.more) extra.push(env.more);
   $("#t-more").textContent = extra.join(" · ");
@@ -1176,7 +1284,9 @@ function renderToday(){
 
   const next = openTasks().filter(t => !t.due || t.due > T).sort(sortTasks).slice(0,4);
   const nb = $("#t-next"); nb.replaceChildren();
-  if (!next.length) nb.append(h("p",{class:"empty"},"Nothing scheduled yet."));
+  const nextHead = $("#t-nexthead"); nextHead.hidden = ph === "done";
+  if (ph === "done"){ nb.append(learningsPanel(p, true)); next.length = 0; }
+  else if (!next.length) nb.append(h("p",{class:"empty"},"Nothing scheduled yet."));
   renderTip(p);
   const sb = $("#t-summary"); sb.replaceChildren(); sb._fk = null;
   const summ = p.summary || [];
@@ -1223,8 +1333,8 @@ function envTiles(p){
     if (old > 2) note.textContent = "Sensor data is " + ago(s.at).replace(" ago","") + " old. Upload a fresh CSV with your next log.";
     const hi = T.air ? T.air[1] : 26;
     return {
-      tiles:[["Air", s.temp != null ? s.temp.toFixed(1)+"°" : "–", statusOf("air", s.temp)], ["Humidity", s.rh != null ? Math.round(s.rh)+"%" : "–", statusOf("rh", s.rh)],
-        ph === "dry" || ph === "cure" ? ["RH 24 h", s.hmin != null ? Math.round(s.hmin) + "–" + Math.round(s.hmax) : "–", s.hmax != null && s.hmax - s.hmin > 8 ? {cls:"high", word:"swingy", txt:"keep it steady"} : {cls:"none", word:"", txt:"min–max %"}] : ["VPD", v != null ? v.toFixed(2) : "–", vs]],
+      tiles:[["Air", s.temp != null ? s.temp.toFixed(1)+"°" : "–", statusOf("air", s.temp), "air"], ["Humidity", s.rh != null ? Math.round(s.rh)+"%" : "–", statusOf("rh", s.rh), "rh"],
+        ph === "dry" || ph === "cure" ? ["RH 24 h", s.hmin != null ? Math.round(s.hmin) + "–" + Math.round(s.hmax) : "–", s.hmax != null && s.hmax - s.hmin > 8 ? {cls:"high", word:"swingy", txt:"keep it steady"} : {cls:"none", word:"", txt:"min–max %"}, "rh"] : ["VPD", v != null ? v.toFixed(2) : "–", vs, "vpd"]],
       warm: s.temp != null ? Math.max(0, Math.min(1, (s.temp - hi) / 4)) : 0,
       more: s.tmin != null ? "Air 24 h " + s.tmin.toFixed(0) + "–" + s.tmax.toFixed(0) + "°, humidity " + Math.round(s.hmin) + "–" + Math.round(s.hmax) + "%" : "",
       age: "sensor " + ago(s.at)
@@ -1232,7 +1342,7 @@ function envTiles(p){
   }
   const ma = latest("air"), mr = latest("rh");
   if (!ma && !mr) note.textContent = "No sensor data yet. Upload a CSV export with a log.";
-  return {tiles:[["Air", ma ? fmtv("air", ma.v) : "–", statusOf("air", ma && ma.v)], ["Humidity", mr ? fmtv("rh", mr.v) : "–", statusOf("rh", mr && mr.v)], [["dry","cure","done"].includes(phaseOf(p)) ? "RH 24 h" : "VPD","–",none]], age: ma || mr ? "manual " + ago((ma||mr).at) : ""};
+  return {tiles:[["Air", ma ? fmtv("air", ma.v) : "–", statusOf("air", ma && ma.v), "air"], ["Humidity", mr ? fmtv("rh", mr.v) : "–", statusOf("rh", mr && mr.v), "rh"], [["dry","cure","done"].includes(phaseOf(p)) ? "RH 24 h" : "VPD","–",none]], age: ma || mr ? "manual " + ago((ma||mr).at) : ""};
 }
 S.openTask = new Set();
 function taskRow(t){
@@ -1255,7 +1365,7 @@ function checkinText(t){
   const vals = [["pH", v("ph")], ["EC", v("ec")], ["water", v("water"), " °C"], ["height", v("height"), " cm"], ["nodes", v("nodes")], ["PPFD", v("ppfd")]]
     .filter(x => x[1] != null).map(x => x[0] + " " + x[1] + (x[2] || "")).join(", ");
   const sn = latestSensor();
-  const lines = ["Check-in for " + (p.strain || p.name) + " (" + (p.stageLabel || PHASES[phaseOf(p)] || "") + ", " + today() + ")"];
+  const lines = ["Check-in for " + (p.strain || p.name) + " (" + (stageText(p) || "") + ", " + today() + ")"];
   if (t && t.detail) lines.push("Why: " + t.detail);
   if (vals) lines.push("Latest: " + vals);
   if (p.lamp) lines.push("Lamp " + p.lamp + " cm above the rim");
@@ -1279,6 +1389,153 @@ async function toggleTask(t, on){
     cache(); renderAll();
   } catch(e){ Object.assign(t, prev); renderAll(); setSync("Couldn't save · tap to retry", true); }
 }
+
+/* ---------- key learnings: what a finished run teaches the next one ----------
+   plant.learnings = [{text, at, src?}]. Shown where "Next: …" sits on an open run, and on Today instead of "To come".
+   The setup questions of a new plant surface the learnings of earlier runs with the same medium or place. */
+function learningsPanel(p, compact){
+  const L = p.learnings || [], wrap = h("div",{style:"display:flex;flex-direction:column;gap:8px"});
+  wrap.append(h("div",{class:"head",style:"align-items:baseline"}, h("h2",null,"Key learnings"), compact ? h("a",{href:"#plan", class:"small"}, "The run →") : null));
+  if (L.length) wrap.append(h("ul",{class:"notes"}, L.map(x => h("li",null, typeof x === "string" ? x : x.text))));
+  else wrap.append(h("p",{class:"empty"}, "Nothing written down yet. What would you do differently next time?"));
+  if (compact) return wrap;
+  const inp = h("input",{type:"text", autocomplete:"off", placeholder:"Add a learning"}), msg = h("p",{class:"status", role:"status"});
+  wrap.append(h("form",{style:"flex-direction:row;gap:8px;align-items:flex-end", onsubmit: async e => { e.preventDefault(); const t = inp.value.trim(); if (!t) return; msg.textContent = "Saving…";
+    try { S.plants = await mutate("plants.json", list => (list || []).map(x => x.id === p.id ? Object.assign({}, x, {learnings: (x.learnings || []).concat({text:t, at:today(), src:"app"})}) : x), "learning");
+      cache(); msg.textContent = ""; renderAll(); } catch(err){ msg.textContent = "Couldn't save. Try again."; } }}, inp, h("button",{class:"btn sm", type:"submit"}, "Add")), msg);
+  return wrap;
+}
+function pastLearnings(medium, where, notId){
+  return S.plants.filter(x => x.id !== notId && (x.learnings || []).length && (x.medium === medium || x.where === where))
+    .flatMap(x => x.learnings.map(l => ({from: x.strain || x.name, text: typeof l === "string" ? l : l.text})));
+}
+
+
+/* ---------- setup questions (quiz.js): one question per screen, a tap answers and moves on ----------
+   #plant-new asks the basics first and creates the plant at the end; #plant-setup re-runs it for the shown plant.
+   Answers land in plant.setup, flags in plant.flags, first plan steps in tasks.json (src "setup"). */
+function quizCtx(draft){
+  const p = draft || {}, entry = p.strain ? libEntries().find(e => norm(e.name) === norm(p.strain)) || null : null;
+  const sheet = entry && entry.sh ? entry.sh : (p.strain ? (S.strains || []).find(x => norm(x.name) === norm(p.strain)) || null : null);
+  const grown = !!p.strain && S.plants.some(x => x.id !== p.id && norm(x.strain) === norm(p.strain) && ["dry","cure","done"].includes(phaseOf(x)));
+  return {plant: p, entry, sheet, grown, past: pastLearnings((p.setup || {}).medium || p.medium || "hydro", p.where || "indoor", p.id), today: today(), defaults: DEFAULT_TARGETS, tasks: S.tasks};
+}
+function openQuiz(mode){
+  const p = mode === "edit" ? sel() : null;
+  S.qz = {mode, pid: p ? p.id : null, step: 0, ans: {}, draft: p ? Object.assign({}, p) : {start: today()}};
+  const Q = Quiz.questions(quizCtx(S.qz.draft));
+  for (const q of Q) if (q.def){ const d = q.def(S.qz.ans); if (d != null) S.qz.ans[q.id] = d; }
+}
+function quizSteps(){ const a = S.qz.ans; return Quiz.questions(quizCtx(S.qz.draft)).filter(q => !q.show || q.show(a)); }
+const qv = (x, a) => typeof x === "function" ? x(a) : x;
+function renderQuiz(){
+  const box = $("#qz-body"); if (!box || !S.qz) return; box.replaceChildren();
+  const steps = quizSteps(), a = S.qz.ans, n = steps.length, i = Math.min(S.qz.step, n);
+  const prog = h("div",{class:"prog", "aria-hidden":"true"}, steps.map((_, k) => h("i",{class: k <= i ? "on" : ""})));
+  const back = h("button",{type:"button", class:"donebtn", onclick:() => { if (S.qz.step > 0){ S.qz.step--; renderQuiz(); } else location.hash = "#" + (S.back || "today"); }}, "← Back");
+  const go = () => { S.qz.step = i + 1; renderQuiz(); window.scrollTo(0, 0); };
+  if (i >= n) return renderQuizSummary(box, steps, prog, back);
+  const q = steps[i];
+  box.append(prog, h("div",{style:"display:flex;justify-content:space-between;align-items:baseline"}, back, h("span",{class:"sub"}, (i + 1) + " of " + n)),
+    h("h1",null, qv(q.title, a)), qv(q.why, a) ? h("p",{class:"muted", style:"margin:0"}, qv(q.why, a)) : null);
+  if (q.type === "form"){
+    const d = S.qz.draft, dl = h("datalist",{id:"qz-strains"}, libEntries().map(e => h("option",{value:e.name})));
+    const strain = h("input",{type:"text", list:"qz-strains", autocomplete:"off", value:d.strain || "", placeholder:"Strain"});
+    const name = h("input",{type:"text", autocomplete:"off", value:d.name || "", placeholder:"e.g. Tank 2, Balcony A"});
+    const start = h("input",{type:"date", value:d.start || today()});
+    const msg = h("p",{class:"status", role:"status"});
+    box.append(dl, h("label",{class:"f"}, "Strain", strain), h("label",{class:"f"}, "Name (optional)", name), h("label",{class:"f"}, "Started (seed soaked or planted)", start),
+      h("button",{type:"button", class:"btn primary", onclick:() => {
+        if (!strain.value.trim() && !name.value.trim()){ msg.textContent = "Give it a strain or a name."; return; }
+        d.strain = strain.value.trim() || null; d.name = name.value.trim() || d.strain; d.start = start.value || today();
+        const e = d.strain ? libEntries().find(x => norm(x.name) === norm(d.strain)) : null; if (e && e.breeder) d.breeder = e.breeder;
+        for (const qq of Quiz.questions(quizCtx(d))) if (qq.def && a[qq.id] == null){ const v = qq.def(a); if (v != null) a[qq.id] = v; }
+        go(); }}, "Next"), msg, h("a",{href:"#plant-full", class:"small"}, "All fields instead"));
+    return;
+  }
+  if (q.type === "text"){
+    const inp = h("input",{type:"text", autocomplete:"off", value:a[q.id] || "", placeholder:q.placeholder || ""});
+    box.append(inp, h("button",{type:"button", class:"btn primary", onclick:() => { a[q.id] = inp.value.trim() || null; go(); }}, inp.value ? "Next" : "Next (or skip)"));
+    return;
+  }
+  const opts = h("div",{class:"opts", role:"radiogroup"});
+  for (const [v, l, sub] of qv(q.opts, a)){
+    const on = a[q.id] === v;
+    opts.append(h("button",{type:"button", class:"chip", role:"radio", "aria-checked": on ? "true" : "false", "aria-pressed": on ? "true" : "false",
+      onclick:() => { a[q.id] = v; if (q.date && v === q.date){ renderQuiz(); return; } renderQuiz(); setTimeout(go, 160); }}, h("span",null, l, sub ? h("small",null, sub) : null)));
+  }
+  box.append(opts);
+  if (q.num){
+    const other = h("input",{type:"text", inputmode:"decimal", autocomplete:"off", placeholder:"Other (" + q.num + ")", value: a[q.id] != null && !qv(q.opts, a).some(o => o[0] === a[q.id]) ? a[q.id] : ""});
+    box.append(h("div",{style:"display:flex;gap:8px;align-items:flex-end"}, other, h("button",{type:"button", class:"btn ghost sm", onclick:() => { const x = num(other.value); if (x != null){ a[q.id] = x; go(); } }}, "Use")));
+  }
+  if (q.date && a[q.id] === q.date){
+    const dt = h("input",{type:"date", value:a.by || ""});
+    box.append(h("label",{class:"f"}, "Done by", dt), h("button",{type:"button", class:"btn primary", onclick:() => { a.by = dt.value || null; go(); }}, "Next"));
+  }
+  if (a[q.id] != null && !(q.date && a[q.id] === q.date)) box.append(h("button",{type:"button", class:"btn ghost", onclick:go}, "Keep this and go on"));
+  else if (a[q.id] == null) box.append(h("button",{type:"button", class:"donebtn", onclick:go}, "Skip"));
+  decorateSoon();
+}
+function renderQuizSummary(box, steps, prog, back){
+  const a = S.qz.ans, d = S.qz.draft, ctx = quizCtx(Object.assign({}, d, {id: d.id || "new"}));
+  const r = Quiz.derive(a, ctx), label = (q, v) => { const o = q.opts ? qv(q.opts, a).find(x => x[0] === v) : null; return o ? o[1] : v == null || v === "" ? "–" : String(v) + (q.num && typeof v === "number" ? " " + q.num : ""); };
+  box.append(prog, back, h("h1",null, S.qz.mode === "new" ? (d.strain || d.name) : "Setup of " + (d.strain || d.name)));
+  const list = h("div",{class:"runrows"});
+  steps.forEach((q, k) => { if (q.type === "form") return;
+    list.append(h("div",{class:"row", style:"cursor:pointer", onclick:() => { S.qz.step = k; renderQuiz(); }}, h("span",null, qv(q.title, a).replace(/\?$/, "")), h("span",{class:"lead"}), h("span",{class:"when"}, label(q, a[q.id]) + (q.id === "timing" && a.by ? " " + short(a.by) : "")))); });
+  box.append(h("div",{class:"panel fr", "data-soak":"0.1"}, h("h2",null,"Your answers"), list, h("p",{class:"sub", style:"margin:0"}, "Tap a line to change it.")));
+  if (r.flags.length) box.append(h("div",{class:"panel fr", "data-soak":"0.15"}, h("h2",null,"Watch out for"), h("ul",{class:"flags"}, r.flags.map(f => h("li",{class:f.lvl}, f.text)))));
+  if (r.tasks.length) box.append(h("div",{class:"panel fr", "data-soak":"0.12"}, h("h2",null,"First steps for the plan"), h("ul",{class:"notes"}, r.tasks.map(t => h("li",null, h("b",null,t.title), " · " + (t.due ? fmtDay(t.due) : t.trigger))))));
+  const msg = h("p",{class:"status", role:"status"});
+  box.append(h("button",{type:"button", class:"btn primary", onclick: async e => { e.currentTarget.disabled = true; msg.textContent = "Saving…"; try { await saveQuiz(); } catch(err){ msg.textContent = err.code === "auth" ? "The access key was rejected." : "Couldn't save. Check your connection and try again."; e.target.disabled = false; } }},
+    S.qz.mode === "new" ? "Add plant" : "Save setup"), msg);
+  decorateSoon();
+}
+async function saveQuiz(){
+  const a = S.qz.ans, d = S.qz.draft, isNew = S.qz.mode === "new", id = isNew ? "p-" + Date.now() : S.qz.pid, T = today();
+  const r = Quiz.derive(a, quizCtx(Object.assign({}, d, {id})));
+  S.plants = await mutate("plants.json", list => {
+    list = list || []; const i = list.findIndex(x => x.id === id);
+    if (i < 0) list.push(Object.assign({id, name:d.name || d.strain, strain:d.strain || null, breeder:d.breeder || null, start:d.start || T, status:"active", created:T, offDays:[], targets:r.targets}, r.fields, {setup:r.setup, flags:r.flags}, r.flipAt ? {} : {}, r.end && !d.endEst ? {endEst:r.end} : {}));
+    else { const y = Object.assign({}, list[i], r.fields, {setup:r.setup, flags:r.flags, updated:new Date().toISOString()}); y.targets = Object.assign({}, r.targets, list[i].targets || {}); if (r.end && !y.endEst) y.endEst = r.end; list[i] = y; }
+    return list;
+  }, (isNew ? "add plant via setup questions" : "setup questions"));
+  const tasks = r.tasks.map(t => Object.assign({}, t, {id: t.id.replace(/-(new|undefined)$/, "-" + id), run: id}));
+  if (tasks.length) S.tasks = await mutate("tasks.json", list => { const L = list || [], ids = new Set(L.map(t => t.id)); return L.concat(tasks.filter(t => !ids.has(t.id))); }, "setup: first steps");
+  const warn = r.flags.filter(f => f.lvl === "warn").length;
+  try { S.changes = (await mutate("changes.json", list => (list || []).concat({id:"c-" + T.replace(/-/g, "") + "-q" + Math.random().toString(36).slice(2, 6), run:id, date:T, src:"app",
+    text:"Setup questions answered" + (tasks.length ? "; added " + tasks.map(t => t.title.toLowerCase()).join(", ") : "") + (warn ? "; " + warn + " warning" + (warn > 1 ? "s" : "") + " to watch" : "") + "."}), "setup: why")).slice().sort((x, y) => (y.date||"").localeCompare(x.date||"")); } catch(e){}
+  cache(); S.sel = id; try { localStorage.setItem(SEL_KEY, id); } catch(e){}
+  S.qz = null; renderAll(); location.hash = isNew ? "#today" : "#plan";
+}
+function setupPanel(p){
+  if (!p || p.status !== "active" || !["germ","grow","bloom"].includes(phaseOf(p))) return null;
+  const box = h("div",{class:"panel fr", "data-soak":"0.15", id:"p-setup"});
+  if (!p.setup){ box.append(h("h2",null,"Confirm the setup"), h("p",{style:"margin:0"}, "About 8 taps: seed, bucket or pot, light, space, water, goal. Sets targets, first steps and early warnings."), h("a",{class:"btn primary", href:"#plant-setup"}, "Answer the setup questions")); return box; }
+  const fl = p.flags || [];
+  box.append(h("div",{class:"head",style:"align-items:baseline"}, h("h2",null,"Watch out for"), h("a",{href:"#plant-setup", class:"small"}, "Setup questions")),
+    fl.length ? h("ul",{class:"flags"}, fl.map(f => h("li",{class:f.lvl}, f.text))) : h("p",{class:"empty"}, "Nothing flagged for this setup."));
+  return box;
+}
+
+/* ---------- weekly focus and open questions ----------
+   Each ISO week one part of the process gets questioned (rules.js focus(): water → feed → light → climate → training).
+   experiments.json = [{id, q, why, status open|answered, answer?, run?, area?, src?, date}]: open questions and
+   small experiments, with what each answer would tell us. The nightly review adds and answers them. */
+function focusPanel(p){
+  if (!window.Rules || !["germ","grow","bloom"].includes(phaseOf(p))) return null;
+  const f = Rules.focus(today()), ex = (S.experiments || []).filter(x => (!x.run || x.run === p.id));
+  const open = ex.filter(x => x.status !== "answered"), done = ex.filter(x => x.status === "answered");
+  const box = h("div",{class:"panel fr", "data-soak":"0.12", id:"p-focus"});
+  box.append(h("div",{class:"head",style:"align-items:baseline"}, h("h2",null,"This week: " + f.t), h("span",{class:"sub"}, "week " + f.week)), h("p",{style:"margin:0"}, f.q), h("p",{class:"sub", style:"margin:0"}, "The nightly review questions this part of the process this week, then moves on: water, feed, light, climate, training."));
+  const row = x => h("li",null, h("b",null, x.q), x.why ? h("span",{class:"muted"}, " · would tell us: " + x.why) : null, x.answer ? h("div",{class:"sub"}, "So far: " + x.answer) : null);
+  const inArea = open.filter(x => x.area === f.k), rest = open.filter(x => x.area !== f.k);
+  if (open.length) box.append(h("h2",{style:"margin-top:4px"}, "Open questions"), h("ul",{class:"notes"}, inArea.concat(rest).map(row)));
+  if (done.length) box.append(h("details",null, h("summary",{class:"small"}, "Answered (" + done.length + ")"), h("ul",{class:"notes", style:"margin-top:8px"}, done.map(row))));
+  return box;
+}
+
 function runRows(p){
   const T = today(), ps = k => phaseStart(p, k), flip = flipOf(p), run = p.run || {};
   const dur = (a, b) => a && b && b >= a ? daysBetween(a, b) + " d" : null;
@@ -1306,7 +1563,7 @@ function renderPhase(p){
   const rows = runRows(p);
   if (p.summary && p.summary.length) box.append(h("details",null, h("summary",{class:"small"},"Story of this run"), h("ul",{class:"notes", style:"margin-top:8px"}, p.summary.map(t => h("li",null,t)))));
   if (rows.length) box.append(h("div",{class:"runrows"}, rows.map(r => h("div",{class:"row"}, h("span",null,r[0]), h("span",{class:"lead"}), h("span",{class:"when num"}, r[1])))));
-  const nx = NEXT[ph]; if (!nx) return;
+  const nx = NEXT[ph]; if (!nx){ if (ph === "done") box.append(learningsPanel(p)); return; }
   const form = h("form",{class:"phaseform", hidden: true});
   const date = h("input",{type:"date", value:T, max:T});
   const wt = nx.w ? h("input",{type:"text", inputmode:"decimal", autocomplete:"off", placeholder:"–"}) : null;
@@ -1345,6 +1602,9 @@ function renderPhase(p){
 function renderPlan(){
   const p = sel(), T = today();
   renderPhase(p);
+  for (const x of ["#p-focus", "#p-setup"]){ const o = $(x); if (o) o.remove(); }
+  const fp = p && focusPanel(p); if (fp) $("#p-phase").after(fp);
+  const sp = setupPanel(p); if (sp) $("#p-phase").after(sp);
   const bar = $("#p-bar"), lg = $("#p-legend"); bar.replaceChildren(); lg.replaceChildren(); $("#p-upd").textContent = "";
   if (p && p.start && !["dry","cure","done"].includes(phaseOf(p))){
     const total = daysBetween(p.start, p.endEst || T) || 1;
@@ -1354,7 +1614,7 @@ function renderPlan(){
     bar.append(h("div",{class:"now", style:"left:calc("+nowPct+"% - 1px)", title:"Today"}));
     lg.append(...[h("span",null,"Start " + short(p.start)), h("span",null,"Growth"),
       p.flipEst ? h("span",null,"Bloom ~" + short(p.flipEst)) : null, p.endEst ? h("span",null,"End ~" + short(p.endEst)) : null].filter(Boolean));
-    if (p.updated) $("#p-upd").textContent = "Updated " + fmtDay(p.updated);
+    if (p.updated) $("#p-upd").textContent = "Updated " + short(ymd(new Date(p.updated)));
   }
   const list = $("#p-list"); list.replaceChildren();
   const open = openTasks().sort(sortTasks);
