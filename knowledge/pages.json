@@ -1,0 +1,46 @@
+[
+ {
+  "id": "water-activity-cure",
+  "title": "Water activity and jar humidity in curing",
+  "area": "cure",
+  "phase": [
+   "cure",
+   "done"
+  ],
+  "summary": "Cured flowers keep best when their water activity sits between 0.55 and 0.65. In a closed jar, the air settles at the flowers' water activity, so a jar hygrometer reading 55–65 % tells you roughly the same thing.",
+  "sections": [
+   {
+    "h": "What water activity is",
+    "text": "Water activity (aw) says how freely water can leave a material, on a scale from 0 (bone dry) to 1 (pure water). It's not the same as water content: two buds can hold the same amount of water and still release it differently. Mould and bacteria need freely available water, so aw is what decides whether they can grow."
+   },
+   {
+    "h": "The target range",
+    "text": "An ASTM standard for dry cannabis flower names 0.55 to 0.65 as the acceptable range. Above about 0.65, mould can start to grow. Below about 0.55, flowers turn brittle and lose aroma faster."
+   },
+   {
+    "h": "Why a jar hygrometer works",
+    "text": "In a sealed jar, the air and the flowers trade moisture until they balance. Once balanced (after a few hours), the relative humidity in the jar roughly equals the flowers' water activity × 100. A reading of 62 % means about aw 0.62. Readings right after opening or burping aren't settled yet."
+   },
+   {
+    "h": "What this means in practice",
+    "text": "Aim for 58–63 % in the jar. Rising readings in the first days mean moisture is still moving out of the stems and centres: open the jar longer. Readings that keep falling below 55 % mean the flowers are drying out: keep the jar closed, a two-way humidity pack helps. Cheap hygrometers can be off by several percent, so check them against a known reference once."
+   }
+  ],
+  "howto": "burp",
+  "related": [],
+  "sources": [
+   {
+    "t": "ASTM D8197-22, Standard Specification for Maintaining Acceptable Water Activity (aw) Range (0.55 to 0.65) for Dry Cannabis Flower",
+    "u": "https://webstore.ansi.org/standards/astm/astmd819722",
+    "d": "2026-11-18"
+   },
+   {
+    "t": "Wikipedia: Water activity",
+    "u": "https://en.wikipedia.org/wiki/Water_activity",
+    "d": "2026-11-18"
+   }
+  ],
+  "status": "unreviewed",
+  "updated": "2026-11-18"
+ }
+]

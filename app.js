@@ -577,6 +577,7 @@ async function loadAll(){
     if (!S.plants.find(p => p.id === S.sel)) S.sel = (S.plants.find(p => p.status !== "done") || S.plants[0] || {}).id || null;
     S.synced = new Date(); cache();
     setSync("↻ " + hm(S.synced.toISOString()));
+    loadKnowledge().then(() => renderAll());
     loadBridge().then(() => { renderAll(); keepPlans(); });
   } catch(e){
     setSync(e.code === "auth" ? "Key rejected · open Settings" : "Offline · tap to retry", true);
@@ -666,10 +667,10 @@ const LIB_EFFECTS = ["relaxing", "sedating", "body", "uplifting", "energetic", "
 const LIB_TERPS = ["Myrcene", "Limonene", "Caryophyllene", "Pinene", "Linalool", "Terpinolene"];
 S.libF = {q:"", scope:"stash", kind:null, eff:new Set(), terp:new Set(), fast:null, sort:"name", dir:1, like:null};
 S.libOpen = null; S.viewSheet = null;
-function sheetById(id){ return (S.strains || []).find(x => x.id === id) || null; }
+function sheetById(id){ return allStrains().find(x => x.id === id) || null; }
 function libEntries(){
   return (S.library || []).map(e => {
-    const sh = e.sheet ? sheetById(e.sheet) : null;
+    const sh = e.sheet ? sheetById(e.sheet) : (S.kn.strains || []).find(x => norm(x.name) === norm(e.name) && x.status !== "rejected") || null;   // research-run sheets match by name
     const grown = S.plants.filter(p => p.strain && norm(p.strain) === norm(e.name));
     return Object.assign({}, e, {
       terps: e.terps || (sh && sh.terpenes ? sh.terpenes.map(t => t.name.split(/[ (]/)[0]) : []),
@@ -1265,7 +1266,7 @@ function pickTip(p){
   const ps = p && p.strain ? p.strain.toLowerCase() : null;
   // tips can be tagged for a stage (phase: ["grow","bloom"]) and/or a medium (medium: ["hydro"]); untagged ones fit everyone
   const ph = p ? phaseOf(p) : null, fits = t => (!t.phase || (ph && [].concat(t.phase).includes(ph))) && (!t.medium || (p && [].concat(t.medium).includes(p.medium)));
-  const all = (S.tips || []).filter(t => (t.strain ? ps && t.strain.toLowerCase() === ps : t.kind !== "strain") && (!t.plant || (p && t.plant === p.id)) && fits(t));
+  const all = allTips().filter(t => (t.strain ? ps && t.strain.toLowerCase() === ps : t.kind !== "strain") && (!t.plant || (p && t.plant === p.id)) && fits(t));
   if (!all.length) return null;
   // any tip not seen yet on this phone; tips tagged for the plant's stage get extra weight so the pool feels current,
   // and each kind (fact, lore, strain) is drawn in proportion to how many fresh ones it has, so small pools don't repeat
@@ -1293,9 +1294,9 @@ function renderTip(p){
 
 /* ---------- strain sheet ---------- */
 function strainOf(p){
-  if (!p || !p.strain || !S.strains) return null;
+  if (!p || !p.strain || !allStrains().length) return null;
   const n = p.strain.toLowerCase(), b = (p.breeder || "").toLowerCase();
-  return S.strains.find(x => x.name.toLowerCase() === n && (!b || !x.breeder || x.breeder.toLowerCase() === b)) || S.strains.find(x => x.name.toLowerCase() === n) || null;
+  const L = allStrains(); return L.find(x => x.name.toLowerCase() === n && (!b || !x.breeder || x.breeder.toLowerCase() === b)) || L.find(x => x.name.toLowerCase() === n) || null;
 }
 const SPEC_ICONS = {
   moon:'<path d="M14 4a7 7 0 1 0 6 10A6 6 0 0 1 14 4z"/>',
@@ -1483,6 +1484,33 @@ function envTiles(p){
   return {tiles:[["Air", ma ? fmtv("air", ma.v) : "–", statusOf("air", ma && ma.v), "air"], ["Humidity", mr ? fmtv("rh", mr.v) : "–", statusOf("rh", mr && mr.v), "rh"], [["dry","cure","done"].includes(phaseOf(p)) ? "RH 24 h" : "VPD","–",none]], age: ma || mr ? "manual " + ago((ma||mr).at) : ""};
 }
 
+
+/* ---------- knowledge base (public, knowledge/*.json next to the app; built weekly by the research run) ----------
+   Served by GitHub Pages with the app, so it needs no key and the service worker keeps it for offline use.
+   Pages show under Plan → Guides; tips join the tip pool; generic strain sheets fill gaps in the library. */
+const KN_KEY = "ff-knowledge";
+S.kn = (() => { try { return JSON.parse(localStorage.getItem(KN_KEY) || "null") || {pages:[], tips:[], strains:[]}; } catch(e){ return {pages:[], tips:[], strains:[]}; } })();
+async function loadKnowledge(){
+  try {
+    const get = f => fetch("knowledge/" + f, {cache:"no-cache"}).then(r => r.ok ? r.json() : null).catch(() => null);
+    const [pages, tips, strains] = await Promise.all([get("pages.json"), get("tips.json"), get("strains.json")]);
+    if (pages || tips || strains){ S.kn = {pages: pages || S.kn.pages, tips: tips || S.kn.tips, strains: strains || S.kn.strains}; try { localStorage.setItem(KN_KEY, JSON.stringify(S.kn)); } catch(e){} }
+  } catch(e){}
+}
+const allTips = () => (S.tips || []).concat((S.kn.tips || []).filter(t => t.status !== "rejected"));
+function allStrains(){ const own = S.strains || [], seen = new Set(own.map(x => norm(x.name)));
+  return own.concat((S.kn.strains || []).filter(x => !seen.has(norm(x.name)) && x.status !== "rejected")); }
+const AREA = {technique:"Techniques", problem:"Problems", environment:"Environment", nutrition:"Nutrition", botany:"Botany", chemistry:"Chemistry", harvest:"Harvest & drying", cure:"Curing", history:"History"};
+function pageCard(pg){
+  const hw = pg.howto && window.HowTo ? HowTo.byId(pg.howto) : null;
+  return h("div",{class:"howto", onclick:e => e.stopPropagation()},
+    h("p",{class:"what"}, pg.summary),
+    ...(pg.sections || []).map(x => h("div",null, h("h2",null, x.h), h("p",{style:"margin:2px 0 0"}, x.text))),
+    hw ? h("button",{type:"button", class:"btn ghost sm howbtn", onclick:() => { S.openHow.add("g-" + hw.id); renderGuides(); decorateSoon(); }}, "How to: " + hw.title.toLowerCase()) : null,
+    h("p",{class:"sub", style:"margin:0"}, h("b",{style:"font-style:normal"}, "Sources: "), (pg.sources || []).map((x, i) => h("span",null, i ? " · " : "", h("a",{href:x.u, target:"_blank", rel:"noopener"}, x.t)))),
+    h("p",{class:"sub", style:"margin:0"}, (pg.status === "reviewed" ? "Reviewed" : "Not reviewed yet") + " · updated " + short(pg.updated)));
+}
+
 /* ---------- how-tos (howto.js): small illustrated guides next to the steps that need them ----------
    A task shows "How to" when it names one (task.howto = id) or its title matches one. Plan → Guides lists all. */
 S.openHow = new Set();
@@ -1492,7 +1520,8 @@ function howtoCard(hw){
     h("p",{class:"what"}, hw.what),
     h("ol",{class:"hsteps"}, hw.steps.map((st, i) => h("li",null, raw(HowTo.fig(st.fig)), h("div",null, h("b",null, (i + 1) + ". "), st.text)))),
     hw.watch && hw.watch.length ? h("div",null, h("h2",null,"Watch out"), h("ul",{class:"notes"}, hw.watch.map(w => h("li",null,w)))) : null,
-    hw.vs ? h("p",{class:"sub", style:"margin:0"}, h("b",{style:"font-style:normal"}, "Not the same as: "), hw.vs) : null);
+    hw.vs ? h("p",{class:"sub", style:"margin:0"}, h("b",{style:"font-style:normal"}, "Not the same as: "), hw.vs) : null,
+    ...(S.kn.pages || []).filter(pg => pg.howto === hw.id).map(pg => h("button",{type:"button", class:"btn ghost sm howbtn", onclick:e => { e.stopPropagation(); S.openHow.add("k-" + pg.id); location.hash = "#plan"; setTimeout(() => { const g = $("#p-guides"); if (g){ g.open = true; renderGuides(); g.scrollIntoView({block:"start"}); } }, 60); }}, "Read more: " + pg.title)));
 }
 function howtoToggle(key, hw, rerender){
   const open = S.openHow.has(key);
@@ -1500,6 +1529,13 @@ function howtoToggle(key, hw, rerender){
 }
 function renderGuides(){
   const box = $("#p-guides"); if (!box || !window.HowTo) return; const list = $("#p-guidelist"); list.replaceChildren();
+  const p = sel(), ph = p ? phaseOf(p) : null;
+  const pages = (S.kn.pages || []).filter(x => x.status !== "rejected").slice().sort((a, b) => ((b.phase || []).includes(ph) - (a.phase || []).includes(ph)) || a.title.localeCompare(b.title));
+  if (pages.length){ list.append(h("p",{class:"kicker", style:"margin:4px 0 0"}, "Knowledge"));
+    for (const pg of pages){ const k = "k-" + pg.id, open = S.openHow.has(k);
+      list.append(h("div",{class:"guide"}, h("button",{type:"button", class:"tt", "aria-expanded": open ? "true" : "false", onclick:() => { open ? S.openHow.delete(k) : S.openHow.add(k); renderGuides(); decorateSoon(); }},
+        h("span",null, h("b",null, pg.title), h("span",{class:"sub"}, " · " + (AREA[pg.area] || pg.area))), h("span",{class:"chev","aria-hidden":"true"}, open ? " –" : " +")), open ? pageCard(pg) : null)); }
+    list.append(h("p",{class:"kicker", style:"margin:8px 0 0"}, "How-tos")); }
   for (const hw of HowTo.all){ const k = "g-" + hw.id, open = S.openHow.has(k);
     list.append(h("div",{class:"guide"}, h("button",{type:"button", class:"tt", "aria-expanded": open ? "true" : "false", onclick:() => { open ? S.openHow.delete(k) : S.openHow.add(k); renderGuides(); decorateSoon(); }}, h("b",null, hw.title), h("span",{class:"chev","aria-hidden":"true"}, open ? " –" : " +")), open ? howtoCard(hw) : null)); }
 }
@@ -1582,7 +1618,7 @@ function pastLearnings(medium, where, notId){
    Answers land in plant.setup, flags in plant.flags, first plan steps in tasks.json (src "setup"). */
 function quizCtx(draft){
   const p = draft || {}, entry = p.strain ? libEntries().find(e => norm(e.name) === norm(p.strain)) || null : null;
-  const sheet = entry && entry.sh ? entry.sh : (p.strain ? (S.strains || []).find(x => norm(x.name) === norm(p.strain)) || null : null);
+  const sheet = entry && entry.sh ? entry.sh : (p.strain ? allStrains().find(x => norm(x.name) === norm(p.strain)) || null : null);
   const grown = !!p.strain && S.plants.some(x => x.id !== p.id && norm(x.strain) === norm(p.strain) && ["dry","cure","done"].includes(phaseOf(x)));
   return {plant: p, entry, sheet, grown, past: pastLearnings((p.setup || {}).medium || p.medium || "hydro", p.where || "indoor", p.id), today: today(), defaults: DEFAULT_TARGETS, tasks: S.tasks};
 }
