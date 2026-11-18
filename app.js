@@ -159,12 +159,14 @@ function themePref(){ try { return localStorage.getItem(THEME_KEY) || "auto"; } 
 const darkMQ = window.matchMedia ? matchMedia("(prefers-color-scheme: dark)") : null;
 function applyTheme(){
   const pref = themePref();
-  const night = pref === "night" || (pref === "auto" && darkMQ && darkMQ.matches);
+  let night = pref === "night" || (pref === "auto" && darkMQ && darkMQ.matches);
+  if (pref === "plant"){ const pn = S && S.plants ? plantNight(sel()) : null; night = pn ? pn.night : !!(darkMQ && darkMQ.matches); }
   document.documentElement.dataset.theme = night ? "night" : "day";
   const m = document.querySelector('meta[name="theme-color"]'); if (m) m.content = night ? "#17140F" : "#F0E6CC";
   decorateSoon();
 }
 if (darkMQ && darkMQ.addEventListener) darkMQ.addEventListener("change", applyTheme);
+setInterval(() => { if (themePref() === "plant") applyTheme(); }, 60e3);
 function raw(html){ const t = document.createElement("template"); t.innerHTML = html.trim(); return t.content.firstChild; }
 const DEFS = '<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>'+
  '<filter id="rough" x="-10%" y="-10%" width="120%" height="120%"><feTurbulence type="fractalNoise" baseFrequency="0.04" numOctaves="2" seed="4"/><feDisplacementMap in="SourceGraphic" scale="2.4"/></filter>'+
@@ -546,6 +548,46 @@ function liveJarFor(p){ const s = p && S.liveJar && S.liveJar[p.id]; return s &&
 function liveFor(p){ const s = p && S.live[p.id]; return s && Date.now() - Date.parse(s.at) < 6 * 36e5 ? s : null; }
 const sensorNum = id => ((S.smeta && S.smeta.sensors || {})[id] || {}).num || id;
 
+
+/* ---------- "Follow plant" theme: day when the plant has light, night when it hasn't ----------
+   outdoor: sunrise/sunset at the plant's place (Open-Meteo) · indoor: plant.light {on:"HH:MM", hours} if set, else the
+   light schedule detected from its air sensor (the lamp warms the space; needs ~a day of readings) · drying and curing:
+   always night (they happen in the dark) · finished runs and unknown schedules: follow the phone. */
+const hm2min = s => { const m = /^(\d{1,2}):(\d{2})$/.exec(s || ""); return m ? +m[1] * 60 + +m[2] : null; };
+const min2hm = m => String(Math.floor(((m % 1440) + 1440) % 1440 / 60)).padStart(2, "0") + ":" + String(((m % 60) + 60) % 60).padStart(2, "0");
+function detectLight(p){
+  if (!S.smeta || !window.Bridge || !p) return null;
+  const since = Date.now() - 3 * 864e5, rows = Bridge.forRun(bridgeRows(since), S.smeta, p.id, AIR_KINDS).filter(r => r.temp != null && r.t > since);
+  const slot = Array.from({length: 96}, () => []);
+  for (const r of rows){ const d = new Date(r.t - 7.5 * 6e4); slot[d.getHours() * 4 + Math.floor(d.getMinutes() / 15)].push(r.temp); }
+  const prof = slot.map(a => a.length ? a.reduce((x, y) => x + y, 0) / a.length : null), vals = prof.filter(v => v != null);
+  if (vals.length < 80) return null;                     // needs about 20 h of the day covered
+  const hi = Math.max(...vals), lo = Math.min(...vals); if (hi - lo < 2) return null;
+  const thr = (hi + lo) / 2, on = prof.map((v, i) => v == null ? (prof[(i + 95) % 96] != null && prof[(i + 95) % 96] > thr) : v > thr);
+  if (on.every(Boolean) || !on.some(Boolean)) return null;
+  let best = 0, start = 0;                               // longest run of "on" slots, around midnight too
+  for (let i = 0; i < 96; i++){ if (!on[i] || on[(i + 95) % 96]) continue; let n = 0; while (n < 96 && on[(i + n) % 96]) n++; if (n > best){ best = n; start = i; } }
+  const lag = 15;                                        // the air warms a little after the lamp switches
+  return {on: min2hm(start * 15 - lag), hours: Math.round(best / 4 * 2) / 2, src: "sensor"};
+}
+function plantNight(p){
+  if (!p) return null;
+  const ph = phaseOf(p), now = new Date(), mins = now.getHours() * 60 + now.getMinutes();
+  if (ph === "dry" || ph === "cure") return {night: true, why: (ph === "dry" ? "Drying" : "Curing") + " happens in the dark"};
+  if (ph === "done") return null;
+  if (p.where === "outdoor"){
+    const w = S.weather[(p.lat || BERLIN.lat) + "," + (p.lon || BERLIN.lon)], d = w && w.j && w.j.daily;
+    if (!d || !d.sunrise){ loadWeather(p).then(() => applyTheme()); return null; }
+    const rise = hm2min((d.sunrise[0] || "").slice(11, 16)), set = hm2min((d.sunset[0] || "").slice(11, 16));
+    const night = mins < rise || mins >= set;
+    return {night, why: night ? "Night outside (sunrise " + min2hm(rise) + ")" : "Daylight outside until " + min2hm(set)};
+  }
+  const L = p.light && hm2min(p.light.on) != null ? Object.assign({src: "set"}, p.light) : detectLight(p);
+  if (!L) return null;
+  const on = hm2min(L.on), off = on + L.hours * 60, inOn = ((mins - on + 1440) % 1440) < L.hours * 60;
+  return {night: !inOn, why: (inOn ? "Lights on until " + min2hm(off) : "Lights off until " + min2hm(on)) + (L.src === "sensor" ? " (read from the sensor: " + L.hours + " h from " + L.on + ")" : ""), sched: L};
+}
+
 /* ---------- weather (outdoor) ---------- */
 async function loadWeather(p){
   const lat = p.lat || BERLIN.lat, lon = p.lon || BERLIN.lon, key = lat+","+lon;
@@ -553,7 +595,7 @@ async function loadWeather(p){
   if (c && Date.now() - c.at < 30*60e3) return c;
   const url = "https://api.open-meteo.com/v1/forecast?latitude="+lat+"&longitude="+lon+
     "&current=temperature_2m,relative_humidity_2m,precipitation,wind_speed_10m,wind_gusts_10m,cloud_cover"+
-    "&daily=temperature_2m_max,temperature_2m_min,precipitation_sum,wind_gusts_10m_max&timezone=Europe%2FBerlin&forecast_days=2";
+    "&daily=temperature_2m_max,temperature_2m_min,precipitation_sum,wind_gusts_10m_max,sunrise,sunset&timezone=Europe%2FBerlin&forecast_days=2";
   try {
     const j = await fetch(url).then(r => r.json());
     S.weather[key] = {at:Date.now(), j}; return S.weather[key];
@@ -595,7 +637,7 @@ function loadCache(){
 
 /* ---------- routing ---------- */
 const VIEWS = ["today","log","plan","setup","plant","quiz","strain","library"];
-const APP_V = "v43";
+const APP_V = "v44";
 const GEAR_SVG = '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="3.2"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1"/></svg>';
 function route(){
   let v = location.hash.slice(1);
@@ -1880,7 +1922,7 @@ function renderHistory(){
         h("button",{type:"button", class:"btn ghost sm", style:S.armDel===l.id ? "color:var(--bad);border-color:var(--bad)" : null, onclick:() => delLog(l)}, S.armDel===l.id ? "Tap again to delete" : "Delete"))));
   }
 }
-function renderAll(){ renderTabs(); renderToday(); renderPlan(); renderHistory(); if (!$("#v-strain").hidden) renderStrain(); if (!$("#v-library").hidden) renderLibrary(); if (!$("#v-setup").hidden) renderSetup(); decorateSoon(); }
+function renderAll(){ if (themePref() === "plant") applyTheme(); renderTabs(); renderToday(); renderPlan(); renderHistory(); if (!$("#v-strain").hidden) renderStrain(); if (!$("#v-library").hidden) renderLibrary(); if (!$("#v-setup").hidden) renderSetup(); decorateSoon(); }
 
 /* ---------- log form ---------- */
 function renderLogForm(){
@@ -2071,6 +2113,22 @@ $("#plantform").addEventListener("submit", async e => {
   finally { $("#pl-save").disabled = false; }
 });
 
+/* under Look: what "Follow plant" is doing right now, and the light times for an indoor plant */
+function renderThemeNote(){
+  const box = $("#s-themenote"); if (!box) return; box.replaceChildren(); if (themePref() !== "plant") return;
+  const p = sel(); if (!p) return;
+  const pn = plantNight(p), name = p.strain || p.name;
+  box.append(h("p",{class:"sub", style:"margin:0"}, name + ": " + (pn ? pn.why + " → " + (pn.night ? "night" : "day") : phaseOf(p) === "done" ? "finished run, follows the phone" : "light times unknown yet, follows the phone")));
+  if (p.where === "outdoor" || !["germ","grow","bloom"].includes(phaseOf(p))) return;
+  const L = p.light || (pn && pn.sched) || {};
+  const on = h("input",{type:"time", value: L.on || ""}), hrs = h("input",{type:"number", min:"1", max:"24", step:"0.5", inputmode:"decimal", value: L.hours || "", style:"max-width:5em"}), msg = h("span",{class:"sub"});
+  box.append(h("form",{style:"flex-direction:row;gap:8px;align-items:flex-end;flex-wrap:wrap", onsubmit: async e => { e.preventDefault();
+      const v = on.value ? {on: on.value, hours: +hrs.value || 18} : null; msg.textContent = "Saving…";
+      try { S.plants = await mutate("plants.json", list => (list || []).map(x => x.id === p.id ? Object.assign({}, x, {light: v || undefined}) : x), "light times"); cache(); msg.textContent = ""; applyTheme(); renderSetup(); } catch(err){ msg.textContent = "Couldn't save."; } }},
+    h("label",{class:"f", style:"flex:0 0 auto"}, "Lights on", on), h("label",{class:"f", style:"flex:0 0 auto"}, "Hours", hrs), h("button",{class:"btn sm", type:"submit"}, p.light ? "Save" : "Set by hand"), msg));
+  if (!p.light) box.append(h("p",{class:"sub", style:"margin:0"}, "Leave it empty to let the sensor work it out (needs about a day of readings)."));
+}
+
 /* settings → sensors: number, place, latest corrected values, battery, age */
 function renderSensorList(){
   const box = $("#s-sensors"); if (!box) return; box.hidden = !S.smeta; const list = $("#s-sensorlist"); list.replaceChildren(); if (!S.smeta) return;
@@ -2106,7 +2164,8 @@ async function sensorDiag(){
 /* ---------- setup ---------- */
 function renderSetup(){
   const c = S.cfg;
-  const tb = $("#s-theme"); tb.replaceChildren(); for (const [v,l] of [["auto","Follow phone"],["day","Day"],["night","Night"]]) tb.append(h("button",{type:"button",class:"chip","aria-pressed": themePref()===v ? "true":"false", onclick:() => { try { localStorage.setItem(THEME_KEY, v); } catch(e){} applyTheme(); renderSetup(); }}, l));
+  const tb = $("#s-theme"); tb.replaceChildren(); for (const [v,l] of [["auto","Follow phone"],["day","Day"],["night","Night"],["plant","Follow plant"]]) tb.append(h("button",{type:"button",class:"chip","aria-pressed": themePref()===v ? "true":"false", onclick:() => { try { localStorage.setItem(THEME_KEY, v); } catch(e){} applyTheme(); renderSetup(); }}, l));
+  renderThemeNote();
   if (document.activeElement && document.activeElement.closest && document.activeElement.closest("#setupform")) return;
   $("#s-owner").value = c ? c.owner : ""; $("#s-repo").value = c ? c.repo : "tank-log-data"; $("#s-token").value = "";
   $("#s-token").placeholder = c ? "saved · paste a new one to replace" : "github_pat_…";

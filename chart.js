@@ -4,7 +4,7 @@
      opts:   {from:ms, to:ms, band:[lo,hi]?, unit:"", digits:1, events:[{t:ms, k:"F"}]}
    Drawn in the plate style: ruled axes, target range as a watercolour wash, the line slightly roughened. */
 (function(){
-  const W = 340, H = 210, L = 36, R = 20, TOP = 10, B = 28;
+  const W = 340, H = 226, L = 36, R = 20, TOP = 26, B = 28;   // TOP leaves a row above the plot for event letters
   const f1 = n => Math.round(n * 10) / 10;
   const esc = s => String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
   function niceStep(span){ const raw = span / 4, p = Math.pow(10, Math.floor(Math.log10(raw))), m = raw / p; return (m < 1.5 ? 1 : m < 3 ? 2 : m < 7 ? 5 : 10) * p; }
@@ -46,8 +46,14 @@
       s += '<text x="' + x + '" y="' + (H - B + 16) + '" text-anchor="middle">' + d.toLocaleDateString("en-GB", {day: "numeric", month: "short"}) + '</text>';
     }
     s += '<path d="M' + L + ' ' + TOP + ' V' + (H - B) + ' H' + (W - R) + '" fill="none" stroke="currentColor" stroke-width="1.1" filter="url(#rough)"/>';
-    for (const e of (o.events || [])){ if (e.t < o.from || e.t > o.to) continue; const x = f1(X(e.t));
-      s += '<line x1="' + x + '" x2="' + x + '" y1="' + TOP + '" y2="' + (H - B) + '" stroke="currentColor" stroke-width=".6" stroke-dasharray="2 2" opacity=".55"/><text x="' + x + '" y="' + (TOP + 9) + '" text-anchor="middle" font-size="10" font-style="italic">' + esc(e.k) + '</text>'; }
+    // events: a faint line in the plot, letters in their own row above it; marks closer than 12 px merge into one label
+    const ev = (o.events || []).filter(e => e.t >= o.from && e.t <= o.to).map(e => ({x: X(e.t), k: e.k})).sort((a, b) => a.x - b.x), groups = [];
+    for (const e of ev){ const g = groups[groups.length - 1]; if (g && e.x - g.x1 < 12){ g.x1 = e.x; if (!g.ks.includes(e.k)) g.ks.push(e.k); } else groups.push({x0: e.x, x1: e.x, ks: [e.k]}); }
+    const rowEnd = [-1e9, -1e9];                         // two rows of letters; a label goes to the first row with room
+    for (const g of groups){ const x = f1((g.x0 + g.x1) / 2), w = g.ks.join("·").length * 5.5 + 4;
+      const row = x - w / 2 > rowEnd[0] ? 0 : x - w / 2 > rowEnd[1] ? 1 : 0; rowEnd[row] = x + w / 2;
+      for (const e of ev) if (e.x >= g.x0 && e.x <= g.x1) s += '<line x1="' + f1(e.x) + '" x2="' + f1(e.x) + '" y1="' + TOP + '" y2="' + (H - B) + '" stroke="currentColor" stroke-width=".5" stroke-dasharray="1.5 2.5" opacity=".4"/>';
+      s += '<text x="' + x + '" y="' + (row ? TOP - 4 : TOP - 15) + '" text-anchor="middle" font-size="10" font-style="italic">' + esc(g.ks.join("·")) + '</text>'; }
     series.forEach((sr, i) => {
       const pts = thin(sr.pts.filter(p => p.t >= o.from && p.t <= o.to), 360);
       if (!pts.length) return;
