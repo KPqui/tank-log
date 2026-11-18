@@ -296,6 +296,7 @@ function decorate(){
   document.documentElement.style.setProperty("--c", p ? colorOf(p) : "var(--ink)");
   document.documentElement.dataset.medium = med;
   document.querySelectorAll(".fr").forEach((el, i) => {
+    if (FR_RO && !el._ro){ el._ro = 1; FR_RO.observe(el); }   // redraw the frame whenever the panel changes size (unhidden, content grew)
     const b = el.getBoundingClientRect(); if (!b.width) return;
     const key = [Math.round(b.width), Math.round(b.height), el.dataset.soak, el.dataset.warm, el.dataset.frost, el.dataset.state, med, document.documentElement.dataset.theme].join("|");
     if (el._fk === key) return; el._fk = key;
@@ -305,6 +306,7 @@ function decorate(){
   drawBackground(p);
 }
 let decoTimer = null;
+const FR_RO = window.ResizeObserver ? new ResizeObserver(() => decorateSoon()) : null;
 function decorateSoon(){ clearTimeout(decoTimer); decoTimer = setTimeout(() => requestAnimationFrame(decorate), 30); }
 addEventListener("resize", decorateSoon);
 document.addEventListener("toggle", decorateSoon, true);
@@ -533,7 +535,7 @@ function sensorNote(p){
   const box = $("#t-sensornote"); if (!box) return; box.replaceChildren();
   if (!S.smeta) return;
   const mineIds = new Set(Bridge.placements(S.smeta).filter(x => x.run === p.id && !x.to).map(x => x.id));
-  const hs = S.bhealth.filter(x => x.k === "twins" ? (x.ids || [x.id]).some(i => mineIds.has(i)) : mineIds.has(x.id));
+  const hs = S.bridgeErr ? [] : S.bhealth.filter(x => x.k === "twins" ? (x.ids || [x.id]).some(i => mineIds.has(i)) : mineIds.has(x.id));
   const items = hs.map(x => x.text);
   if (S.bridgeErr) items.unshift(S.bridgeErr);
   if (!mineIds.size && ["grow","bloom","dry","cure"].includes(phaseOf(p))) items.push("No sensor placed with this plant. Log → Sensor moved to place one.");
@@ -593,7 +595,7 @@ function loadCache(){
 
 /* ---------- routing ---------- */
 const VIEWS = ["today","log","plan","setup","plant","quiz","strain","library"];
-const APP_V = "v42";
+const APP_V = "v43";
 const GEAR_SVG = '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="3.2"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1"/></svg>';
 function route(){
   let v = location.hash.slice(1);
@@ -2077,10 +2079,13 @@ function renderSensorList(){
   for (const id of ids){ const pl = Bridge.current(S.smeta, id), r = last[id] && Bridge.correct(last[id], S.smeta);
     list.append(h("div",{class:"row"}, h("span",null, h("b",null, sensorNum(id) + " "), pl ? pl.place : "not placed"), h("span",{class:"lead"}),
       h("span",{class:"when num"}, r ? (r.temp != null ? r.temp.toFixed(1) + "° " : "") + (r.rh != null ? r.rh.toFixed(1) + "% · " : "") + ago(new Date(r.t).toISOString()) + (r.bat != null && r.bat < 25 ? " · bat " + r.bat + "%" : "") : "no data"))); }
-  const hs = S.bhealth || []; if (hs.length || S.bridgeErr) list.append(...[S.bridgeErr].concat(hs.map(x => x.text)).filter(Boolean).map(t => h("p",{class:"warnline", style:"margin:0"}, t)));
+  const hs = S.bridgeErr ? [] : (S.bhealth || []);       // when the repo can't be read, "no readings" per sensor is just noise
+  if (S.bridgeErr) list.append(h("p",{class:"warnline", style:"margin:0"}, S.bridgeErr + " GitHub → Settings → Developer settings → Fine-grained tokens → the app's token → Repository access: add flowerphile-sensors (Contents: read)."));
+  list.append(...hs.map(x => h("p",{class:"warnline", style:"margin:0"}, x.text)));
   list.append(h("p",{class:"sub", style:"margin:0"}, "Values are corrected (calibration in sensors.json). To move a sensor: log on the plant → Sensor moved."));
   const out = h("pre",{class:"diag", hidden:""});
   list.append(h("button",{type:"button", class:"btn ghost sm", onclick: async () => { out.hidden = false; out.textContent = "Checking…"; out.textContent = await sensorDiag(); }}, "Check the sensor connection"), out);
+  decorateSoon();
 }
 /* step-by-step check of the sensor path, in plain words, for when readings don't show */
 async function sensorDiag(){
