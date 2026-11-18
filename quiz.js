@@ -10,12 +10,20 @@
   const add = (s, n) => { const d = D(s); d.setDate(d.getDate() + n); return ymd(d); };
   const short = s => D(s).toLocaleDateString("en-GB", {day: "numeric", month: "short"});
 
-  const GROWS = [
-    ["hydro|dwc", "Hydro · DWC", "bucket with an air stone"],
-    ["living-soil|hand", "Living soil · by hand"], ["living-soil|autopot", "Living soil · Autopot"],
-    ["soil|hand", "Soil · by hand"], ["soil|autopot", "Soil · Autopot"],
-    ["coco|hand", "Coco · by hand"], ["coco|drip", "Coco · drip"]
+  const GROWS = [                                         // most common first; hydro is the niche
+    ["soil|hand", "Soil", "bagged potting soil, watered by hand"], ["living-soil|hand", "Living soil", "organic, no bottled nutrients"],
+    ["coco|hand", "Coco", "coco coir, fed with every watering"],
+    ["soil|autopot", "Soil · Autopot", "self-watering pots"], ["living-soil|autopot", "Living soil · Autopot"], ["coco|drip", "Coco · drip"],
+    ["hydro|dwc", "Hydro · DWC", "roots in a bucket of water with an air stone"]
   ];
+  const AGO = [[3, "A few days ago"], [7, "About a week"], [14, "About 2 weeks"], [21, "About 3 weeks"], [30, "About a month"], [45, "About 6 weeks"], [60, "2 months or more"]];
+  /* already growing? the stage answers become sprout / flip dates, so the plan picks up mid-run */
+  function midGrow(a, T){
+    if (!a.stage || a.stage === "seed") return null;
+    const sprout = add(T, -(+a.sproutAgo || 14)), m = {sprout, phase: "grow", phases: {grow: sprout}};
+    if (a.stage === "bloom"){ let f = add(T, -(+a.bloomAgo || 7)); if (f <= sprout) f = add(sprout, 1); m.flip = f; m.phases.bloom = f; }
+    return m;
+  }
   const WATER = {
     distilled: {l: "Distilled or RO", ec: 0.0, sub: "EC about 0.0"},
     filtered:  {l: "Filter pitcher", ec: 0.4, sub: "EC about 0.4–0.6"},
@@ -44,14 +52,19 @@
     const Q = [], B = window.Branch, pr = ctx.profile;
     if (isNew && !pr){                                   // about the grower: asked once per person, kept in profile.json
       Q.push({id: "p_exp", type: "one", title: "Grown before?", why: "Sets how much the app explains. You can change it later in Settings.", opts: [["new", "Never", "take me by the hand"], ["some", "A few times"], ["pro", "Experienced", "give me the numbers"]]});
-      Q.push({id: "p_germ", type: "one", title: "Know how to start a seed?", show: a => a.p_exp !== "pro", opts: [["yes", "Yes"], ["rough", "Roughly"], ["no", "No"]]});
-      Q.push({id: "p_meters", type: "one", title: "What can you measure?", why: "Only the fields you can fill in will show.", opts: [["none", "Nothing yet", "eyes and hands"], ["ph", "A pH pen"], ["phec", "pH and EC meters"], ["sensors", "Those plus Bluetooth sensors"]]});
     }
     if (isNew) Q.push({id: "basics", type: "form", title: "What are you growing?", why: "Pick from your seeds or type a name. The rest of the questions use its sheet."});
+    if (isNew && !p.sprout){
+      Q.push({id: "stage", type: "one", title: "Where is it now?", why: "Already growing is fine: the plan picks up from today.", opts: [["seed", "Not started yet", "a seed, maybe soaking"], ["veg", "Sprouted and growing", "leaves, no flowers yet"], ["bloom", "Flowering", "white hairs (pistils) showing"]], def: () => "seed"});
+      Q.push({id: "sproutAgo", type: "one", title: "When did it sprout, roughly?", why: "A guess is fine. Days count from the sprout.", show: a => a.stage === "veg" || a.stage === "bloom", opts: AGO});
+      Q.push({id: "bloomAgo", type: "one", title: "And when did flowering start?", why: a => a.seed === "photo" ? "The day the light went to 12/12, or when the first pistils showed." : "When the first white hairs showed.", show: a => a.stage === "bloom", opts: AGO.slice(0, 6)});
+    }
+    if (isNew && !pr) Q.push({id: "p_germ", type: "one", title: "Know how to start a seed?", show: a => a.p_exp !== "pro" && (!a.stage || a.stage === "seed"), opts: [["yes", "Yes"], ["rough", "Roughly"], ["no", "No", "the app shows you how"]]});
     Q.push({id: "seed", type: "one", title: "What kind of seed?", why: f.kind ? "Your library lists " + f.name + " as " + (f.kind === "auto" ? "an autoflower" : "a photoperiod") + "." : "Autoflowers bloom on their own; photoperiods wait for 12/12.",
       opts: [["auto", "Autoflower"], ["photo", "Photoperiod"], ["unsure", "Not sure"]], def: () => p.kind || f.kind});
     Q.push({id: "where", type: "one", title: "Where does it grow?", opts: [["indoor", "Indoor", "tent, fridge, cupboard"], ["outdoor", "Outdoor", "balcony, garden"]], def: () => p.where || "indoor"});
     Q.push({id: "grow", type: "one", title: "In what?", why: "Medium and watering. Colours and log fields follow this.", opts: GROWS, def: () => p.medium ? p.medium + "|" + (p.system || "hand") : null});
+    if (isNew && !pr) Q.push({id: "p_meters", type: "one", title: "Any meters or sensors?", why: "None is completely fine: the app only asks for what you can measure. You can change this later.", opts: [["none", "None", "eyes and hands"], ["ph", "A pH pen"], ["phec", "pH and EC meters"], ["sensors", "Meters plus Bluetooth climate sensors"]]});
     if (B) Q.push(...B.questions());
     Q.push({id: "volume", type: "one", num: "L", title: a => /^hydro/.test(a.grow || "") ? "Reservoir working volume?" : "Pot size?",
       why: a => /^hydro/.test(a.grow || "") ? "What's really in the bucket, not the label. Feed doses and water-change rhythm scale with it." : "Bigger pots buffer mistakes and hold water longer.",
@@ -108,7 +121,8 @@
     const flip = p.flip || p.flipEst; return flip ? add(flip, f.flower) : null;
   }
 
-  function derive(a, ctx){
+  function derive(a, ctx0){
+    const mid = midGrow(a, ctx0.today), ctx = mid ? Object.assign({}, ctx0, {plant: Object.assign({}, ctx0.plant, mid)}) : ctx0;
     const p = ctx.plant || {}, f = strainFacts(ctx), T = ctx.today, flags = [], tasks = [], B = window.Branch;
     fillKnown(a, ctx);
     const prof = profileOf(a, ctx);
@@ -128,11 +142,12 @@
       const every = vol <= 10 ? 8 : 12;
       t("wc", "Water change", "With " + vol + " L it's about every " + every + " days. Fresh water, nutrients to the target EC (CalMag first if you use it), pH last; rinse the air stone." + (a.water === "filtered" ? " Filtered water: 50/50 with distilled for fresh mixes once the target EC is ~0.8+, distilled for top-offs." : ""), "Every ~" + every + " days", add(p.sprout || T, 14) < T ? add(T, every) : add(p.sprout || T, 14), {size: "big"});
     }
-    if (flipAt && !has(/12\s*\/\s*12|flip/i)) t("flip", "Switch light to 12/12", "Flip when the plant is about " + flipAt + " cm above the " + (hydro ? "lid" : "pot rim") + ": with ×" + f.stretch + " stretch it ends near " + room + " cm, under the lamp's limit.", "Height ~" + flipAt + " cm", null, {size: "big"});
-    if (a.seed === "auto" && (a.stretch === "train" || a.goal === "big") && !has(/lst|bend/i)) t("lst", "Bend the main stem (LST)", "Tie the top down sideways so the side shoots catch up. No topping on an autoflower after ~day 21.", "Veg days 14–21");
+    if (flipAt && !(mid && mid.flip) && !has(/12\s*\/\s*12|flip/i)) t("flip", "Switch light to 12/12", "Flip when the plant is about " + flipAt + " cm above the " + (hydro ? "lid" : "pot rim") + ": with ×" + f.stretch + " stretch it ends near " + room + " cm, under the lamp's limit.", "Height ~" + flipAt + " cm", null, {size: "big"});
+    if (mid && mid.flip){ /* already flowering: no training steps */ }
+    else if (a.seed === "auto" && (a.stretch === "train" || a.goal === "big") && !has(/lst|bend/i)) t("lst", "Bend the main stem (LST)", "Tie the top down sideways so the side shoots catch up. No topping on an autoflower after ~day 21.", "Veg days 14–21");
     else if (a.seed !== "auto" && (a.goal === "big" || a.stretch === "train" || a.stretch === "both") && !has(/\btop|manifold/i)) t("top", "Top above node 3", "Cut the main stem just above node 3; the two shoots become your mains.", "5–6 nodes");
 
-    if (!p.sprout && prof && (prof.germ === "no" || prof.germ === "rough") && !has(/start the seed|germinat/i))
+    if (!p.sprout && !mid && prof && (prof.germ === "no" || prof.germ === "rough") && !has(/start the seed|germinat/i))
       t("germ", "Start the seed", "Soak it in a glass of lukewarm water for 12–24 h, then keep it between moist (not wet) paper towels on a plate under a second plate, somewhere warm (22–26 °C) and dark. When the white tail is 0.5–2 cm, plant it tail down about 1 cm deep in moist soil. Or skip the towel: plant the soaked seed 1 cm deep and keep the soil moist.", "Today", T);
     // early warnings
     if (hydro && vol && vol <= 8) flags.push({lvl: "warn", k: "small-res", text: "Small reservoir (" + vol + " L): EC and pH move fast, most in bloom days 20–60. Top off with plain water daily then, and change the water every ~8 days."});
@@ -151,8 +166,9 @@
     for (const l of (ctx.past || []).slice(0, 3)) flags.push({lvl: "info", k: "past", text: "From " + l.from + ": " + l.text});
 
     const setup = {at: T, seed: a.seed, where: a.where, medium, system, volume: vol, light: a.light || null, lampMax: a.lampMax ?? null, floor: a.floor || null, heightLimit: a.heightLimit ?? null,
-      water: a.water || null, waterEc: a.waterEc ?? null, goal: a.goal || null, spot: a.spot || null, sun: a.sun || null, roof: a.roof || null, feed: a.feed || null, soilsrc: a.soilsrc || null, stretch: a.stretch || null, timing: a.timing || null, by: a.by || null, flipAt, endEst: end};
+      water: a.water || null, waterEc: a.waterEc ?? null, goal: a.goal || null, spot: a.spot || null, sun: a.sun || null, roof: a.roof || null, feed: a.feed || null, soilsrc: a.soilsrc || null, stretch: a.stretch || null, stage: a.stage || null, timing: a.timing || null, by: a.by || null, flipAt, endEst: end};
     const fields = {medium, system, where: a.where || "indoor", kind: a.seed === "unsure" ? null : a.seed};
+    if (mid){ Object.assign(fields, mid); if (!p.start || p.start > mid.sprout) fields.start = add(mid.sprout, -5); }
     if (a.where === "outdoor" && a.loc && a.loc.lat != null){ fields.lat = a.loc.lat; fields.lon = a.loc.lon; }
     const profile = B && prof ? Object.assign({}, prof, {known: B.remember(prof, a)}) : null;
     return {fields, setup, targets, tasks, flags, flipAt, end, profile};

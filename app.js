@@ -697,7 +697,7 @@ function loadCache(){
 
 /* ---------- routing ---------- */
 const VIEWS = ["today","log","plan","setup","plant","quiz","strain","library"];
-const APP_V = "v48";
+const APP_V = "v49";
 const GEAR_SVG = '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="3.2"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1"/></svg>';
 function route(){
   let v = location.hash.slice(1);
@@ -1496,7 +1496,8 @@ function renderToday(){
   drawSpecimen(p);
   if (!p){
     $("#t-day").textContent = APP; $("#t-stage").textContent = S.cfg ? (S.synced ? "No plants" : "–") : "Not connected"; $("#t-medium").textContent = "";
-    $("#t-tasks").replaceChildren(h("p",{class:"empty"}, S.synced ? "No plants yet. Add one under Settings & plants." : "Loading your plan…"));
+    $("#t-tasks").replaceChildren(S.synced || isLocal() ? h("div",{style:"display:flex;flex-direction:column;gap:10px"}, h("p",{class:"empty", style:"margin:0"}, S.qz && S.qz.mode === "new" ? "Your plant isn't saved yet." : "No plants yet."),
+      h("a",{class:"btn primary", href:"#plant-new"}, S.qz && S.qz.mode === "new" ? "Continue the questions" : "Add your first plant")) : h("p",{class:"empty"}, "Loading your plan…"));
     $("#t-grid").replaceChildren(); $("#t-next").replaceChildren(); $("#t-more").textContent = ""; decorateSoon(); return;
   }
   $("#t-date").textContent += " · " + p.name;
@@ -2052,7 +2053,7 @@ function renderLogForm(){
     }}, a));
   }
   // a sensor file fits any phase: outdoor plants still dry and cure indoors, and jars get sensors too
-  $("#l-sensordrop").hidden = false;
+  $("#l-sensordrop").hidden = !!(S.profile && S.profile.meters && S.profile.meters !== "sensors");   // only for growers who said they have sensors
   renderMoveBox(p);
   if (!S.edit) $("#l-title").textContent = p.name;
 }
@@ -2104,7 +2105,7 @@ function endEdit(){
   document.querySelectorAll("#chips .chip").forEach(c => c.setAttribute("aria-pressed","false"));
   const p = sel(); $("#l-title").textContent = p ? p.name : "Quick log"; lnow();
   $("#f-save").textContent = "Save"; $("#f-cancel").hidden = true;
-  $("#f-photo-n").textContent = "camera or gallery"; $("#f-file-n").textContent = "CSV export";
+  $("#f-photo-n").textContent = "camera or gallery"; $("#f-file-n").textContent = "the CSV export from your climate sensor's app";
 }
 $("#f-cancel").addEventListener("click", () => { endEdit(); S.planSeg = "book"; location.hash = "#plan"; });
 async function delLog(l){
