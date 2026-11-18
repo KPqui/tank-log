@@ -617,6 +617,7 @@ function route(){
   decorateSoon();
 }
 addEventListener("hashchange", route);
+addEventListener("scroll", () => { const t = document.querySelector(".top"); if (t) t.classList.toggle("scrolled", scrollY > 8); }, {passive:true});
 function selectPlant(id){
   if (S.edit) endEdit();
   S.sel = id; try { localStorage.setItem(SEL_KEY, id); } catch(e){}
@@ -814,7 +815,8 @@ function libRow(tb, e, F){
     if (e.grown.length) d.append(h("p",{class:"sub"}, "Your runs: " + runsText(e)));
     const acts = h("div",{class:"chips", style:"gap:6px"});
     if (e.sh) acts.append(h("button",{type:"button", class:"btn sm", onclick:ev => { ev.stopPropagation(); S.libSheet = e.sh.id; renderLibrary(); window.scrollTo(0, 0); }}, "Open full sheet"));
-    else acts.append(h("button",{type:"button", class:"btn ghost sm", disabled: e.request ? "" : null, onclick:ev => { ev.stopPropagation(); requestResearch(e); }}, e.request ? "Research requested" : "Request a sourced sheet"));
+    else { acts.append(h("button",{type:"button", class:"btn sm", onclick:ev => { ev.stopPropagation(); researchNow(e); }}, "Research now"));
+      acts.append(h("button",{type:"button", class:"btn ghost sm", disabled: e.request ? "" : null, onclick:ev => { ev.stopPropagation(); requestResearch(e); }}, e.request ? "In tonight's review" : "Add to tonight's review")); }
     acts.append(h("button",{type:"button", class:"btn ghost sm", onclick:ev => { ev.stopPropagation(); F.like = e.id; F.scope = "all"; S.libOpen = null; renderLibrary(); window.scrollTo(0, 0); }}, "Find similar"));
     d.append(acts, h("p",{class:"sub", style:"font-size:13px"}, e.sh ? "Sourced sheet" : "From " + (e.src || "your list") + "."));
     tb.append(h("tr",{class:"ldet"}, h("td",{colspan:"5"}, d)));
@@ -835,6 +837,21 @@ function renderCompare(list){
   tbl.append(tb);
   list.append(h("div",{class:"panel fr","data-soak":"0.12", style:"padding:10px 10px 6px"}, tbl));
   decorateSoon();
+}
+/* research right away with the user's own AI: copy a complete brief, open the chat that can write to the data store.
+   The nightly review stays the fallback (library entry with `request`). */
+function researchBrief(e){
+  const sh = (S.strains || [])[0];
+  return ["Flowerphile strain research: " + e.name + (e.breeder ? " (" + e.breeder + ")" : ""),
+    "Research this strain from sourced material: the breeder's page, lab results where they exist, and broad user reports. Write in your own words, list the sources, mark claims that only the breeder makes.",
+    "Then add a sheet to strains.json in KPqui/tank-log-data in the same shape as the existing sheets" + (sh ? " (keys: " + Object.keys(sh).join(", ") + ")" : "") + ", link it from the library.json entry id \"" + e.id + "\" via `sheet`, fill kind/flower (days)/thc/terps/effects on that entry and remove `request`.",
+    "Days, not weeks. Commit and push. Reply with two lines: what stands out, and how it compares to what I grow now."].join("\n");
+}
+async function researchNow(e){
+  const url = (S.plants.find(p => p.chat && p.status === "active") || S.plants.find(p => p.chat) || {}).chat || "https://claude.ai/new";
+  try { await navigator.clipboard.writeText(researchBrief(e)); setSync("Research brief copied · paste it in the chat"); } catch(err){ setSync("Couldn't copy · long-press to paste manually", true); }
+  if (!e.request) requestResearch(e);                    // stays queued for the nightly review if the chat doesn't get to it
+  window.open(url, "_blank", "noopener");
 }
 async function requestResearch(e){
   try { S.library = await mutate("library.json", list => (list || []).map(x => x.id === e.id ? Object.assign({}, x, {request: today()}) : x), "library: research request");
@@ -1250,19 +1267,22 @@ function pickTip(p){
   const ph = p ? phaseOf(p) : null, fits = t => (!t.phase || (ph && [].concat(t.phase).includes(ph))) && (!t.medium || (p && [].concat(t.medium).includes(p.medium)));
   const all = (S.tips || []).filter(t => (t.strain ? ps && t.strain.toLowerCase() === ps : t.kind !== "strain") && (!t.plant || (p && t.plant === p.id)) && fits(t));
   if (!all.length) return null;
-  const kinds = ["fact", "lore", "strain"].filter(k => all.some(t => t.kind === k));
-  const want = kinds[(S.tipOpen + S.tipShift) % kinds.length];
-  const pool = all.filter(t => t.kind === want), seen = seenTips();
-  let fresh = pool.filter(t => !seen.includes(t.id));
-  if (!fresh.length){ try { localStorage.setItem(SEEN_KEY, JSON.stringify(seen.filter(id => !pool.some(t => t.id === id)))); } catch(e){} fresh = pool; }
-  const t = fresh[(S.tipOpen * 7 + S.tipShift) % fresh.length];
+  // any tip not seen yet on this phone; tips tagged for the plant's stage get extra weight so the pool feels current,
+  // and each kind (fact, lore, strain) is drawn in proportion to how many fresh ones it has, so small pools don't repeat
+  const seen = seenTips();
+  let fresh = all.filter(t => !seen.includes(t.id));
+  if (!fresh.length){ try { localStorage.setItem(SEEN_KEY, JSON.stringify(seen.filter(id => !all.some(t => t.id === id)))); } catch(e){} fresh = all; }
+  const r = rnd(S.tipOpen * 97 + S.tipShift * 13 + 7);
+  const w = fresh.map(t => (t.phase && ph && [].concat(t.phase).includes(ph) ? 2.5 : 1) * (t.kind === "lore" ? 0.6 : 1));
+  let x = r() * w.reduce((a, b) => a + b, 0), i = 0; while (i < fresh.length - 1 && (x -= w[i]) > 0) i++;
+  const t = fresh[i];
   try { if (!seen.includes(t.id)) localStorage.setItem(SEEN_KEY, JSON.stringify(seen.concat(t.id).slice(-500))); } catch(e){}
   return t;
 }
 function renderTip(p){
   const box = $("#t-tip"); if (!box) return; box.replaceChildren(); box._fk = null;
   const t = tipFor(p); box.hidden = !t; if (!t) return;
-  const label = t.kind === "lore" ? "Forum lore · unverified" : t.kind === "strain" ? "About this strain" : "Fact";
+  const label = t.kind === "lore" ? "Forum lore · unverified" : t.kind === "strain" ? "About this strain" : t.topic === "Botany" ? "Botany lesson" : (t.topic || "Fact");
   const parts = [h("div",{class:"head",style:"align-items:baseline"}, h("h2",null,label),
     h("button",{type:"button", class:"btn ghost sm", "aria-label":"Another one", onclick:() => { S.tipShift++; renderTip(sel()); decorateSoon(); }}, "Another")),
     h("p",{class:"tiptext"}, t.text),
@@ -1462,6 +1482,27 @@ function envTiles(p){
   if (!ma && !mr) note.textContent = "No sensor data yet. Upload a CSV export with a log.";
   return {tiles:[["Air", ma ? fmtv("air", ma.v) : "–", statusOf("air", ma && ma.v), "air"], ["Humidity", mr ? fmtv("rh", mr.v) : "–", statusOf("rh", mr && mr.v), "rh"], [["dry","cure","done"].includes(phaseOf(p)) ? "RH 24 h" : "VPD","–",none]], age: ma || mr ? "manual " + ago((ma||mr).at) : ""};
 }
+
+/* ---------- how-tos (howto.js): small illustrated guides next to the steps that need them ----------
+   A task shows "How to" when it names one (task.howto = id) or its title matches one. Plan → Guides lists all. */
+S.openHow = new Set();
+function howtoFor(t){ if (!window.HowTo || !t) return null; return (t.howto && HowTo.byId(t.howto)) || HowTo.find(t.title); }
+function howtoCard(hw){
+  return h("div",{class:"howto", onclick:e => e.stopPropagation()},
+    h("p",{class:"what"}, hw.what),
+    h("ol",{class:"hsteps"}, hw.steps.map((st, i) => h("li",null, raw(HowTo.fig(st.fig)), h("div",null, h("b",null, (i + 1) + ". "), st.text)))),
+    hw.watch && hw.watch.length ? h("div",null, h("h2",null,"Watch out"), h("ul",{class:"notes"}, hw.watch.map(w => h("li",null,w)))) : null,
+    hw.vs ? h("p",{class:"sub", style:"margin:0"}, h("b",{style:"font-style:normal"}, "Not the same as: "), hw.vs) : null);
+}
+function howtoToggle(key, hw, rerender){
+  const open = S.openHow.has(key);
+  return h("button",{type:"button", class:"btn ghost sm howbtn", "aria-expanded": open ? "true" : "false", onclick:e => { e.stopPropagation(); open ? S.openHow.delete(key) : S.openHow.add(key); rerender(); decorateSoon(); }}, (open ? "Hide how-to: " : "How to: ") + hw.title.toLowerCase());
+}
+function renderGuides(){
+  const box = $("#p-guides"); if (!box || !window.HowTo) return; const list = $("#p-guidelist"); list.replaceChildren();
+  for (const hw of HowTo.all){ const k = "g-" + hw.id, open = S.openHow.has(k);
+    list.append(h("div",{class:"guide"}, h("button",{type:"button", class:"tt", "aria-expanded": open ? "true" : "false", onclick:() => { open ? S.openHow.delete(k) : S.openHow.add(k); renderGuides(); decorateSoon(); }}, h("b",null, hw.title), h("span",{class:"chev","aria-hidden":"true"}, open ? " –" : " +")), open ? howtoCard(hw) : null)); }
+}
 S.openTask = new Set();
 function taskRow(t){
   const id = "task-" + t.id, done = t.status === "done", more = t.detail || t.trigger;
@@ -1474,6 +1515,8 @@ function taskRow(t){
   const ask = !done && /check in with claude/i.test(t.title);
   return h("div",{class:"task"+(done?" done":"")+(t.urgent && !done ? " urgent" : "")}, cb, h("div",{class:"tb"}, title,
     open ? h("span",{class:"d"}, t.detail || "", t.trigger ? (t.detail ? " · " : "") + "Trigger: " + t.trigger : "") : null,
+    open && howtoFor(t) ? howtoToggle("t-" + t.id, howtoFor(t), renderToday) : null,
+    open && howtoFor(t) && S.openHow.has("t-" + t.id) ? howtoCard(howtoFor(t)) : null,
     ask ? h("button",{type:"button", class:"btn ghost sm", style:"align-self:flex-start;margin-top:4px", onclick:() => openCheckin(t)}, "Copy check-in & open chat") : null));
 }
 /* check-in: copy a short summary of the plant to the clipboard, then open the plant's Claude chat (link set in the plant form) */
@@ -1747,13 +1790,16 @@ function renderPlan(){
     const open = S.openTask.has("p-" + t.id), more = t.trigger || t.detail;
     list.append(h("li",{class:"fr","data-soak":"0.12", onclick: more ? () => { S.openTask.has("p-" + t.id) ? S.openTask.delete("p-" + t.id) : S.openTask.add("p-" + t.id); renderPlan(); decorateSoon(); } : null, style: more ? "cursor:pointer" : null},
       h("div",{style:"display:flex;flex-direction:column;gap:2px;min-width:0"}, h("span",{style:"font-weight:600"},t.title, more ? h("span",{class:"chev","aria-hidden":"true"}, open ? " –" : " +") : null),
-        open ? h("span",{class:"muted small"}, [t.detail, t.trigger ? "Trigger: " + t.trigger : ""].filter(Boolean).join(" · ")) : null),
-      h("span",{class:"when num"+(isDue?" due":"")}, t.due ? (isDue ? fmtDay(t.due) : "~" + fmtDay(t.due)) : "open")));
+        open ? h("span",{class:"muted small"}, [t.detail, t.trigger ? "Trigger: " + t.trigger : ""].filter(Boolean).join(" · ")) : null,
+        open && howtoFor(t) ? howtoToggle("p-" + t.id, howtoFor(t), renderPlan) : null),
+      h("span",{class:"when num"+(isDue?" due":"")}, t.due ? (isDue ? fmtDay(t.due) : "~" + fmtDay(t.due)) : "open"),
+      open && howtoFor(t) && S.openHow.has("p-" + t.id) ? howtoCard(howtoFor(t)) : null));
   }
   const dl = $("#p-donelist"); dl.replaceChildren();
   const done = mine(S.tasks).filter(t => t.status === "done").sort((a,b) => (b.doneAt||"").localeCompare(a.doneAt||""));
   $("#p-done").hidden = !done.length;
   for (const t of done) dl.append(h("li",null, h("span",{class:"muted"},t.title), h("span",{class:"when"}, t.doneAt ? fmtDay(ymd(new Date(t.doneAt))) : "done")));
+  renderGuides();
   const ch = $("#p-changes"); ch.replaceChildren();
   const mc = mine(S.changes);
   if (!mc.length) ch.append(h("p",{class:"empty"},"No changes yet. When a review moves a date, the reason shows here."));
