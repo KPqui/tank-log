@@ -90,7 +90,7 @@ function fieldsFor(p){
   }
   if (indoor) k.push("ppfd");
   k.push("height","nodes");
-  return k;
+  return window.Branch ? Branch.fields(p, S.profile, k) : k;
 }
 function labelFor(p, k, short){
   const d = F[k]; let l = short ? (d.short || d.label) : d.label;
@@ -103,6 +103,7 @@ function actionsFor(p){
   if (ph === "dry") return ["Hung","Rotated","Bucked","Trimmed","Stems snap","Still bendy","Sensor moved"];
   if (ph === "cure") return ["Burped","Humidity pack in","Jar changed","Smell check","Long storage","Sensor moved"];
   if (ph === "done") return ["Smell check","Jar changed","Sensor moved"];
+  if (window.Branch) return Branch.chips(p);
   let a;
   if (m === "hydro") a = ["Fed","Topped off","Water change","pH adjusted","Trimmed","Trained"];
   else if (m === "living-soil") a = [auto ? "Reservoir refilled" : "Watered","Top-fed","Tea / amended","Trimmed","Trained","Pest check"];
@@ -371,7 +372,7 @@ async function startLocal(){
 async function makeBackup(withMedia){
   const files = {};
   if (isLocal()){ const all = await lall(); for (const [k, v] of Object.entries(all)){ if (v instanceof Blob){ if (withMedia) files[k] = {b64: await blobToB64(v), type: v.type}; } else files[k] = {json: v}; } }
-  else { for (const f of ["plants.json","tasks.json","logs.json","changes.json","tips.json","strains.json","library.json","experiments.json","sensors.json"]){ const d = (await getJSON(f)).data; if (d != null) files[f] = {json: d}; }
+  else { for (const f of ["plants.json","tasks.json","logs.json","changes.json","tips.json","strains.json","library.json","experiments.json","sensors.json","profile.json"]){ const d = (await getJSON(f)).data; if (d != null) files[f] = {json: d}; }
     if (withMedia) for (const l of S.logs) for (const pth of (l.photos || []).concat(l.files || [])){ const r = await api(pth, null, "application/vnd.github.raw"); if (r.ok){ const b = await r.blob(); files[pth] = {b64: await blobToB64(b), type: b.type}; } } }
   const blob = new Blob([JSON.stringify({app:"flowerphile", version:APP_V, made:new Date().toISOString(), files})], {type:"application/json"});
   const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "flowerphile-backup-" + today() + ".json"; document.body.append(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 2000);
@@ -639,7 +640,7 @@ async function loadWeather(p){
   if (c && Date.now() - c.at < 30*60e3) return c;
   const url = "https://api.open-meteo.com/v1/forecast?latitude="+lat+"&longitude="+lon+
     "&current=temperature_2m,relative_humidity_2m,precipitation,wind_speed_10m,wind_gusts_10m,cloud_cover"+
-    "&daily=temperature_2m_max,temperature_2m_min,precipitation_sum,wind_gusts_10m_max,sunrise,sunset&timezone=Europe%2FBerlin&forecast_days=2";
+    "&daily=temperature_2m_max,temperature_2m_min,precipitation_sum,wind_gusts_10m_max,relative_humidity_2m_mean,sunrise,sunset&timezone=auto&forecast_days=3";
   try {
     const j = await fetch(url).then(r => r.json());
     S.weather[key] = {at:Date.now(), j}; return S.weather[key];
@@ -648,13 +649,14 @@ async function loadWeather(p){
 
 /* ---------- sync ---------- */
 function setSync(text, err){ const b = $("#sync"); b.textContent = text; b.classList.toggle("err", !!err); }
-function cache(){ try { localStorage.setItem(CACHE_KEY, JSON.stringify({plants:S.plants, tasks:S.tasks, logs:S.logs, changes:S.changes, tips:S.tips||[], strains:S.strains||[], library:S.library||[], experiments:S.experiments||[], smeta:S.smeta||null})); } catch(e){} }
+function cache(){ try { localStorage.setItem(CACHE_KEY, JSON.stringify({plants:S.plants, tasks:S.tasks, logs:S.logs, changes:S.changes, tips:S.tips||[], strains:S.strains||[], library:S.library||[], experiments:S.experiments||[], smeta:S.smeta||null, profile:S.profile||null})); } catch(e){} }
 function sortLogs(list){ return (list||[]).slice().sort((a,b) => (b.at||"").localeCompare(a.at||"")); }
 async function loadAll(){
   if (!S.cfg || S.busy) return;
   S.busy = true; setSync("Syncing…");
   try {
-    let [plants, tasks, logs, changes, tips, strainsRes, libRes, expRes, senRes] = await Promise.all(["plants.json","tasks.json","logs.json","changes.json","tips.json","strains.json","library.json","experiments.json","sensors.json"].map(p => getJSON(p).catch(() => ({data:null}))));
+    let [plants, tasks, logs, changes, tips, strainsRes, libRes, expRes, senRes, profRes] = await Promise.all(["plants.json","tasks.json","logs.json","changes.json","tips.json","strains.json","library.json","experiments.json","sensors.json","profile.json"].map(p => getJSON(p).catch(() => ({data:null}))));
+    S.profile = (profRes && profRes.data) || null;
     S.tips = (tips && tips.data) || []; S.experiments = (expRes && expRes.data) || []; S.smeta = (senRes && senRes.data) || null; S.strains = (strainsRes && strainsRes.data) || []; S.library = (libRes && libRes.data) || [];
     if (!plants.data && !isLocal()){
       const run = (await getJSON("run.json")).data;
@@ -676,7 +678,7 @@ async function loadAll(){
 }
 function loadCache(){
   try { const c = JSON.parse(localStorage.getItem(CACHE_KEY) || "null");
-    if (c && c.plants){ Object.assign(S, {plants:c.plants, tasks:c.tasks||[], logs:sortLogs(c.logs), changes:c.changes||[], tips:c.tips||[], strains:c.strains||[], library:c.library||[], experiments:c.experiments||[], smeta:c.smeta||null}); setSync("Saved copy"); try { bridgeFromCache(); } catch(e){} } } catch(e){}
+    if (c && c.plants){ Object.assign(S, {plants:c.plants, tasks:c.tasks||[], logs:sortLogs(c.logs), changes:c.changes||[], tips:c.tips||[], strains:c.strains||[], library:c.library||[], experiments:c.experiments||[], smeta:c.smeta||null, profile:c.profile||null}); setSync("Saved copy"); try { bridgeFromCache(); } catch(e){} } } catch(e){}
 }
 
 /* ---------- routing ---------- */
@@ -1041,7 +1043,7 @@ function askCard(p){
 }
 
 /* ---------- the app's own plan keeping (rules.js) ---------- */
-function ruleCtx(p){ const ph = phaseOf(p); return {today: today(), phase: ph, phaseStart: phaseStart(p, ph === "done" ? "cure" : ph), tasks: S.tasks, logs: S.logs}; }
+function ruleCtx(p){ const ph = phaseOf(p); return {today: today(), phase: ph, phaseStart: phaseStart(p, ph === "done" ? "cure" : ph), tasks: S.tasks, logs: S.logs, profile: S.profile, check: window.Branch ? Branch.check(p, S.profile) : null}; }
 async function applyRules(byPlant, label){
   const add = [], mv = [], ch = [], T = today();
   const cl = [];
@@ -1051,6 +1053,7 @@ async function applyRules(byPlant, label){
     if (r.tasks.length) ch.push({id:cid(), run:pid, date:T, src:"app",
       text: r.kind === "sensor" ? "Added from the sensor readings (" + r.why.join("; ") + ")."
           : r.kind === "upkeep" ? "Added by the app: " + groupSteps(r.tasks) + "."
+          : r.kind === "weather" ? "Added from the weather forecast: " + groupSteps(r.tasks) + "."
           : (r.kind || label) === "plan" ? "Plan kept going by the app: " + groupSteps(r.tasks) + "."
                              : "Added right after your log (" + r.why.join("; ") + ")."});
     for (const m of moves) ch.push({id:cid(), run:pid, date:T, src:"app", text:m.why});
@@ -1073,7 +1076,11 @@ const REACTED_KEY = "ff-reacted";
 async function keepPlans(){
   if (!window.Rules || !S.plants.length || (S.planRan && Date.now() - S.planRan < 6e5)) return;
   S.planRan = Date.now();
-  const by = []; for (const p of S.plants){ const tasks = Rules.plan(p, ruleCtx(p)); if (tasks.length) by.push([p.id, {tasks, why: []}]); }
+  const by = []; for (const p of S.plants){ const tasks = Rules.plan(p, ruleCtx(p)).concat(window.Branch && p.status === "active" ? Branch.plan(p, ruleCtx(p), S.profile) : []); if (tasks.length) by.push([p.id, {tasks, why: []}]); }
+  // outdoor plants: the forecast turns into steps (frost, wind, heat, rain and damp in bloom)
+  if (window.Branch) for (const p of S.plants.filter(x => x.status === "active" && x.where === "outdoor")){
+    const w = await loadWeather(p); if (!w) continue; const tasks = Branch.weather(p, w.j, ruleCtx(p));
+    if (tasks.length) by.push([p.id, {tasks, why: ["from the weather forecast"], kind: "weather"}]); }
   // upkeep the nightly review used to do: checks done by logs, overdue big tasks, one stressor a day, EC ramp
   for (const p of S.plants.filter(x => x.status === "active")){ const m = Rules.maintain(p, ruleCtx(p)); if (m.tasks.length || m.moves.length || m.close.length) by.push([p.id, Object.assign(m, {why: [], kind: "upkeep"})]); }
   // sensor readings react like a log would, once per plant per day (gen keys keep it from repeating)
@@ -1248,6 +1255,14 @@ function coreTiles(p){
     return [["Jar RH", j ? fmtv("jar_rh", j.v) : "–", jst, "jar_rh"],
       ["Burped", bd == null ? "–" : bd === 0 ? "today" : bd + " d ago", bd != null && bd > 2 && cs && daysBetween(cs, T) < 14 ? {cls:"high", word:"due", txt:"daily, days 1–14"} : {cls:"none", word:"", txt: cs && daysBetween(cs, T) >= 14 ? "every 7 days now" : "daily, days 1–14"}],
       ["Weight", w ? fmtv("weight", w.v) : (run.dry_g ? run.dry_g + " g" : "–"), {cls:"none", word:"", txt: run.dry_g ? "jarred at " + run.dry_g + " g" : ""}, "weight"]];
+  }
+  if ((ph === "grow" || ph === "bloom") && window.Branch && Branch.dayTiles(p, S.profile)){
+    const since = l => l ? daysBetween(l.date, T) : null, dtxt = n => n == null ? "–" : n === 0 ? "today" : n + " d ago";
+    const w = lastAction(Branch.WATERED), fd = lastAction(Branch.FED), ht = latest("height"), wn = since(w), fn = since(fd);
+    const vol = (p.setup || {}).volume, ls = p.medium === "living-soil";
+    return [["Watered", dtxt(wn), wn != null && wn >= ((p.where === "outdoor") ? 3 : 5) ? {cls:"high", word:"lift it", txt:"pot light? water"} : {cls:"none", word:"", txt: w && w.water_l ? w.water_l + " L" : "lift the pot"}],
+      [ls ? "Top-dressed" : "Fed", dtxt(fn), {cls:"none", word:"", txt: ls ? "every ~3–4 weeks" : vol ? "¼–½ bottle dose" : "with a watering"}],
+      ["Height", ht ? fmtv("height", ht.v) : "–", {cls:"none", word:"", txt: ht ? ago(ht.at) : "log it now and then"}, "height"]];
   }
   if (ph === "done"){
     const lj = liveJarFor(p);
@@ -1714,7 +1729,7 @@ function quizCtx(draft){
   const p = draft || {}, entry = p.strain ? libEntries().find(e => norm(e.name) === norm(p.strain)) || null : null;
   const sheet = entry && entry.sh ? entry.sh : (p.strain ? allStrains().find(x => norm(x.name) === norm(p.strain)) || null : null);
   const grown = !!p.strain && S.plants.some(x => x.id !== p.id && norm(x.strain) === norm(p.strain) && ["dry","cure","done"].includes(phaseOf(x)));
-  return {plant: p, entry, sheet, grown, past: pastLearnings((p.setup || {}).medium || p.medium || "hydro", p.where || "indoor", p.id), today: today(), defaults: DEFAULT_TARGETS, tasks: S.tasks};
+  return {plant: p, entry, sheet, grown, past: pastLearnings((p.setup || {}).medium || p.medium || "hydro", p.where || "indoor", p.id), today: today(), defaults: DEFAULT_TARGETS, tasks: S.tasks, profile: S.profile};
 }
 function openQuiz(mode){
   const p = mode === "edit" ? sel() : null;
@@ -1756,6 +1771,13 @@ function renderQuiz(){
       navigator.geolocation.getCurrentPosition(pos => { a[q.id] = {lat: Math.round(pos.coords.latitude * 100) / 100, lon: Math.round(pos.coords.longitude * 100) / 100}; go(); },
         () => { msg.textContent = "No location shared. You can skip; weather just stays off."; }, {timeout: 10000, maximumAge: 3600e3}); }}, "Use my location"), msg,
       h("button",{type:"button", class:"donebtn", onclick:go}, a[q.id] ? "Keep this" : "Skip"));
+    return;
+  }
+  if (q.type === "same"){
+    const items = q.items(a), lab = (qq, v) => { const o = qq.opts ? qv(qq.opts, a).find(x => x[0] === v) : null; return o ? o[1] : v && v.lat != null ? "your location" : String(v) + (qq.num && typeof v === "number" ? " " + qq.num : ""); };
+    box.append(h("div",{class:"runrows"}, items.map(([qq, v]) => h("div",{class:"row"}, h("span",null, qv(qq.title, a).replace(/\?$/, "")), h("span",{class:"lead"}), h("span",{class:"when"}, lab(qq, v))))),
+      h("button",{type:"button", class:"btn primary", onclick:go}, "Same as last time"),
+      h("button",{type:"button", class:"btn ghost", onclick:() => { a._change = true; go(); }}, "Change these"));
     return;
   }
   if (q.type === "text"){
@@ -1808,6 +1830,7 @@ async function saveQuiz(){
   }, (isNew ? "add plant via setup questions" : "setup questions"));
   const tasks = r.tasks.map(t => Object.assign({}, t, {id: t.id.replace(/-(new|undefined)$/, "-" + id), run: id}));
   if (tasks.length) S.tasks = await mutate("tasks.json", list => { const L = list || [], ids = new Set(L.map(t => t.id)); return L.concat(tasks.filter(t => !ids.has(t.id))); }, "setup: first steps");
+  if (r.profile){ try { S.profile = Object.assign({at:T}, S.profile || {}, r.profile); await mutate("profile.json", () => S.profile, "profile: remembered answers"); } catch(e){} }
   const warn = r.flags.filter(f => f.lvl === "warn").length;
   try { S.changes = (await mutate("changes.json", list => (list || []).concat({id:"c-" + T.replace(/-/g, "") + "-q" + Math.random().toString(36).slice(2, 6), run:id, date:T, src:"app",
     text:"Setup questions answered" + (tasks.length ? "; added " + tasks.map(t => t.title.toLowerCase()).join(", ") : "") + (warn ? "; " + warn + " warning" + (warn > 1 ? "s" : "") + " to watch" : "") + "."}), "setup: why")).slice().sort((x, y) => (y.date||"").localeCompare(x.date||"")); } catch(e){}
@@ -1818,7 +1841,7 @@ async function saveQuiz(){
 function setupPanel(p){
   if (!p || p.status !== "active" || !["germ","grow","bloom"].includes(phaseOf(p))) return null;
   const box = h("div",{class:"panel fr", "data-soak":"0.15", id:"p-setup"});
-  if (!p.setup){ box.append(h("h2",null,"Confirm the setup"), h("p",{style:"margin:0"}, "About 8 taps: seed, bucket or pot, light, space, water, goal. Sets targets, first steps and early warnings."), h("a",{class:"btn primary", href:"#plant-setup"}, "Answer the setup questions")); return box; }
+  if (!p.setup){ box.append(h("h2",null,"Confirm the setup"), h("p",{style:"margin:0"}, "About 8 taps: seed, where and in what, pot, light or spot, water, goal. Sets targets, first steps and early warnings."), h("a",{class:"btn primary", href:"#plant-setup"}, "Answer the setup questions")); return box; }
   const fl = p.flags || [];
   box.append(h("div",{class:"head",style:"align-items:baseline"}, h("h2",null,"Watch out for"), h("a",{href:"#plant-setup", class:"small"}, "Setup questions")),
     fl.length ? h("ul",{class:"flags"}, fl.map(f => h("li",{class:f.lvl}, f.text))) : h("p",{class:"empty"}, "Nothing flagged for this setup."));
@@ -2228,6 +2251,7 @@ function renderSetup(){
   $("#s-local").hidden = !local; $("#s-backup").hidden = !c;
   if (local) $("#s-localsince").textContent = "Since " + fmtDay(c.since.slice(0, 10)) + ". Nothing leaves this phone. Browsers can clear site data, so save a backup now and then.";
   if (document.activeElement && document.activeElement.closest && document.activeElement.closest("#setupform")) return;
+  renderYou();
   if (local){ $("#s-plants").hidden = false; $("#s-connected").hidden = true; renderSensorList(); renderPlantList(); return; }
   $("#s-owner").value = c ? c.owner : ""; $("#s-repo").value = c ? c.repo : "tank-log-data"; $("#s-token").value = "";
   $("#s-token").placeholder = c ? "saved · paste a new one to replace" : "github_pat_…";
@@ -2235,6 +2259,15 @@ function renderSetup(){
   $("#s-save").textContent = c ? "Save" : "Connect";
   $("#s-plants").hidden = !c;
   renderSensorList(); renderPlantList();
+}
+/* Settings → About you: the grower profile (profile.json) that sets hand-holding and which fields show */
+function renderYou(){
+  const box = $("#s-you"); if (!box) return; box.hidden = !S.cfg; box.replaceChildren(h("h2",null,"About you"));
+  const pr = S.profile || {}, set = async (k, v) => { S.profile = Object.assign({at:today()}, S.profile || {}, {[k]: v}); cache(); renderAll(); try { await mutate("profile.json", () => S.profile, "profile: " + k); } catch(e){} };
+  const row = (k, label, opts) => h("div",null, h("p",{class:"kicker", style:"margin:6px 0 2px"}, label), h("div",{class:"opts"}, opts.map(([v, l]) => h("button",{type:"button", class:"chip", "aria-pressed": pr[k] === v ? "true" : "false", onclick:() => set(k, v)}, l))));
+  box.append(row("exp", "Experience", [["new","New · explain"],["some","Some"],["pro","Experienced · all numbers"]]),
+    row("meters", "Can measure", [["none","Nothing"],["ph","pH"],["phec","pH + EC"],["sensors","+ sensors"]]),
+    h("p",{class:"sub", style:"margin:4px 0 0"}, S.profile ? "Sets how much the app explains and which log fields show. Answers from your last plant are offered again for the next one." : "Not set: all fields show. Answered with your first new plant."));
 }
 function renderPlantList(){
   const pl = $("#s-plantlist"); pl.replaceChildren();

@@ -32,7 +32,7 @@
       // a check every 3 days unless one is already planned (the nightly review adds its own)
       for (let k = 0; k <= HORIZON; k += 3){ const d = add(T, k);
         if (!ctx.tasks.some(t => t.run === p.id && t.status === "open" && /^check\b/i.test(t.title) && t.due && Math.abs(diff(d, t.due)) <= 1))
-          want("check-" + d, d, "Check: values, photo, sensor file", "Log pH, EC and water temperature, take a photo, add the sensor file.", "Every 3 days" + (ph === "bloom" ? " (daily on bloom days 15–49)" : "")); }
+          want("check-" + d, d, (ctx.check || {}).title || "Check: values, photo, sensor file", (ctx.check || {}).detail || "Log pH, EC and water temperature, take a photo, add the sensor file.", "Every 3 days" + (ph === "bloom" ? " (daily on bloom days 15–49)" : "")); }
     }
     if (ph === "dry" && start){
       for (let k = 0; k <= HORIZON; k++){ const d = add(T, k), day = diff(start, d);
