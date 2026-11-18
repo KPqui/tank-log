@@ -117,8 +117,8 @@
   /* --- 2. instant reactions to a new log --- */
   function afterLog(p, log, ctx){
     const out = [], moves = [], why = [], T = ctx.today, tomorrow = add(T, 1), ph = ctx.phase;
-    const urgent = reason => { if (!ctx.tasks.some(t => t.run === p.id && t.status === "open" && /check in with claude/i.test(t.title))){
-      out.push(task(p, "checkin-" + T, tomorrow, "Check in with Claude", reason, "Tomorrow morning", {urgent: true})); why.push("check-in added"); } };
+    const urgent = reason => { if (!ctx.tasks.some(t => t.run === p.id && t.status === "open" && /check in with (claude|your ai)/i.test(t.title))){
+      out.push(task(p, "checkin-" + T, tomorrow, ctx.profile ? "Check in with your AI" : "Check in with Claude", reason, "Tomorrow morning", {urgent: true})); why.push("check-in added"); } };
     const sn = log.sensor || {};
     if (ph === "cure" || ph === "done"){
       const rh = log.jar_rh;

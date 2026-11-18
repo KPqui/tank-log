@@ -90,7 +90,21 @@ function fieldsFor(p){
   }
   if (indoor) k.push("ppfd");
   k.push("height","nodes");
-  return window.Branch ? Branch.fields(p, S.profile, k) : k;
+  return uiFields(p, window.Branch ? Branch.fields(p, S.profile, k) : k);
+}
+/* per-plant screen overrides set by the grower's AI (plant.ui = {tiles:[keys], fields:{add, hide}, custom:[{key,label,short,unit,d}], chips:[…]}) */
+function uiFields(p, k){
+  const u = p && p.ui && p.ui.fields; if (!u) return k;
+  k = k.filter(x => !(u.hide || []).includes(x));
+  for (const x of u.add || []) if (F[x] && !k.includes(x)) k.push(x);
+  return k;
+}
+function registerCustom(){
+  for (const p of S.plants || []) for (const c of (p.ui && p.ui.custom) || []){
+    if (!c || !c.key || (F[c.key] && !F[c.key].custom)) continue;
+    F[c.key] = {label: c.label, short: c.short || c.label, d: c.d ?? 1, unit: c.unit || "", custom: true};
+    if (!ALL_KEYS.includes(c.key)) ALL_KEYS.push(c.key);
+  }
 }
 function labelFor(p, k, short){
   const d = F[k]; let l = short ? (d.short || d.label) : d.label;
@@ -103,7 +117,7 @@ function actionsFor(p){
   if (ph === "dry") return ["Hung","Rotated","Bucked","Trimmed","Stems snap","Still bendy","Sensor moved"];
   if (ph === "cure") return ["Burped","Humidity pack in","Jar changed","Smell check","Long storage","Sensor moved"];
   if (ph === "done") return ["Smell check","Jar changed","Sensor moved"];
-  if (window.Branch) return Branch.chips(p);
+  if (window.Branch) return [...new Set(Branch.chips(p).concat((p.ui && p.ui.chips) || []))];
   let a;
   if (m === "hydro") a = ["Fed","Topped off","Water change","pH adjusted","Trimmed","Trained"];
   else if (m === "living-soil") a = [auto ? "Reservoir refilled" : "Watered","Top-fed","Tea / amended","Trimmed","Trained","Pest check"];
@@ -683,7 +697,7 @@ function loadCache(){
 
 /* ---------- routing ---------- */
 const VIEWS = ["today","log","plan","setup","plant","quiz","strain","library"];
-const APP_V = "v46";
+const APP_V = "v48";
 const GEAR_SVG = '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="3.2"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1"/></svg>';
 function route(){
   let v = location.hash.slice(1);
@@ -1232,6 +1246,19 @@ function lampInfo(p){
 }
 function lastAction(names){ for (const l of mine(S.logs)) if ((l.actions || []).some(a => names.includes(a))) return l; return null; }
 function latestSince(k, since){ for (const l of mine(S.logs)){ if (since && l.date < since) break; const n = num(l[k]); if (n != null) return {v:n, at:l.at}; } return null; }
+/* the AI's tile choice for a growing plant: up to 3 keys; "watered"/"fed" = days since, anything else = latest logged value */
+function uiTiles(p){
+  const ks = p.ui && p.ui.tiles, ph = phaseOf(p);
+  if (!ks || !ks.length || !(ph === "grow" || ph === "bloom")) return null;
+  const T = today(), dtxt = n => n == null ? "–" : n === 0 ? "today" : n + " d ago", out = [];
+  for (const k of ks.slice(0, 3)){
+    if (k === "watered" || k === "fed"){
+      const l = lastAction(k === "watered" ? (window.Branch ? Branch.WATERED : ["Watered"]) : (window.Branch ? Branch.FED : ["Fed"])), n = l ? daysBetween(l.date, T) : null;
+      out.push([k === "watered" ? "Watered" : p.medium === "living-soil" ? "Top-dressed" : "Fed", dtxt(n), k === "watered" && n != null && n >= (p.where === "outdoor" ? 3 : 5) ? {cls:"high", word:"lift it", txt:"pot light? water"} : {cls:"none", word:"", txt: l && l.water_l && k === "watered" ? l.water_l + " L" : ""}]);
+    } else if (F[k]){ const l = latest(k); out.push([labelFor(p, k, true), l ? fmtv(k, l.v) : "–", l ? statusOf(k, l.v) : {cls:"none", word:"", txt:"log it to see it here"}, k]); }
+  }
+  return out.length ? out : null;
+}
 function coreTiles(p){
   const ph = phaseOf(p), T = today(), none = {cls:"none", word:"", txt:""}, run = p.run || {};
   if (ph === "germ"){
@@ -1515,7 +1542,7 @@ function renderToday(){
   const warm = env.warm || 0, frost = env.frost || 0;
   const grid = $("#t-grid"); grid.replaceChildren();
   let newest = null;
-  const ct = coreTiles(p);
+  const ct = uiTiles(p) || coreTiles(p);
   if (ct){ ct.forEach(t => grid.append(tile(t[0], t[1], t[2], {soak:0.22, warm, frost, key:t[3]}))); const l0 = mine(S.logs)[0]; if (l0) newest = l0.at; }
   else core.slice(0,3).forEach((k, i) => {
     const l = latest(k);
@@ -1931,8 +1958,9 @@ function renderPhase(p){
 function renderPlan(){
   const p = sel(), T = today();
   renderPhase(p);
-  for (const x of ["#p-focus", "#p-setup"]){ const o = $(x); if (o) o.remove(); }
+  for (const x of ["#p-focus", "#p-setup", "#p-ai"]){ const o = $(x); if (o) o.remove(); }
   const fp = p && focusPanel(p); if (fp) $("#p-phase").after(fp);
+  const ap = aiPanel(p); if (ap) $("#p-phase").after(ap);
   const sp = setupPanel(p); if (sp) $("#p-phase").after(sp);
   const bar = $("#p-bar"), lg = $("#p-legend"); bar.replaceChildren(); lg.replaceChildren(); $("#p-upd").textContent = "";
   if (p && p.start && !["dry","cure","done"].includes(phaseOf(p))){
@@ -2001,7 +2029,7 @@ function renderHistory(){
         h("button",{type:"button", class:"btn ghost sm", style:S.armDel===l.id ? "color:var(--bad);border-color:var(--bad)" : null, onclick:() => delLog(l)}, S.armDel===l.id ? "Tap again to delete" : "Delete"))));
   }
 }
-function renderAll(){ if (themePref() === "plant") applyTheme(); renderTabs(); renderToday(); renderPlan(); renderHistory(); if (!$("#v-strain").hidden) renderStrain(); if (!$("#v-library").hidden) renderLibrary(); if (!$("#v-setup").hidden) renderSetup(); decorateSoon(); }
+function renderAll(){ registerCustom(); if (themePref() === "plant") applyTheme(); renderTabs(); renderToday(); renderPlan(); renderHistory(); if (!$("#v-strain").hidden) renderStrain(); if (!$("#v-library").hidden) renderLibrary(); if (!$("#v-setup").hidden) renderSetup(); decorateSoon(); }
 
 /* ---------- log form ---------- */
 function renderLogForm(){
@@ -2329,4 +2357,138 @@ if (S.cfg) loadCache();
 if (!S.plants.find(p => p.id === S.sel)) S.sel = (S.plants[0] || {}).id || null;
 lnow(); renderAll(); route();
 if (S.cfg) loadAll();
+/* ---------- "Ask your AI" (tier 1 check-in, ai.js) ----------
+   Plan → Ask your AI: the app builds a check-in packet (manual, grower, setup, logs and photos since the last check-in,
+   open steps, flags, 2–3 matching knowledge pages) and hands it to the share sheet or the clipboard. The AI answers
+   with a ```flowerphile-update``` block; pasted back, it is checked (ai.js), every change is listed with its reason,
+   and only the ticked ones are applied (tasks, targets, flags, plant.ui, tips, learnings; each with a changes entry). */
+function aiData(p){
+  const T = today(), ph = phaseOf(p), since = p.aiAt || null;
+  const logs = mine(S.logs).filter(l => !since || (l.at || "") > since);
+  const pages = (S.kn.pages || []).filter(pg => !pg.phase || [].concat(pg.phase).includes(ph)).slice(0, 3);
+  const tl = uiTiles(p) || coreTiles(p);
+  const tiles = tl ? tl.map(t => t[3] || t[0].toLowerCase()) : fieldsFor(p).filter(k => k !== "ppfd" && k !== "height").slice(0, 3);
+  return {plant: p, profile: S.profile, stage: ["grow","bloom"].includes(ph) ? stageText(p) : PHASES[ph], phase: ph, today: T, since, first: !since,
+    logs, tasks: openTasks().sort(sortTasks), flags: p.flags || [], targets: targetsOf(p), fields: fieldsFor(p), tiles, chips: actionsFor(p), keys: ALL_KEYS.slice(),
+    learnings: S.plants.filter(x => x.id !== p.id).flatMap(x => (x.learnings || []).map(l => (x.strain || x.name) + ": " + l.text)).slice(0, 8),
+    knowledge: pages, howtos: window.HowTo ? HowTo.all.map(x => ({id: x.id, title: x.title})) : [], app: APP_V};
+}
+async function aiPhotoFiles(paths){
+  const out = [];
+  for (const [i, path] of paths.entries()){ try { const u = await mediaUrl(path); if (!u) continue; const b = await (await fetch(u)).blob(); out.push(new File([b], "photo-" + (i + 1) + ".jpg", {type: b.type || "image/jpeg"})); } catch(e){} }
+  return out;
+}
+/* built ahead (when the panel shows), so the share sheet opens straight from the tap (iPhones are strict about that) */
+function aiPrepare(p){
+  const key = p.id + "|" + (p.aiAt || "") + "|" + mine(S.logs).length + "|" + openTasks().length;
+  if (S.aiPrep && S.aiPrep.key === key) return S.aiPrep.promise;
+  const pk = AI.packet(aiData(p)), prep = {key, pk, files: null};
+  prep.promise = aiPhotoFiles(pk.photos.slice(0, 6)).then(f => { prep.files = f; return prep; });
+  S.aiPrep = prep; return prep.promise;
+}
+async function aiSend(p, how){
+  if (!window.AI) return;
+  const st = S.ai || (S.ai = {});
+  aiPrepare(p); const prep = S.aiPrep.files ? S.aiPrep : await S.aiPrep.promise;
+  const pk = prep.pk, photos = how === "copy" ? [] : prep.files;
+  const title = "Flowerphile check-in · " + (p.name || p.id);
+  try {
+    if (how !== "copy" && navigator.share){
+      const data = how === "file"
+        ? {title, text: "Flowerphile check-in for " + (p.name || p.id) + ". Read the attached file and answer in its reply format.", files: [new File([pk.text], "flowerphile-checkin-" + today() + ".txt", {type: "text/plain"}), ...photos]}
+        : Object.assign({title, text: pk.text}, photos.length ? {files: photos} : {});
+      if (!data.files || (navigator.canShare && navigator.canShare(data))){ await navigator.share(data); st.msg = "Sent. When your AI answers, paste its whole answer below."; st.sent = true; renderAiPanel(); return; }
+      if (data.files && navigator.canShare && navigator.canShare({title, text: pk.text})){ await navigator.share({title, text: pk.text}); st.msg = "Sent the text (this phone can't share photos that way). Attach the photos below in your AI app."; st.photos = pk.photos.slice(0, 6); st.sent = true; renderAiPanel(); return; }
+    }
+    await navigator.clipboard.writeText(pk.text);
+    st.msg = "Copied. Paste it into your AI app" + (pk.photos.length ? " and attach the photos below." : ".") + " Then paste its answer here.";
+    st.photos = pk.photos.slice(0, 6); st.sent = true;
+  } catch(e){ st.msg = e && e.name === "AbortError" ? "" : "Couldn't share or copy here. Try Copy, or another browser."; }
+  renderAiPanel();
+}
+function aiCheck(p, text){
+  const st = S.ai || (S.ai = {});
+  try { const u = AI.extract(text); registerCustom();
+    const res = AI.check(u, {plant: p, tasks: mine(S.tasks), keys: ALL_KEYS.slice(), today: today(), label: k => k === "watered" ? "Watered" : k === "fed" ? "Fed" : F[k] ? labelFor(p, k) : k});
+    st.res = res; st.pick = new Set(res.items.map((x, i) => x.ok ? i : -1).filter(i => i >= 0)); st.err = "";
+  } catch(e){ st.res = null; st.err = e.message; }
+  renderAiPanel();
+}
+async function aiApply(p){
+  const st = S.ai, res = st && st.res; if (!res) return;
+  const T = today(), now = new Date().toISOString(), rid = () => Math.random().toString(36).slice(2, 6);
+  const its = res.items.filter((x, i) => st.pick.has(i)), of = t => its.filter(x => x.type === t);
+  st.busy = true; renderAiPanel();
+  try {
+    if (its.some(x => x.type.startsWith("task-"))) S.tasks = await mutate("tasks.json", list => {
+      list = list || [];
+      for (const x of of("task-add")) list.push(Object.assign({id: "ai-" + T.replace(/-/g, "") + "-" + rid(), run: p.id, title: x.data.title, detail: x.data.detail || "", trigger: "From your AI: " + x.why, due: x.data.due, status: "open", src: "ai"}, x.data.big ? {size: "big"} : {}, x.data.howto ? {howto: x.data.howto} : {}));
+      for (const x of its) if (["task-move","task-done","task-drop"].includes(x.type)){ const t = list.find(y => y.id === x.data.id); if (!t) continue;
+        if (x.type === "task-move"){ t.due = x.data.due; t.moved = T; } else { t.status = "done"; t.doneAt = now; t.auto = "ai"; if (x.type === "task-drop") t.dropped = true; } }
+      return list; }, "ai: check-in steps");
+    S.plants = await mutate("plants.json", list => (list || []).map(x => {
+      if (x.id !== p.id) return x;
+      const y = Object.assign({}, x, {aiAt: now, aiNote: res.note || "", updated: now});
+      if (of("target").length){ y.targets = Object.assign({}, x.targets); for (const t of of("target")) y.targets[t.data.key] = t.data.range; }
+      if (of("flag-add").length || of("flag-remove").length){ const rm = of("flag-remove").map(f => f.data.k);
+        y.flags = (x.flags || []).filter(f => !rm.includes(f.k)).concat(of("flag-add").map(f => ({lvl: f.data.lvl, k: "ai-" + rid(), text: f.data.text, src: "ai"}))); }
+      const ui = JSON.parse(JSON.stringify(x.ui || {}));
+      for (const c of of("custom")){ ui.custom = (ui.custom || []).filter(z => z.key !== c.data.key).concat(c.data); }
+      for (const t of of("tiles")) ui.tiles = t.data.keys;
+      for (const f of of("fields")){ const cur = ui.fields || {add: [], hide: []};
+        ui.fields = {add: [...new Set((cur.add || []).filter(k => !f.data.hide.includes(k)).concat(f.data.add))], hide: [...new Set((cur.hide || []).filter(k => !f.data.add.includes(k)).concat(f.data.hide))]}; }
+      for (const c of of("chips")) ui.chips = [...new Set((ui.chips || []).concat(c.data.add))];
+      if (Object.keys(ui).length) y.ui = ui;
+      if (of("learning").length) y.learnings = (x.learnings || []).concat(of("learning").map(l => ({text: l.data.text, at: T, src: "ai"})));
+      return y; }), "ai: check-in");
+    if (of("tip").length){ const add = of("tip").map(t => Object.assign({id: "ai-" + T.replace(/-/g, "") + "-" + rid(), kind: t.data.kind, text: t.data.text, plant: p.id}, t.data.topic ? {topic: t.data.topic} : {}, t.data.src ? {src: t.data.src} : {}));
+      S.tips = await mutate("tips.json", list => (list || []).concat(add), "ai: tips"); }
+    const ch = its.map(x => ({id: "c-" + T.replace(/-/g, "") + "-a" + rid(), run: p.id, date: T, src: "ai", text: "Your AI: " + x.label + (x.why ? " · " + x.why : "")}));
+    if (!ch.length) ch.push({id: "c-" + T.replace(/-/g, "") + "-a" + rid(), run: p.id, date: T, src: "ai", text: "Your AI checked in: no changes."});
+    S.changes = (await mutate("changes.json", list => (list || []).concat(ch), "ai: why things moved")).slice().sort((a, b) => (b.date || "").localeCompare(a.date || ""));
+    S.ai = {msg: its.length ? "Applied " + its.length + " change" + (its.length > 1 ? "s" : "") + " from your AI." : "Saved the check-in. Nothing changed."};
+    registerCustom(); cache(); renderAll();
+  } catch(e){ st.busy = false; st.err = "Couldn't save all changes (" + (e.code || e.message) + "). Nothing is lost: try Apply again."; renderAiPanel(); }
+}
+function renderAiPanel(){ const o = $("#p-ai"), p = sel(); if (!o || !p) return; const n = aiPanel(p); if (n){ o.replaceWith(n); decorateSoon(); } }
+function aiPanel(p){
+  if (!p || !window.AI || phaseOf(p) === "done") return null;
+  try { aiPrepare(p); } catch(e){}
+  const st = S.ai || {}, first = !p.aiAt, box = h("div",{class:"panel fr", "data-soak":"0.15", id:"p-ai"});
+  box.append(h("h2",null,"Ask your AI"),
+    h("p",{style:"margin:0"}, first ? "Your AI (Claude, ChatGPT, Gemini…) can tailor this plan to how you grow. Send it a check-in, then paste its answer here. You see every change before anything happens."
+      : "Last check-in " + short(p.aiAt.slice(0, 10)) + (p.aiNote ? ": " + p.aiNote : ".") + " Send what happened since."));
+  box.append(h("div",{class:"chips", style:"gap:8px"},
+    h("button",{type:"button", class:"btn primary", onclick:() => aiSend(p, "share")}, first ? "Send the first check-in" : "Send a check-in"),
+    h("button",{type:"button", class:"btn ghost sm", onclick:() => aiSend(p, "copy")}, "Copy"),
+    h("button",{type:"button", class:"btn ghost sm", onclick:() => aiSend(p, "file")}, "As a file")));
+  if (st.msg) box.append(h("p",{class:"sub", style:"margin:0"}, st.msg));
+  if (st.photos && st.photos.length){ const row = h("div",{class:"chips", style:"gap:6px"});
+    st.photos.forEach((path, i) => { const a = h("a",{class:"btn ghost sm", download:"photo-" + (i + 1) + ".jpg", href:"#"}, "Photo " + (i + 1)); mediaUrl(path).then(u => { if (u) a.href = u; }); row.append(a); });
+    box.append(row); }
+  if (!st.res){
+    const ta = h("textarea",{rows:"4", placeholder:"Paste your AI's whole answer", "aria-label":"Your AI's answer", oninput:e => { (S.ai || (S.ai = {})).draft = e.target.value; }});
+    if (st.draft) ta.value = st.draft;
+    box.append(ta, h("button",{type:"button", class:"btn ghost", onclick:() => { if (ta.value.trim()) aiCheck(p, ta.value); }}, "Check the answer"));
+  } else {
+    const r = st.res, list = h("ul",{class:"flags", style:"list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:8px"});
+    const n = st.pick.size, cnt = {};
+    r.items.forEach(x => { const t = x.type.replace(/-.*/, ""); cnt[t] = (cnt[t] || 0) + 1; });
+    const sumTxt = Object.entries(cnt).map(([t, c]) => c + " " + ({task:"step change", target:"target", flag:"flag", custom:"new field", tiles:"tile layout", fields:"field change", chips:"chip set", tip:"tip", learning:"learning"}[t] || t) + (c > 1 ? "s" : "")).join(", ");
+    box.append(h("p",{style:"margin:0;font-weight:600"}, r.items.length ? "Your AI suggests " + sumTxt + "." : "Your AI suggests no changes."));
+    if (r.note) box.append(h("p",{style:"margin:0;font-style:italic"}, "“" + r.note + "”"));
+    r.items.forEach((x, i) => { const on = st.pick.has(i);
+      list.append(h("li",{style:"display:flex;gap:10px;align-items:flex-start;cursor:pointer", onclick:() => { on ? st.pick.delete(i) : st.pick.add(i); renderAiPanel(); }},
+        h("span",{"aria-hidden":"true", style:"font-size:20px;line-height:1"}, on ? "☑" : "☐"),
+        h("span",{style:"display:flex;flex-direction:column;gap:2px;min-width:0"}, h("span",{style:"font-weight:600"}, x.label), h("span",{class:"muted small"}, x.why || "No reason given, so left unticked.")))); });
+    box.append(list);
+    if (r.errors.length) box.append(h("p",{class:"muted small", style:"margin:0"}, r.errors.join(" ")));
+    box.append(h("div",{class:"chips", style:"gap:8px"},
+      h("button",{type:"button", class:"btn primary", disabled: st.busy ? "" : null, onclick:() => aiApply(p)}, st.busy ? "Saving…" : n ? "Apply " + n + " change" + (n > 1 ? "s" : "") : "Save the check-in"),
+      h("button",{type:"button", class:"btn ghost sm", onclick:() => { S.ai = {}; renderAiPanel(); }}, "Cancel")));
+  }
+  if (st.err) box.append(h("p",{class:"sub", style:"margin:0;color:var(--warn, #9a3b1b)"}, st.err));
+  return box;
+}
+
 })();
