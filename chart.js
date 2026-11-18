@@ -51,7 +51,8 @@
     series.forEach((sr, i) => {
       const pts = thin(sr.pts.filter(p => p.t >= o.from && p.t <= o.to), 360);
       if (!pts.length) return;
-      const d = pts.map((p, j) => (j ? "L" : "M") + f1(X(p.t)) + " " + f1(Y(p.v))).join(" ");
+      const gap = sr.dots ? Infinity : 3 * 36e5;          // sensor lines break where data is missing (moved, offline)
+      const d = pts.map((p, j) => (j && p.t - pts[j - 1].t <= gap ? "L" : "M") + f1(X(p.t)) + " " + f1(Y(p.v))).join(" ");
       s += '<path d="' + d + '" fill="none" stroke="currentColor" stroke-width="' + (i ? 0.8 : 1.5) + '"' + (i ? ' stroke-dasharray="3 2" opacity=".7"' : '') + ' stroke-linejoin="round" stroke-linecap="round"/>';
       if (sr.dots) for (const p of pts) s += '<circle cx="' + f1(X(p.t)) + '" cy="' + f1(Y(p.v)) + '" r="2.8" style="fill:var(--paper)" stroke="currentColor" stroke-width="1.2"/>';
     });

@@ -98,8 +98,8 @@ function actionsFor(p){
   const m = p.medium || "hydro", indoor = (p.where || "indoor") === "indoor", auto = p.system === "autopot", ph = phaseOf(p);
   if (ph === "germ") return ["Soaked","Paper towel","Tail visible","Planted","Broke surface"];
   if (ph === "dry") return ["Hung","Rotated","Bucked","Trimmed","Stems snap","Still bendy","Sensor moved"];
-  if (ph === "cure") return ["Burped","Humidity pack in","Jar changed","Smell check","Long storage"];
-  if (ph === "done") return [];
+  if (ph === "cure") return ["Burped","Humidity pack in","Jar changed","Smell check","Long storage","Sensor moved"];
+  if (ph === "done") return ["Smell check","Jar changed","Sensor moved"];
   let a;
   if (m === "hydro") a = ["Fed","Topped off","Water change","pH adjusted","Trimmed","Trained"];
   else if (m === "living-soil") a = [auto ? "Reservoir refilled" : "Watered","Top-fed","Tea / amended","Trimmed","Trained","Pest check"];
@@ -463,6 +463,80 @@ function parseSensorRows(text){
 }
 function vpd(t, rh){ if (t == null || rh == null) return null; const svp = 0.6108 * Math.exp(17.27*t/(t+237.3)); return Math.round(svp*(1-rh/100)*100)/100; }
 
+
+/* ---------- sensor bridge (bridge.js): readings straight from the sensors repo, no CSV needed ----------
+   Days are fetched with one GraphQL call (all files of several days at once), falling back to the REST API.
+   Finished days (before yesterday, UTC) are cached on the phone for good; today and yesterday refresh each sync.
+   S.live[plantId] = the last-24 h summary in the CSV shape, from the sensors placed with that plant. */
+const BRIDGE_KEY = "ff-bridge-days";
+S.bdays = {}; S.live = {}; S.bhealth = [];
+const utcDay = ms => new Date(ms).toISOString().slice(0, 10);
+function bridgeRepo(){ return S.smeta && S.cfg ? {owner: S.smeta.owner || S.cfg.owner, repo: S.smeta.repo || "flowerphile-sensors"} : null; }
+function bridgeFromCache(){
+  try { const c = JSON.parse(localStorage.getItem(BRIDGE_KEY) || "{}"); for (const [d, rows] of Object.entries(c)) S.bdays[d] = rows.map(r => ({t:r[0] * 6e4, id:r[1], temp:r[2], rh:r[3], bat:r[4]})); } catch(e){}
+  bridgeLive();
+}
+function bridgeSave(){
+  try { const keep = Object.keys(S.bdays).sort().slice(-40), y = utcDay(Date.now() - 864e5), out = {};
+    for (const d of keep) out[d] = S.bdays[d].map(r => [Math.round(r.t / 6e4), r.id, r.temp, r.rh, r.bat]);
+    localStorage.setItem(BRIDGE_KEY, JSON.stringify(out)); } catch(e){}
+}
+async function fetchDaysGQL(R, days){
+  const q = "query{repository(owner:" + JSON.stringify(R.owner) + ",name:" + JSON.stringify(R.repo) + "){" + days.map((d, i) => "d" + i + ":object(expression:" + JSON.stringify("HEAD:readings/" + d) + "){...on Tree{entries{name object{...on Blob{text}}}}}").join(" ") + "}}";
+  const r = await fetch("https://api.github.com/graphql", {method:"POST", headers:{Authorization:"Bearer " + S.cfg.token, "Content-Type":"application/json"}, body:JSON.stringify({query:q})});
+  if (!r.ok) throw new Error("gql " + r.status);
+  const j = await r.json(); if (!j.data || !j.data.repository) throw new Error("gql data");
+  const out = {}; days.forEach((d, i) => { const t = j.data.repository["d" + i]; out[d] = t && t.entries ? Bridge.merge(t.entries.map(e => Bridge.parse(e.object && e.object.text))) : []; });
+  return out;
+}
+async function fetchDaysREST(R, days){
+  const base = "https://api.github.com/repos/" + encodeURIComponent(R.owner) + "/" + encodeURIComponent(R.repo) + "/contents/readings/", H = {Authorization:"Bearer " + S.cfg.token, "X-GitHub-Api-Version":"2022-11-28"};
+  const out = {};
+  for (const d of days){
+    const l = await fetch(base + d, {headers:Object.assign({Accept:"application/vnd.github+json"}, H), cache:"no-store"});
+    if (l.status === 404){ out[d] = []; continue; }
+    if (!l.ok) throw new StoreError(l.status === 401 || l.status === 403 ? "auth" : "http", l.status);
+    const files = (await l.json()).filter(f => /\.jsonl$/.test(f.name));
+    const texts = await Promise.all(files.map(f => fetch(base + d + "/" + f.name, {headers:Object.assign({Accept:"application/vnd.github.raw"}, H)}).then(r => r.ok ? r.text() : "")));
+    out[d] = Bridge.merge(texts.map(Bridge.parse));
+  }
+  return out;
+}
+async function loadBridge(extraDays){
+  const R = bridgeRepo(); if (!R || !window.Bridge) return;
+  const now = Date.now(), want = new Set([utcDay(now), utcDay(now - 864e5)].concat(extraDays || []));
+  const need = [...want].filter(d => !S.bdays[d] || d >= utcDay(now - 864e5));
+  if (!need.length){ bridgeLive(); return; }
+  try {
+    let got; try { got = await fetchDaysGQL(R, need); } catch(e){ got = await fetchDaysREST(R, need); }
+    Object.assign(S.bdays, got); S.bridgeErr = null; S.bridgeAt = now; bridgeSave();
+  } catch(e){ S.bridgeErr = e.code === "auth" ? "The app key can't read " + R.repo + " yet." : "Sensor data couldn't load."; }
+  bridgeLive();
+}
+function bridgeRows(from){ const out = []; for (const [d, rows] of Object.entries(S.bdays)) if (!from || d >= utcDay(from - 864e5)) out.push(rows); return Bridge.merge(out); }
+function bridgeLive(){
+  if (!window.Bridge || !S.smeta) return;
+  const rows = bridgeRows(Date.now() - 2 * 864e5); S.live = {};
+  for (const p of S.plants){
+    const ph = phaseOf(p), jars = ph === "cure" || ph === "done";
+    let pts = Bridge.forRun(rows, S.smeta, p.id, jars ? ["jar"] : null); if (!pts.length && jars) pts = Bridge.forRun(rows, S.smeta, p.id);
+    const sm = Bridge.summary(pts); if (sm) S.live[p.id] = sm;
+  }
+  S.bhealth = Bridge.health(rows, S.smeta);
+}
+function sensorNote(p){
+  const box = $("#t-sensornote"); if (!box) return; box.replaceChildren();
+  if (!S.smeta) return;
+  const mineIds = new Set(Bridge.placements(S.smeta).filter(x => x.run === p.id && !x.to).map(x => x.id));
+  const hs = S.bhealth.filter(x => x.k === "twins" ? (x.ids || [x.id]).some(i => mineIds.has(i)) : mineIds.has(x.id));
+  const items = hs.map(x => x.text);
+  if (S.bridgeErr) items.unshift(S.bridgeErr);
+  if (!mineIds.size && ["grow","bloom","dry","cure"].includes(phaseOf(p))) items.push("No sensor placed with this plant. Log → Sensor moved to place one.");
+  if (items.length) box.append(...items.map(t => h("span",{class:"warnline"}, t)));
+}
+function liveFor(p){ const s = p && S.live[p.id]; return s && Date.now() - Date.parse(s.at) < 6 * 36e5 ? s : null; }
+const sensorNum = id => ((S.smeta && S.smeta.sensors || {})[id] || {}).num || id;
+
 /* ---------- weather (outdoor) ---------- */
 async function loadWeather(p){
   const lat = p.lat || BERLIN.lat, lon = p.lon || BERLIN.lon, key = lat+","+lon;
@@ -479,14 +553,14 @@ async function loadWeather(p){
 
 /* ---------- sync ---------- */
 function setSync(text, err){ const b = $("#sync"); b.textContent = text; b.classList.toggle("err", !!err); }
-function cache(){ try { localStorage.setItem(CACHE_KEY, JSON.stringify({plants:S.plants, tasks:S.tasks, logs:S.logs, changes:S.changes, tips:S.tips||[], strains:S.strains||[], library:S.library||[], experiments:S.experiments||[]})); } catch(e){} }
+function cache(){ try { localStorage.setItem(CACHE_KEY, JSON.stringify({plants:S.plants, tasks:S.tasks, logs:S.logs, changes:S.changes, tips:S.tips||[], strains:S.strains||[], library:S.library||[], experiments:S.experiments||[], smeta:S.smeta||null})); } catch(e){} }
 function sortLogs(list){ return (list||[]).slice().sort((a,b) => (b.at||"").localeCompare(a.at||"")); }
 async function loadAll(){
   if (!S.cfg || S.busy) return;
   S.busy = true; setSync("Syncing…");
   try {
-    let [plants, tasks, logs, changes, tips, strainsRes, libRes, expRes] = await Promise.all(["plants.json","tasks.json","logs.json","changes.json","tips.json","strains.json","library.json","experiments.json"].map(p => getJSON(p).catch(() => ({data:null}))));
-    S.tips = (tips && tips.data) || []; S.experiments = (expRes && expRes.data) || []; S.strains = (strainsRes && strainsRes.data) || []; S.library = (libRes && libRes.data) || [];
+    let [plants, tasks, logs, changes, tips, strainsRes, libRes, expRes, senRes] = await Promise.all(["plants.json","tasks.json","logs.json","changes.json","tips.json","strains.json","library.json","experiments.json","sensors.json"].map(p => getJSON(p).catch(() => ({data:null}))));
+    S.tips = (tips && tips.data) || []; S.experiments = (expRes && expRes.data) || []; S.smeta = (senRes && senRes.data) || null; S.strains = (strainsRes && strainsRes.data) || []; S.library = (libRes && libRes.data) || [];
     if (!plants.data){
       const run = (await getJSON("run.json")).data;
       if (run){
@@ -499,14 +573,14 @@ async function loadAll(){
     if (!S.plants.find(p => p.id === S.sel)) S.sel = (S.plants.find(p => p.status !== "done") || S.plants[0] || {}).id || null;
     S.synced = new Date(); cache();
     setSync("↻ " + hm(S.synced.toISOString()));
-    setTimeout(keepPlans, 400);
+    loadBridge().then(() => { renderAll(); keepPlans(); });
   } catch(e){
     setSync(e.code === "auth" ? "Key rejected · open Settings" : "Offline · tap to retry", true);
   } finally { S.busy = false; renderAll(); }
 }
 function loadCache(){
   try { const c = JSON.parse(localStorage.getItem(CACHE_KEY) || "null");
-    if (c && c.plants){ Object.assign(S, {plants:c.plants, tasks:c.tasks||[], logs:sortLogs(c.logs), changes:c.changes||[], tips:c.tips||[], strains:c.strains||[], library:c.library||[], experiments:c.experiments||[]}); setSync("Saved copy"); } } catch(e){}
+    if (c && c.plants){ Object.assign(S, {plants:c.plants, tasks:c.tasks||[], logs:sortLogs(c.logs), changes:c.changes||[], tips:c.tips||[], strains:c.strains||[], library:c.library||[], experiments:c.experiments||[], smeta:c.smeta||null}); setSync("Saved copy"); try { bridgeFromCache(); } catch(e){} } } catch(e){}
 }
 
 /* ---------- routing ---------- */
@@ -855,19 +929,25 @@ function askCard(p){
 function ruleCtx(p){ const ph = phaseOf(p); return {today: today(), phase: ph, phaseStart: phaseStart(p, ph === "done" ? "cure" : ph), tasks: S.tasks, logs: S.logs}; }
 async function applyRules(byPlant, label){
   const add = [], mv = [], ch = [], T = today();
-  for (const [pid, r] of byPlant){ const moves = r.moves || []; if (!r.tasks.length && !moves.length) continue;
-    add.push(...r.tasks); mv.push(...moves);
+  const cl = [];
+  for (const [pid, r] of byPlant){ const moves = r.moves || [], closes = r.close || []; if (!r.tasks.length && !moves.length && !closes.length) continue;
+    add.push(...r.tasks); mv.push(...moves); cl.push(...closes);
     const cid = () => "c-" + T.replace(/-/g, "") + "-a" + Math.random().toString(36).slice(2, 6);
     if (r.tasks.length) ch.push({id:cid(), run:pid, date:T, src:"app",
-      text: (r.kind || label) === "plan" ? "Plan kept going by the app: " + groupSteps(r.tasks) + "."
+      text: r.kind === "sensor" ? "Added from the sensor readings (" + r.why.join("; ") + ")."
+          : r.kind === "upkeep" ? "Added by the app: " + groupSteps(r.tasks) + "."
+          : (r.kind || label) === "plan" ? "Plan kept going by the app: " + groupSteps(r.tasks) + "."
                              : "Added right after your log (" + r.why.join("; ") + ")."});
-    for (const m of moves) ch.push({id:cid(), run:pid, date:T, src:"app", text:m.why}); }
-  if (!add.length && !mv.length) return 0;
-  S.tasks = await mutate("tasks.json", list => { const L = (list || []).map(t => { const m = mv.find(x => x.id === t.id); return m && t.status !== "done" ? Object.assign({}, t, {due:m.due, moved:T}) : t; });
+    for (const m of moves) ch.push({id:cid(), run:pid, date:T, src:"app", text:m.why});
+    for (const c of closes) ch.push({id:cid(), run:pid, date:T, src:"app", text:c.why}); }
+  if (!add.length && !mv.length && !cl.length) return 0;
+  S.tasks = await mutate("tasks.json", list => { const L = (list || []).map(t => { const m = mv.find(x => x.id === t.id); const c = cl.find(x => x.id === t.id);
+      if (c && t.status !== "done") return Object.assign({}, t, {status:"done", doneAt:c.at || new Date().toISOString(), auto: c.skipped ? "skipped" : "log"});
+      return m && t.status !== "done" ? Object.assign({}, t, {due:m.due, moved:T}) : t; });
     const ids = new Set(L.map(t => t.id)), gens = new Set(L.filter(t => t.gen).map(t => t.run + "|" + t.gen));
     return L.concat(add.filter(t => !ids.has(t.id) && !gens.has(t.run + "|" + t.gen))); }, label === "plan" ? "app: keep plans going" : "app: react to log");
   try { S.changes = (await mutate("changes.json", list => (list || []).concat(ch), "app: why things moved")).slice().sort((a,b) => (b.date||"").localeCompare(a.date||"")); } catch(e){}
-  cache(); return add.length + mv.length;
+  cache(); return add.length + mv.length + cl.length;
 }
 function groupSteps(tasks){
   const g = new Map(); for (const t of tasks.slice().sort((a, b) => a.due.localeCompare(b.due))){ const k = t.title; if (!g.has(k)) g.set(k, []); g.get(k).push(t.due); }
@@ -876,9 +956,15 @@ function groupSteps(tasks){
 S.planRan = null;
 const REACTED_KEY = "ff-reacted";
 async function keepPlans(){
-  if (!window.Rules || S.planRan === today() || !S.plants.length) return;
-  S.planRan = today();
+  if (!window.Rules || !S.plants.length || (S.planRan && Date.now() - S.planRan < 6e5)) return;
+  S.planRan = Date.now();
   const by = []; for (const p of S.plants){ const tasks = Rules.plan(p, ruleCtx(p)); if (tasks.length) by.push([p.id, {tasks, why: []}]); }
+  // upkeep the nightly review used to do: checks done by logs, overdue big tasks, one stressor a day, EC ramp
+  for (const p of S.plants.filter(x => x.status === "active")){ const m = Rules.maintain(p, ruleCtx(p)); if (m.tasks.length || m.moves.length || m.close.length) by.push([p.id, Object.assign(m, {why: [], kind: "upkeep"})]); }
+  // sensor readings react like a log would, once per plant per day (gen keys keep it from repeating)
+  for (const p of S.plants.filter(x => x.status === "active")){ const lv = liveFor(p); if (!lv) continue;
+    const pseudo = {id:"bridge-" + today(), run:p.id, at:lv.at, date:today(), sensor:lv}; if (phaseOf(p) === "cure" && lv.rh != null) pseudo.jar_rh = lv.rh;
+    const r = Rules.afterLog(p, pseudo, ruleCtx(p)); if (r.tasks.length) by.push([p.id, Object.assign(r, {kind: "sensor"})]); }
   // the newest log of each plant also gets the instant reaction once (catches logs saved before an update or on another phone)
   let seen = []; try { seen = JSON.parse(localStorage.getItem(REACTED_KEY) || "[]"); } catch(e){}
   for (const p of S.plants.filter(x => x.status === "active")){
@@ -887,18 +973,22 @@ async function keepPlans(){
     if (r.tasks.length || (r.moves || []).length) by.push([p.id, Object.assign(r, {kind: "log"})]);
   }
   try { localStorage.setItem(REACTED_KEY, JSON.stringify(seen.slice(-50))); } catch(e){}
-  try { const n = await applyRules(by, "plan"); if (n){ renderAll(); setSync("Plans updated · " + n + " step" + (n === 1 ? "" : "s") + " changed"); } } catch(e){ S.planRan = null; }
+  try { const n = await applyRules(by, "plan"); if (n){ renderAll(); setSync("Plan updated · " + n + " change" + (n === 1 ? "" : "s")); } } catch(e){ S.planRan = null; }
 }
-async function reactToLog(p, entry){
+async function reactToLog(p, entry, pre){
   if (!window.Rules) return;
-  const r = Rules.afterLog(p, entry, ruleCtx(p)); try { const seen = JSON.parse(localStorage.getItem(REACTED_KEY) || "[]"); localStorage.setItem(REACTED_KEY, JSON.stringify(seen.concat(entry.id).slice(-50))); } catch(e){}
+  const r = pre || Rules.afterLog(p, entry, ruleCtx(p)); try { const seen = JSON.parse(localStorage.getItem(REACTED_KEY) || "[]"); localStorage.setItem(REACTED_KEY, JSON.stringify(seen.concat(entry.id).slice(-50))); } catch(e){}
   if (!r.tasks.length && !(r.moves || []).length) return;
   try { await applyRules([[p.id, r]], "log"); renderAll(); setSync(r.tasks.some(t => t.urgent) ? "Needs a look · check-in added" : "Plan updated after your log"); } catch(e){}
 }
 
 /* ---------- derived ---------- */
 function latest(k){ for (const l of mine(S.logs)){ const n = num(l[k]); if (n != null) return {v:n, at:l.at}; } return null; }
-function latestSensor(){ for (const l of mine(S.logs)) if (l.sensor && (l.sensor.temp != null || l.sensor.rh != null)) return l.sensor; return null; }
+function latestSensor(){
+  let s = null; for (const l of mine(S.logs)) if (l.sensor && (l.sensor.temp != null || l.sensor.rh != null)){ s = l.sensor; break; }
+  const lv = sel() && S.live[sel().id]; if (lv && (!s || lv.at > s.at)) return lv;
+  return s;
+}
 function statusOf(k, v){
   const p = sel(), t = p && targetsOf(p)[k];
   if (!t || v == null) return {cls:"none", word:"", txt:""};
@@ -1034,9 +1124,11 @@ function coreTiles(p){
       ["Day", ds ? String(daysBetween(ds, T) + 1) : "–", snap ? (snap.actions.includes("Stems snap") ? {cls:"ok", word:"snaps", txt:"ready for jars?"} : {cls:"none", word:"", txt:"still bendy"}) : {cls:"none", word:"", txt:"usually 7–14"}]];
   }
   if (ph === "cure"){
-    const cs = phaseStart(p, "cure"), j = latestSince("jar_rh", cs), w = latestSince("weight", cs), b = lastAction(["Burped"]);
+    const cs = phaseStart(p, "cure"), lv = liveFor(p), j0 = latestSince("jar_rh", cs), w = latestSince("weight", cs), b = lastAction(["Burped"]);
+    const j = lv && lv.rh != null && (!j0 || lv.at > j0.at) ? {v: lv.rh, at: lv.at, jars: (lv.sensors || []).filter(x => x.kind === "jar")} : j0;
     const bd = b ? daysBetween(b.date, T) : null;
-    return [["Jar RH", j ? fmtv("jar_rh", j.v) : "–", statusOf("jar_rh", j && j.v), "jar_rh"],
+    const jst = statusOf("jar_rh", j && j.v); if (j && j.jars && j.jars.length > 1) jst.txt = "jars " + j.jars.map(x => sensorNum(x.id) + ": " + Math.round(x.rh)).join(" · ");
+    return [["Jar RH", j ? fmtv("jar_rh", j.v) : "–", jst, "jar_rh"],
       ["Burped", bd == null ? "–" : bd === 0 ? "today" : bd + " d ago", bd != null && bd > 2 && cs && daysBetween(cs, T) < 14 ? {cls:"high", word:"due", txt:"daily, days 1–14"} : {cls:"none", word:"", txt: cs && daysBetween(cs, T) >= 14 ? "every 7 days now" : "daily, days 1–14"}],
       ["Weight", w ? fmtv("weight", w.v) : (run.dry_g ? run.dry_g + " g" : "–"), {cls:"none", word:"", txt: run.dry_g ? "jarred at " + run.dry_g + " g" : ""}, "weight"]];
   }
@@ -1057,22 +1149,36 @@ const EVENTS_FOR = {ph:["Fed","Water change","Topped off","pH adjusted"], ec:["F
 const textCache = new Map();
 function fetchText(path){ if (!textCache.has(path)) textCache.set(path, api(path, null, "application/vnd.github.raw").then(r => r.ok ? r.text() : null).catch(() => null)); return textCache.get(path); }
 S.chartRange = (() => { try { return +(localStorage.getItem("ff-chart-range") ?? 7); } catch(e){ return 7; } })();
-async function sensorPoints(p, from){
+async function sensorPoints(p, from, kinds){
   const rows = new Map();
+  if (S.smeta && window.Bridge){                          // bridge readings first (fetch older days on demand)
+    const days = []; for (let t = Math.max(from, Date.parse("2026-11-16T00:00:00Z")); t <= Date.now(); t += 864e5) days.push(utcDay(t));
+    await loadBridge(days.filter(d => !S.bdays[d]));
+    for (const x of Bridge.forRun(bridgeRows(from), S.smeta, p.id, kinds)) rows.set(x.t + "|" + x.id, {at:new Date(x.t), t:x.temp, r:x.rh, id:x.id});
+  }
   const logs = mine(S.logs).filter(l => (l.files || []).some(f => /\.(csv|txt)$/i.test(f)));
-  for (const l of logs){                                  // newest first; stop once the files reach back far enough
-    for (const f of l.files.filter(f => /\.(csv|txt)$/i.test(f))){ const t = await fetchText(f); const r = t && parseSensorRows(t); if (r) for (const x of r) rows.set(+x.at, x); }
-    const first = Math.min(...rows.keys()); if (rows.size && first <= from) break;
+  const bridgeFrom = rows.size ? Math.min(...[...rows.values()].map(x => +x.at)) : Infinity;
+  for (const l of logs){                                  // CSVs fill the time before the bridge; newest first, stop once far enough back
+    if (Date.parse(l.at) > bridgeFrom + 864e5) continue;
+    for (const f of l.files.filter(f => /\.(csv|txt)$/i.test(f))){ const t = await fetchText(f); const r = t && parseSensorRows(t); if (r) for (const x of r) if (+x.at < bridgeFrom) rows.set(+x.at, x); }
+    const first = Math.min(...[...rows.values()].map(x => +x.at)); if (rows.size && first <= from) break;
   }
   if (!rows.size){                                        // no files: the 24 h summaries stored on the logs
     for (const l of mine(S.logs)) if (l.sensor && l.sensor.at) rows.set(Date.parse(l.sensor.at), {at:new Date(l.sensor.at), t:l.sensor.tavg ?? l.sensor.temp, r:l.sensor.havg ?? l.sensor.rh});
   }
-  return [...rows.values()].sort((a, b) => a.at - b.at);
+  // several sensors (jars): average per 15-min slot so the line stays one line
+  const slot = new Map(); for (const x of rows.values()){ const k = Math.round(+x.at / 9e5); const a = slot.get(k) || {at:new Date(k * 9e5), ts:[], rs:[]}; if (x.t != null) a.ts.push(x.t); if (x.r != null) a.rs.push(x.r); slot.set(k, a); }
+  const avg = a => a.length ? a.reduce((x, y) => x + y, 0) / a.length : null;
+  return [...slot.values()].map(a => ({at:a.at, t:avg(a.ts), r:avg(a.rs)})).sort((a, b) => a.at - b.at);
 }
 async function chartData(p, key, from){
+  if (key === "jar_rh" && S.smeta){ const rows = await sensorPoints(p, from, ["jar"]); const pts = rows.map(x => ({t:+x.at, v:x.r})).filter(x => x.v != null);
+    const logged = mine(S.logs).map(l => ({t:Date.parse(l.at), v:num(l.jar_rh)})).filter(x => x.v != null).reverse();
+    if (pts.length) return {pts: pts.concat(logged.filter(x => x.t < pts[0].t)).sort((a, b) => a.t - b.t), dots:false, src:"sensor"}; }
   if (key === "air" || key === "rh" || key === "vpd"){
     const rows = await sensorPoints(p, from);
-    const pts = rows.map(x => ({t:+x.at, v: key === "air" ? x.t : key === "rh" ? x.r : vpd(x.t, x.r)})).filter(x => x.v != null);
+    const ph = phaseOf(p), rows2 = S.smeta && (ph === "cure" || ph === "done") ? await sensorPoints(p, from, ["jar"]) : rows;
+    const pts = (rows2.length ? rows2 : rows).map(x => ({t:+x.at, v: key === "air" ? x.t : key === "rh" ? x.r : vpd(x.t, x.r)})).filter(x => x.v != null);
     if (pts.length) return {pts, dots: pts.length < 30, src: "sensor"};
     const k2 = key === "vpd" ? null : key;                // manual entries
     return {pts: k2 ? mine(S.logs).map(l => ({t:Date.parse(l.at), v:num(l[k2])})).filter(x => x.v != null).reverse() : [], dots:true, src:"log"};
@@ -1111,7 +1217,7 @@ async function openChart(key, label){
     const used = [...new Set(evs.filter(e => e.t >= f2).map(e => e.k + " " + e.a.toLowerCase()))];
     box.append(raw(svg),
       h("p",{class:"sub", style:"margin:0"}, "Low " + fx(st.min) + " · high " + fx(st.max) + " · average " + fx(st.avg) + (band ? " · target " + band[0] + "–" + band[1] + unit : "")),
-      h("p",{class:"sub", style:"margin:0"}, (data.src === "sensor" ? "From your sensor files" : st.n + (st.n === 1 ? " entry" : " entries") + " from your logs") + (used.length ? " · " + used.join(", ") : "")));
+      h("p",{class:"sub", style:"margin:0"}, (data.src === "sensor" ? (S.smeta ? "From your sensors (corrected)" : "From your sensor files") : st.n + (st.n === 1 ? " entry" : " entries") + " from your logs") + (used.length ? " · " + used.join(", ") : "")));
   }
   draw();
 }
@@ -1260,6 +1366,8 @@ function renderToday(){
     box.append(h("button",{type:"button", class:"donebtn", onclick:() => { S.showDone = !S.showDone; renderToday(); }}, S.showDone ? "Hide done" : "✓ " + doneToday.length + " done today"));
   }
   $("#t-count").textContent = "";
+  const lastLog = mine(S.logs)[0], ackEl = $("#t-ack");
+  ackEl.textContent = lastLog && lastLog.ack && lastLog.date === T ? lastLog.ack.replace(/^Noted/, "Noted " + hm(lastLog.at)) : ""; ackEl.hidden = !ackEl.textContent;
 
   // Observations: three plant values + three climate/weather values
   const fields = fieldsFor(p);
@@ -1326,11 +1434,12 @@ function envTiles(p){
   }
   const s = latestSensor();
   const T = targetsOf(p), ph = phaseOf(p);
+  sensorNote(p);
   if (s){
     const v = vpd(s.temp, s.rh);
     const vs = v == null ? none : v < 0.8 ? {cls:"low", word:"low", txt:"aim 0.8–1.2"} : v > 1.4 ? {cls:"high", word:"high", txt:"aim 0.8–1.2"} : {cls:"ok", word:"good", txt:"aim 0.8–1.2"};
     const old = (Date.now() - new Date(s.at)) / 864e5;
-    if (old > 2) note.textContent = "Sensor data is " + ago(s.at).replace(" ago","") + " old. Upload a fresh CSV with your next log.";
+    if (old > 2) note.textContent = "Sensor data is " + ago(s.at).replace(" ago","") + " old. " + (S.smeta ? "Is the sensor placed with this plant? (Log → Sensor moved)" : "Upload a fresh CSV with your next log.");
     const hi = T.air ? T.air[1] : 26;
     return {
       tiles:[["Air", s.temp != null ? s.temp.toFixed(1)+"°" : "–", statusOf("air", s.temp), "air"], ["Humidity", s.rh != null ? Math.round(s.rh)+"%" : "–", statusOf("rh", s.rh), "rh"],
@@ -1386,6 +1495,11 @@ async function toggleTask(t, on){
   t.status = on ? "done" : "open"; t.doneAt = on ? new Date().toISOString() : null; renderAll();
   try {
     S.tasks = await mutate("tasks.json", list => (list||[]).map(x => x.id === t.id ? Object.assign({}, x, {status:t.status, doneAt:t.doneAt}) : x), (on ? "done: " : "reopen: ") + t.title);
+    if (on && t.aim && t.aim.length === 2){                 // a ramp feed step moves the EC target with it
+      const T = today(), was = ((S.plants.find(x => x.id === t.run) || {}).targets || {}).ec;
+      S.plants = await mutate("plants.json", list => (list || []).map(x => x.id === t.run ? Object.assign({}, x, {targets: Object.assign({}, x.targets, {ec: t.aim})}) : x), "target EC");
+      try { S.changes = (await mutate("changes.json", list => (list || []).concat({id:"c-" + T.replace(/-/g, "") + "-t" + Math.random().toString(36).slice(2, 6), run:t.run, date:T, src:"app", text:"EC target " + (was ? was.join("–") + " → " : "") + t.aim.join("–") + " after the feed step."}), "app: target")).slice().sort((a,b) => (b.date||"").localeCompare(a.date||"")); } catch(e){}
+    }
     cache(); renderAll();
   } catch(e){ Object.assign(t, prev); renderAll(); setSync("Couldn't save · tap to retry", true); }
 }
@@ -1657,9 +1771,11 @@ function renderHistory(){
     box.append(h("article",{class:"log fr","data-soak":"0.12"},
       h("div",{class:"head",style:"align-items:center"}, h("span",{style:"font-weight:600"}, fmtTime(l.at)), l.source ? h("span",{class:"tag"}, l.source) : null),
       vals.length ? h("div",{class:"vals"}, vals) : null,
-      s ? h("div",{class:"vals"}, h("span",null,"Sensor ", h("b",{class:"num"}, (s.temp != null ? s.temp.toFixed(1)+"° " : "") + (s.rh != null ? Math.round(s.rh)+"%" : ""))), s.tmin != null ? h("span",{class:"muted"}, "24 h "+s.tmin.toFixed(0)+"–"+s.tmax.toFixed(0)+"°") : null) : null,
+      s ? h("div",{class:"vals"}, h("span",null, s.src === "bridge" ? "Sensors " : "Sensor ", h("b",{class:"num"}, (s.temp != null ? s.temp.toFixed(1)+"° " : "") + (s.rh != null ? Math.round(s.rh)+"%" : ""))), s.tmin != null ? h("span",{class:"muted"}, "24 h "+s.tmin.toFixed(0)+"–"+s.tmax.toFixed(0)+"°") : null) : null,
       (l.actions && l.actions.length) ? h("div",{class:"chips",style:"gap:6px"}, l.actions.map(a => h("span",{class:"tag"},a))) : null,
       l.note ? h("p",{style:"margin:0;font-size:14px;color:var(--muted)"}, l.note) : null,
+      l.moved ? h("p",{class:"sub", style:"margin:0"}, "Moved: " + l.moved.map(m => "sensor " + m.num + " → " + m.place).join(", ")) : null,
+      l.ack ? h("p",{class:"sub", style:"margin:0"}, l.ack) : null,
       (l.photos && l.photos.length) ? h("div",{class:"thumbs"}, l.photos.map(thumb)) : null,
       files.length ? h("div",{class:"thumbs"}, files.map(f => /\.(jpe?g|png|webp)$/i.test(f) ? thumb(f) : h("span",{class:"tag"}, "Sensor file"))) : null,
       h("div",{style:"display:flex;gap:8px"},
@@ -1686,12 +1802,43 @@ function renderLogForm(){
     chips.append(h("button",{type:"button", class:"chip", "aria-pressed": S.actions.has(a) ? "true" : "false", onclick:e => {
       const on = !S.actions.has(a); on ? S.actions.add(a) : S.actions.delete(a);
       e.currentTarget.setAttribute("aria-pressed", on ? "true" : "false");
-      if (a === "Light changed") renderLogForm();
+      if (a === "Light changed" || a === "Sensor moved") renderLogForm();
     }}, a));
   }
   // a sensor file fits any phase: outdoor plants still dry and cure indoors, and jars get sensors too
   $("#l-sensordrop").hidden = false;
+  renderMoveBox(p);
   if (!S.edit) $("#l-title").textContent = p.name;
+}
+
+/* "Sensor moved": pick the sensor(s) by the number on the case, then where they are now. Saved with the log as
+   new placements in sensors.json (the old placement of that sensor ends at the log time). */
+S.move = {ids:new Set(), where:null};
+function kindFor(p){ const ph = phaseOf(p); return ph === "germ" ? "dome" : ph === "dry" ? "dry" : ph === "cure" || ph === "done" ? "jar" : "air"; }
+function placeName(p, kind, id){ const n = p.strain || p.name; return kind === "jar" ? n + " jar " + sensorNum(id) : kind === "dry" ? n + " drying" : kind === "dome" ? n + " dome" : n + " air"; }
+function renderMoveBox(p){
+  const old = $("#l-move"); if (old) old.remove();
+  if (!S.actions.has("Sensor moved") || !S.smeta || !S.smeta.sensors) return;
+  const ids = Object.keys(S.smeta.sensors).sort((a, b) => sensorNum(a) - sensorNum(b)), kind = kindFor(p);
+  const box = h("fieldset",{id:"l-move", class:"panel fr", "data-soak":"0.1"}, h("legend",null,"Which sensor?"));
+  const chips = h("div",{class:"chips"});
+  for (const id of ids){ const cur = Bridge.current(S.smeta, id), on = S.move.ids.has(id);
+    chips.append(h("button",{type:"button", class:"chip", "aria-pressed": on ? "true" : "false", onclick:() => { on ? S.move.ids.delete(id) : S.move.ids.add(id); renderMoveBox(p); }},
+      h("b",null, String(sensorNum(id))), h("small",{class:"muted", style:"font-style:italic"}, cur ? cur.place : "not placed"))); }
+  const wopts = [["here", kind === "jar" ? "In a jar of " + (p.strain || p.name) : kind === "dry" ? "Drying space of " + (p.strain || p.name) : kind === "dome" ? "Under the dome of " + (p.strain || p.name) : "Air at " + (p.strain || p.name)], ["off", "Not in use"]];
+  const where = h("div",{class:"chips"}, wopts.map(([v, l]) => h("button",{type:"button", class:"chip", "aria-pressed": S.move.where === v ? "true" : "false", onclick:() => { S.move.where = v; renderMoveBox(p); }}, l)));
+  box.append(chips, h("legend",{style:"margin-top:6px"},"Where now?"), where, h("p",{class:"sub", style:"margin:0"}, "Saved with this log. The sensor's old place ends now."));
+  $("#chips").closest("fieldset").after(box); decorateSoon();
+}
+async function saveMoves(p, at){
+  if (!S.actions.has("Sensor moved") || !S.move.ids.size || !S.move.where) return [];
+  const kind = S.move.where === "off" ? "off" : kindFor(p), ids = [...S.move.ids];
+  const moved = ids.map(id => ({id, num: sensorNum(id), place: kind === "off" ? "Not in use" : placeName(p, kind, id)}));
+  S.smeta = await mutate("sensors.json", m => { m = m || {sensors:{}, placements:[]}; m.placements = m.placements || [];
+    for (const x of moved){ for (const pl of m.placements) if (pl.id === x.id && !pl.to && pl.from < at) pl.to = at;
+      m.placements.push(Object.assign({id:x.id, place:x.place, kind, from:at}, kind === "off" ? {} : {run:p.id})); }
+    return m; }, "sensor moved");
+  S.move = {ids:new Set(), where:null}; bridgeLive(); return moved;
 }
 const countLabel = (n, none) => n ? n + " selected" : none;
 $("#f-photo").addEventListener("change", e => { $("#f-photo-n").textContent = countLabel(e.target.files.length, "camera or gallery"); });
@@ -1736,7 +1883,11 @@ $("#logform").addEventListener("submit", async e => {
     for (const f of files) if (isCsv(f)){ const s = parseSensorCsv(await f.text()); if (s && (!sensor || s.at > sensor.at)) sensor = s; }
     if (files.some(isCsv) && !sensor) st.textContent = "Uploading… (couldn't read values from the CSV, saving it anyway)";
     // a sensor in the jar: its 24 h average becomes the jar RH unless one was typed
-    if (sensor && sensor.havg != null && phaseOf(p) === "cure" && vals.jar_rh == null) vals.jar_rh = Math.round(sensor.havg * 10) / 10;
+    if (sensor && sensor.havg != null && phaseOf(p) === "cure" && vals.jar_rh == null && !sensor.src) vals.jar_rh = Math.round(sensor.havg * 10) / 10;
+    if (actions.includes("Sensor moved") && S.smeta && (!S.move.ids.size || !S.move.where)){ st.textContent = "Pick the sensor and where it is now (under Sensor moved)."; btn.disabled = false; return; }
+    const moved = S.edit ? [] : await saveMoves(p, at);
+    // no CSV: the bridge's last 24 h for this plant ride along with the log
+    if (!sensor && !S.edit){ const lv = liveFor(p); if (lv) sensor = Object.assign({}, lv); }
     const newPhotos = photos.length ? await uploadFiles(photos, "photo") : [];
     const newFiles = files.length ? await uploadFiles(files, "sensor") : [];
     const wasEdit = !!S.edit;
@@ -1752,12 +1903,18 @@ $("#logform").addEventListener("submit", async e => {
     } else {
       const entry = Object.assign({id:"l-" + Date.now(), run:p.id, at, date:today(), source:"app", actions, note, photos:newPhotos, files:newFiles}, vals);
       if (sensor) entry.sensor = sensor;
+      if (moved.length) entry.moved = moved;
+      if (sensor && sensor.src === "bridge" && phaseOf(p) === "cure" && entry.jar_rh == null && sensor.rh != null) entry.jar_rh = sensor.rh;
+      // tier 0: the app reacts and says so, quietly (the line is stored with the log)
+      let r = {tasks:[], moves:[], why:[]};
+      if (window.Rules){ const ctx = Object.assign(ruleCtx(p), {targets: targetsOf(p)}); r = Rules.afterLog(p, entry, ctx); entry.ack = Rules.ack(p, entry, ctx, r); }
       S.logs = sortLogs(await mutate("logs.json", list => [...(list||[]), entry], "log " + entry.date));
-      reactToLog(p, entry);
+      S.lastAck = {id: entry.id, text: entry.ack};
+      reactToLog(p, entry, r);
     }
     cache(); endEdit(); renderAll();
-    st.textContent = sensor ? "Saved. Sensor data up to " + fmtTime(sensor.at) + "." : "Saved.";
-    setTimeout(() => { st.textContent = ""; if (wasEdit) S.planSeg = "book"; location.hash = wasEdit ? "#plan" : "#today"; }, sensor ? 1600 : 800);
+    st.textContent = !wasEdit && S.lastAck && S.lastAck.text ? S.lastAck.text : sensor && !sensor.src ? "Saved. Sensor data up to " + fmtTime(sensor.at) + "." : "Saved.";
+    setTimeout(() => { st.textContent = ""; if (wasEdit) S.planSeg = "book"; location.hash = wasEdit ? "#plan" : "#today"; }, wasEdit ? 800 : 1800);
   } catch(err){
     st.textContent = err.code === "auth" ? "The access key was rejected. Open Settings and paste a new one."
       : err.code === "too_large" ? "A file is too big. Pick a smaller one and save again."
@@ -1816,6 +1973,18 @@ $("#plantform").addEventListener("submit", async e => {
   finally { $("#pl-save").disabled = false; }
 });
 
+/* settings → sensors: number, place, latest corrected values, battery, age */
+function renderSensorList(){
+  const box = $("#s-sensors"); if (!box) return; box.hidden = !S.smeta; const list = $("#s-sensorlist"); list.replaceChildren(); if (!S.smeta) return;
+  const rows = bridgeRows(Date.now() - 864e5), last = {}; for (const r of rows) last[r.id] = r;
+  const ids = Object.keys(S.smeta.sensors || {}).sort((a, b) => sensorNum(a) - sensorNum(b));
+  for (const id of ids){ const pl = Bridge.current(S.smeta, id), r = last[id] && Bridge.correct(last[id], S.smeta);
+    list.append(h("div",{class:"row"}, h("span",null, h("b",null, sensorNum(id) + " "), pl ? pl.place : "not placed"), h("span",{class:"lead"}),
+      h("span",{class:"when num"}, r ? (r.temp != null ? r.temp.toFixed(1) + "° " : "") + (r.rh != null ? r.rh.toFixed(1) + "% · " : "") + ago(new Date(r.t).toISOString()) + (r.bat != null && r.bat < 25 ? " · bat " + r.bat + "%" : "") : "no data"))); }
+  const hs = S.bhealth || []; if (hs.length || S.bridgeErr) list.append(...[S.bridgeErr].concat(hs.map(x => x.text)).filter(Boolean).map(t => h("p",{class:"warnline", style:"margin:0"}, t)));
+  list.append(h("p",{class:"sub", style:"margin:0"}, "Values are corrected (calibration in sensors.json). To move a sensor: log on the plant → Sensor moved."));
+}
+
 /* ---------- setup ---------- */
 function renderSetup(){
   const c = S.cfg;
@@ -1826,6 +1995,7 @@ function renderSetup(){
   $("#s-connected").hidden = !c; if (c) $("#s-where").textContent = c.owner + "/" + c.repo;
   $("#s-save").textContent = c ? "Save" : "Connect";
   $("#s-plants").hidden = !c;
+  renderSensorList();
   const pl = $("#s-plantlist"); pl.replaceChildren();
   if (!S.plants.length) pl.append(h("p",{class:"empty"},"No plants yet."));
   for (const p of S.plants){

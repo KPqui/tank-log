@@ -52,6 +52,22 @@
   }
 
 
+
+  /* --- trends: rate of change per day from the last logs (least squares), so frequent small logs sharpen the picture --- */
+  function series(ctx, p, key, log, hours){
+    const until = Date.parse(log.at || (ctx.today + "T12:00:00")), since = until - (hours || 72) * 36e5;
+    const pts = ctx.logs.filter(l => l.run === p.id && l.id !== log.id && l[key] != null && Date.parse(l.at) >= since && Date.parse(l.at) <= until).map(l => ({t: Date.parse(l.at), v: +l[key]}));
+    if (log[key] != null) pts.push({t: until, v: +log[key]});
+    return pts.sort((a, b) => a.t - b.t);
+  }
+  function slope(pts){                                   // units per day; null without 3 points over ≥ 12 h
+    if (pts.length < 3 || pts[pts.length - 1].t - pts[0].t < 12 * 36e5) return null;
+    const n = pts.length, mx = pts.reduce((a, p) => a + p.t, 0) / n, my = pts.reduce((a, p) => a + p.v, 0) / n;
+    let num = 0, den = 0; for (const p of pts){ num += (p.t - mx) * (p.v - my); den += (p.t - mx) ** 2; }
+    return den ? num / den * 864e5 : null;
+  }
+  const wd = (s, T) => { const n = diff(T, s); return n === 0 ? "today" : n === 1 ? "tomorrow" : n === -1 ? "yesterday" : (n > 1 && n < 7) || (n < -1 && n > -7) ? D(s).toLocaleDateString("en-GB", {weekday: "short"}) : D(s).toLocaleDateString("en-GB", {day: "numeric", month: "short"}); };
+
   /* EC in hydro: a falling EC means the plant is eating faster than planned. Below the target range the next feed
      step moves to today (or one is added); a fast drop inside the range pulls it to tomorrow. Above the range by
      0.2+ the answer is plain water, never more nutrients. Gate: water not warm (feeding warm water stresses roots). */
@@ -70,7 +86,9 @@
         why.push(reason);
       }
     };
+    const sl = slope(series(ctx, p, "ec", log, 72));
     if (ec < lo) pull(T, "EC fell to " + ec + ", below " + lo + "–" + hi + ": the plant is eating.");
+    else if (sl != null && sl <= -0.08 && (ec - lo) / -sl <= 2) pull(tomorrow, "EC falling ~" + Math.abs(sl).toFixed(2) + "/day; it reaches " + lo + " within 2 days.");
     else if (prev && prev.ec - ec >= 0.15 && D(log.date || T) - D(prev.date || T) <= 3 * 864e5 && ec <= lo + 0.1) pull(tomorrow, "EC dropped " + prev.ec + " → " + ec + " within a few days.");
     if (ec > hi + 0.2 && !openSoon(ctx, p, /plain water/i, 1)){
       out.push(task(p, "ec-high-" + T, T, "Top off with plain water", "EC " + ec + " is above " + lo + "–" + hi + ". Top off with plain (distilled) water only, no nutrients, measure again tomorrow.", "After your log")); why.push("EC " + ec + " high"); }
@@ -99,6 +117,8 @@
         const prev = ctx.logs.filter(l => l.run === p.id && l.id !== log.id && l.jar_rh != null).sort((a, b) => (b.at || "").localeCompare(a.at || ""))[0];
         if (rh > 63 && !openSoon(ctx, p, /burp longer/i, 1)){ out.push(task(p, "cure-moist-" + T, T, "Burp longer", "Jar RH is " + rh + " %, above 58–63 %. Leave the jars open 20–30 minutes today.", "After your log")); why.push("jar RH " + rh + " %"); }
         if (rh >= 65 && prev && prev.jar_rh >= 65) urgent("Jar RH has stayed at 65 % or more (" + prev.jar_rh + " → " + rh + " %). Risk of mould; consider taking the humidity pack out or a few hours open.");
+        const js = slope(series(ctx, p, "jar_rh", log, 96));
+        if (rh <= 63 && rh >= 61 && js != null && js >= 0.5 && !openSoon(ctx, p, /burp longer/i, 1)){ out.push(task(p, "cure-rising-" + T, T, "Burp longer", "Jar RH is climbing ~" + js.toFixed(1) + " %/day (now " + rh + " %). Leave the jars open 20–30 minutes.", "Jar RH trend")); why.push("jar RH rising"); }
         if (rh < 55 && !openSoon(ctx, p, /humidity pack/i, 3)){ out.push(task(p, "cure-dry-" + T, T, "Add a humidity pack", "Jar RH is " + rh + " %, below 58 %. Add a 62 % pack and keep the jars closed.", "After your log")); why.push("jar RH " + rh + " %"); }
       }
     }
@@ -116,8 +136,101 @@
         out.push(task(p, "ph-" + T, T, "Adjust pH", "pH " + log.ph + " is outside " + tg.ph[0] + "–" + tg.ph[1] + ". A few drops at a time, stir, wait 10–15 minutes, measure again.", "After your log")); why.push("pH " + log.ph); }
       if (sn.tmax != null && sn.tmax > 30) urgent("Air peaked at " + sn.tmax + " °C in the last day.");
       if (hydro && log.ec != null && tg.ec) ecReact(p, log, ctx, tg.ec, out, moves, why);
+      // pH drift: projected outside the target within a day → adjust tomorrow (before it becomes urgent)
+      if (hydro && log.ph != null && tg.ph && log.ph >= tg.ph[0] - 0.15 && log.ph <= tg.ph[1] + 0.15){
+        const ps = slope(series(ctx, p, "ph", log, 48));
+        if (ps != null && Math.abs(ps) >= 0.15 && (log.ph + ps < tg.ph[0] || log.ph + ps > tg.ph[1]) && !openSoon(ctx, p, /adjust ph/i, 2)){
+          out.push(task(p, "ph-drift-" + T, tomorrow, "Adjust pH", "pH is drifting " + (ps > 0 ? "up" : "down") + " ~" + Math.abs(ps).toFixed(2) + "/day (now " + log.ph + "). Correct back to " + tg.ph[0] + "–" + tg.ph[1] + ", a few drops at a time.", "pH trend")); why.push("pH drifting " + (ps > 0 ? "+" : "") + ps.toFixed(2) + "/day"); }
+      }
+      // water warming day over day
+      if (hydro && log.water != null && log.water <= 23.5 && log.water >= 22){
+        const ws = slope(series(ctx, p, "water", log, 72));
+        if (ws != null && ws >= 0.5 && !openSoon(ctx, p, /cool the water/i, 2)){
+          out.push(task(p, "water-trend-" + T, tomorrow, "Cool the water", "Water is warming ~" + ws.toFixed(1) + " °C/day (now " + log.water + " °C). Swap the ice packs or the tray before it passes 23.", "Water trend")); why.push("water +" + ws.toFixed(1) + " °C/day"); }
+      }
     }
     return {tasks: out, moves, why};
   }
-  window.Rules = {plan, afterLog, focus, isoWeek};
+
+  /* --- 4. the quiet acknowledgement after a log: what the app saw and what (if anything) it changed --- */
+  const lc = s => s.charAt(0).toLowerCase() + s.slice(1);
+  const NAMES = {ph: "pH", ec: "EC", water: "water", jar_rh: "jar RH", air: "air", rh: "RH", runoff_ec: "runoff EC", runoff_ph: "runoff pH", res_ec: "res. EC", res_ph: "res. pH"};
+  const UNIT = {water: " °C", jar_rh: " %", air: " °C", rh: " %"};
+  function ack(p, log, ctx, r){
+    const T = ctx.today, tg = ctx.targets || p.targets || {}, bad = [], ok = [], trend = [];
+    for (const k of Object.keys(NAMES)){
+      const v = log[k]; if (v == null) continue;
+      const rg = tg[k], name = NAMES[k];
+      if (rg && v < rg[0]) bad.push(name + " " + v + (UNIT[k] || "") + " low (" + rg[0] + "–" + rg[1] + ")");
+      else if (rg && v > rg[1]) bad.push(name + " " + v + (UNIT[k] || "") + " high (" + rg[0] + "–" + rg[1] + ")");
+      else if (rg) ok.push(name);
+      const sl = slope(series(ctx, p, k, log, 72)), thr = {ph: 0.1, ec: 0.05, water: 0.4, jar_rh: 0.5}[k];
+      if (sl != null && thr && Math.abs(sl) >= thr) trend.push(name + " " + (sl > 0 ? "+" : "−") + Math.abs(sl).toFixed(k === "ph" || k === "ec" ? 2 : 1) + (UNIT[k] || "") + "/day");
+      else {
+        const prev = ctx.logs.filter(l => l.run === p.id && l.id !== log.id && l[k] != null && (l.at || "") < (log.at || "~")).sort((a, b) => (b.at || "").localeCompare(a.at || ""))[0];
+        if (prev && prev[k] !== v && diff(prev.date, log.date || T) <= 2) trend.push(name + " " + (v > prev[k] ? "+" : "−") + Math.abs(Math.round((v - prev[k]) * 100) / 100) + " since " + (prev.date === (log.date || T) ? "earlier" : wd(prev.date, T).replace("today", "earlier")));
+      }
+    }
+    const sn = log.sensor; const parts = [];
+    if (bad.length) parts.push(bad.join(", "));
+    if (ok.length) parts.push((ok.length > 2 ? "all in range" : ok.join(" and ") + " in range"));
+    if (trend.length) parts.push(trend.slice(0, 2).join(", "));
+    if (sn && sn.src === "bridge" && sn.temp != null) parts.push("air " + sn.temp + "° / " + Math.round(sn.rh) + " %");
+    const changed = [];
+    for (const m of (r && r.moves) || []){ const t = ctx.tasks.find(x => x.id === m.id); if (t) changed.push(lc(t.title) + " → " + wd(m.due, T)); }
+    for (const t of (r && r.tasks) || []) changed.push("+ " + lc(t.title) + " " + wd(t.due, T));
+    if (changed.length) parts.push(changed.join(", "));
+    else {
+      const nx = ctx.tasks.filter(t => t.run === p.id && t.status === "open" && t.due && t.due >= T && !/^check\b/i.test(t.title)).sort((a, b) => a.due.localeCompare(b.due))[0];
+      parts.push(nx ? "plan unchanged · next: " + lc(nx.title) + " " + wd(nx.due, T) : "plan unchanged");
+    }
+    return "Noted · " + parts.filter(Boolean).join(" · ");
+  }
+
+  /* --- 5. plan upkeep the nightly review used to do, now on every sync (moves, closes, ramp) ---
+     - a check counts as done when a log with values or a photo arrived since the day before it was due
+     - old app checks that were skipped close once a newer one is planned
+     - overdue big tasks roll to the next weekend day or off day
+     - never two stressors (big tasks, topping, defoliation, water change, flip, training) on one day per plant
+     - hydro EC ramp: a feed step every ≥ 4 days while EC sits in range, water ≤ 23 °C and no notes about burnt tips */
+  const STRESS = /\btop|defol|clear lower|water change|12\s*\/\s*12|manifold|transplant|\blst\b|bend|supercrop/i;
+  const suitable = (p, s) => { const d = D(s).getDay(); return d === 0 || d === 6 || (p.offDays || []).includes(s); };
+  const nextSuitable = (p, s, avoid) => { let d = s; for (let i = 0; i < 21; i++){ if (suitable(p, d) && !(avoid || []).includes(d)) return d; d = add(d, 1); } return s; };
+  function maintain(p, ctx){
+    const T = ctx.today, moves = [], close = [], tasks = [], open = ctx.tasks.filter(t => t.run === p.id && t.status === "open");
+    const logs = ctx.logs.filter(l => l.run === p.id).sort((a, b) => (b.at || "").localeCompare(a.at || ""));
+    const substantial = l => (l.photos || []).length || ["ph", "ec", "water", "jar_rh", "weight", "height", "res_ec", "water_l", "res_l"].some(k => l[k] != null);
+    // checks done by logs
+    for (const t of open.filter(t => /^check\b/i.test(t.title) && t.due && t.due <= T)){
+      const l = logs.find(l => substantial(l) && l.date >= add(t.due, -1) && l.date <= T);
+      if (l) close.push({id: t.id, at: l.at, why: "\"" + t.title + "\" done by your log (" + l.date.slice(5) + ")."});
+      else if (t.gen && t.due < add(T, -1) && open.some(x => x !== t && /^check\b/i.test(x.title) && x.due && x.due >= T)) close.push({id: t.id, skipped: true, why: "Skipped check from " + t.due.slice(5) + " closed; a newer one is planned."});
+    }
+    // overdue big tasks roll to the next suitable day
+    for (const t of open.filter(t => t.size === "big" && t.due && t.due < T)){ const d = nextSuitable(p, T); if (d !== t.due) moves.push({id: t.id, due: d, why: "\"" + t.title + "\" was overdue; moved to the next weekend/off day (" + d.slice(5) + ")."}); }
+    // one stressor per day
+    const due = id => (moves.find(m => m.id === id) || {}).due || (open.find(t => t.id === id) || {}).due;
+    const stress = open.filter(t => t.due && (t.size === "big" || STRESS.test(t.title))).sort((a, b) => a.due.localeCompare(b.due) || (a.order || 99) - (b.order || 99));
+    const taken = new Set();
+    for (const t of stress){ let d = due(t.id); if (d < T) continue;
+      if (taken.has(d)){ const nd = t.size === "big" ? nextSuitable(p, add(d, 1), [...taken]) : (() => { let x = add(d, 1); while (taken.has(x)) x = add(x, 1); return x; })();
+        const m = moves.find(m => m.id === t.id); if (m){ m.due = nd; m.why = "\"" + t.title + "\" was overdue; moved to " + nd.slice(5) + " (next free weekend/off day, one stressful step per day)."; } else moves.push({id: t.id, due: nd, why: "\"" + t.title + "\" moved to " + nd.slice(5) + ": never two stressful steps on one day."}); d = nd; }
+      taken.add(d); }
+    // hydro EC ramp
+    const hydro = (p.medium || "hydro") === "hydro", tg = (p.targets || {}).ec;
+    if (hydro && tg && (ctx.phase === "grow" || ctx.phase === "bloom") && !open.some(t => FEED.test(t.title))){
+      const lastEc = logs.find(l => l.ec != null), lastW = logs.find(l => l.water != null);
+      const burnt = logs.some(l => diff(l.date, T) <= 4 && /tip|burn|claw|crisp/i.test(l.note || ""));
+      const fedAt = ctx.tasks.filter(t => t.run === p.id && t.status === "done" && FEED.test(t.title) && t.doneAt).map(t => t.doneAt.slice(0, 10)).sort().pop();
+      const since = fedAt ? diff(fedAt, T) : (p.sprout ? diff(p.sprout, T) - 10 : 0);
+      const ceil = ctx.phase === "bloom" ? 1.6 : 1.2;
+      if (lastEc && diff(lastEc.date, T) <= 2 && lastEc.ec >= tg[0] && lastEc.ec <= tg[1] && (!lastW || lastW.water <= 23) && !burnt && since >= 4 && tg[1] < ceil){
+        const aim = [Math.round((tg[0] + 0.2) * 10) / 10, Math.round(Math.min(ceil, tg[1] + 0.2) * 10) / 10];
+        const vol = (p.setup && p.setup.volume) || 7.5, perMl = 0.2 * 7.5 / vol, ml = Math.max(0.5, Math.round((aim[1] - lastEc.ec) / perMl * 2) / 2);
+        tasks.push(task(p, "ramp-" + T, add(T, 1), "Feed step to EC " + aim[0] + "–" + aim[1], "EC has held in " + tg[0] + "–" + tg[1] + " and the last step was " + since + " days ago. About " + ml + " ml each of CalMag, then A and B, stir, measure. Ticking it done moves the EC target to " + aim[0] + "–" + aim[1] + ".", "Leaf tips clean, water ≤ 23 °C", {aim}));
+      }
+    }
+    return {tasks, moves, close};
+  }
+  window.Rules = {plan, afterLog, focus, isoWeek, ack, maintain, slope};
 })();
