@@ -1,1 +1,757 @@
-[]
+[
+ {
+  "id": "f-shortday",
+  "kind": "fact",
+  "text": "Cannabis doesn't count daylight, it counts darkness: flowering starts once the uninterrupted night passes a critical length, roughly 9–10 hours for many cultivars. A light leak at night can stall buds.",
+  "src": {
+   "t": "Cannabis Business Times (NC State research)",
+   "u": "https://www.cannabisbusinesstimes.com/article/night-light-interruption-cannabis-veg"
+  },
+  "status": "reviewed"
+ },
+ {
+  "id": "f-auto",
+  "kind": "fact",
+  "text": "Autoflowers are day-neutral: they bloom on age, not night length. The trait is thought to come from high-latitude populations sometimes called Cannabis ruderalis.",
+  "src": {
+   "t": "Frontiers / PMC: hemp flowering and photoperiod",
+   "u": "https://pmc.ncbi.nlm.nih.gov/articles/PMC9533707"
+  },
+  "status": "reviewed"
+ },
+ {
+  "id": "f-linnaeus",
+  "kind": "fact",
+  "text": "Linnaeus named Cannabis sativa in 1753 from European hemp, the 'rope, not dope' plant. Lamarck added Cannabis indica in 1785 from specimens collected in India.",
+  "src": {
+   "t": "UNODC Bulletin: the species problem in Cannabis",
+   "u": "https://www.unodc.org/unodc/en/data-and-analysis/bulletin/bulletin_1975-01-01_3_page002.html"
+  },
+  "status": "reviewed"
+ },
+ {
+  "id": "f-lamarck",
+  "kind": "fact",
+  "text": "Lamarck split off C. indica partly on firm stems, thin bark and leaf and flower shape. A later reviewer remarked he decided after 'relatively little study'.",
+  "src": {
+   "t": "BMJ / PMC: the cannabis species question",
+   "u": "https://pmc.ncbi.nlm.nih.gov/articles/PMC1336775"
+  },
+  "status": "reviewed"
+ },
+ {
+  "id": "f-trichomes",
+  "kind": "fact",
+  "text": "Cannabinoids and terpenes are made in stalked glandular trichomes, mostly on calyces and bracts and spilling onto the sugar leaves. The resin sits in a cavity that turns from clear to milky to brown as flowering goes on.",
+  "src": {
+   "t": "Tanney et al. 2021, Frontiers in Plant Science",
+   "u": "https://www.frontiersin.org/articles/10.3389/fpls.2021.721986/full"
+  },
+  "status": "reviewed"
+ },
+ {
+  "id": "f-terpenes",
+  "kind": "fact",
+  "text": "More than 120 terpenes have been identified in cannabis, split into monoterpenes and sesquiterpenes by their carbon skeletons.",
+  "src": {
+   "t": "Tanney et al. 2021, Frontiers in Plant Science",
+   "u": "https://www.frontiersin.org/articles/10.3389/fpls.2021.721986/full"
+  },
+  "status": "reviewed"
+ },
+ {
+  "id": "f-hops",
+  "kind": "fact",
+  "text": "Hops are cannabis's closest famous relative: both sit in Cannabaceae, a family of about 170 species that also includes hackberry trees. Hops have lupulin glands, cannabis has trichomes.",
+  "src": {
+   "t": "Britannica: Cannabaceae",
+   "u": "https://www.britannica.com/plant/Cannabaceae"
+  },
+  "status": "reviewed"
+ },
+ {
+  "id": "f-wind",
+  "kind": "fact",
+  "text": "Cannabaceae flowers have no petals: they're wind-pollinated, and most plants are either male or female (dioecious).",
+  "src": {
+   "t": "High Times: the family Cannabaceae",
+   "u": "https://hightimes.com/guides/cannabeginners-the-family-cannabaceae/"
+  },
+  "status": "reviewed"
+ },
+ {
+  "id": "f-oxygen",
+  "kind": "fact",
+  "text": "Warm water holds less oxygen: saturated fresh water carries about 9.1 mg/L at 20 °C but only about 8.3 at 25 °C and 7.6 at 30 °C. One reason DWC roots like their bucket cool.",
+  "src": {
+   "t": "UF/IFAS EDIS: dissolved oxygen table",
+   "u": "https://ojs.test.flvc.org/edis/article/download/118423/116357/173270"
+  },
+  "status": "reviewed"
+ },
+ {
+  "id": "f-1212",
+  "kind": "fact",
+  "text": "The 12/12 flip is a convention, not a law: studies found many medicinal genotypes start flowering at photoperiods of 14 hours or more.",
+  "src": {
+   "t": "Plants (MDPI) 2023: flowering photoperiods",
+   "u": "https://pmc.ncbi.nlm.nih.gov/articles/PMC10004775/"
+  },
+  "status": "reviewed"
+ },
+ {
+  "id": "l-dark",
+  "kind": "lore",
+  "text": "24–48 hours of total darkness before the chop is said to push a last burst of resin. Popular, but there's little solid evidence.",
+  "status": "reviewed"
+ },
+ {
+  "id": "l-molasses",
+  "kind": "lore",
+  "text": "A teaspoon of unsulphured molasses per litre in late bloom is supposed to 'feed the microbes' and sweeten the smoke. In hydro it mostly feeds slime, so skip it in the bucket.",
+  "status": "reviewed"
+ },
+ {
+  "id": "l-icewater",
+  "kind": "lore",
+  "text": "Ice-cold water on the roots the night before harvest is claimed to boost purple colours and resin. Purple comes mostly from genetics plus cool nights over weeks, not one shock.",
+  "status": "reviewed"
+ },
+ {
+  "id": "l-flush",
+  "kind": "lore",
+  "text": "The 1–2 week plain-water flush for a 'cleaner burn' is one of the most argued topics on every forum. Growers swear by it, and blind tests are mixed.",
+  "status": "reviewed"
+ },
+ {
+  "id": "l-snap",
+  "kind": "lore",
+  "text": "The snap test: when small stems snap instead of bending, it's jar time. Crude, but it lines up well with ~10–12 % moisture in the bud.",
+  "status": "reviewed"
+ },
+ {
+  "id": "l-burp",
+  "kind": "lore",
+  "text": "Burp the jars a few minutes a day for the first two weeks, then weekly. If the jar smells like hay or ammonia, open it longer: it went in too wet.",
+  "status": "reviewed"
+ },
+ {
+  "id": "l-music",
+  "kind": "lore",
+  "text": "Some growers swear plants grow better with music. The airflow from the fan next to the speaker is more likely the hero.",
+  "status": "reviewed"
+ },
+ {
+  "id": "t-n01",
+  "kind": "fact",
+  "topic": "Botany",
+  "text": "Topping works because of apical dominance: the growing tip makes auxin, a hormone that keeps the side shoots below it small. Cut the tip and the auxin supply stops, so the next shoots down take over.",
+  "src": {
+   "t": "Wikipedia: Apical dominance",
+   "u": "https://en.wikipedia.org/wiki/Apical_dominance"
+  },
+  "phase": [
+   "grow"
+  ],
+  "status": "reviewed"
+ },
+ {
+  "id": "t-n02",
+  "kind": "fact",
+  "topic": "Botany",
+  "text": "Plants measure night length with phytochrome, a pigment that flips between two forms under red and far-red light. A short flash of light in the middle of the night resets the count, which is why light leaks during 12/12 matter.",
+  "src": {
+   "t": "Wikipedia: Phytochrome",
+   "u": "https://en.wikipedia.org/wiki/Phytochrome"
+  },
+  "phase": [
+   "grow",
+   "bloom"
+  ],
+  "status": "reviewed"
+ },
+ {
+  "id": "t-n03",
+  "kind": "fact",
+  "topic": "Botany",
+  "text": "The first two round leaves after sprouting are cotyledons, seed leaves that were already packed inside the seed. The first serrated leaves above them are the plant's first true leaves.",
+  "src": {
+   "t": "Wikipedia: Cotyledon",
+   "u": "https://en.wikipedia.org/wiki/Cotyledon"
+  },
+  "phase": [
+   "germ",
+   "grow"
+  ],
+  "status": "reviewed"
+ },
+ {
+  "id": "t-n04",
+  "kind": "fact",
+  "topic": "Botany",
+  "text": "Cannabis leaves sit in opposite pairs in veg. When the plant matures and flowers, the arrangement shifts to alternate, one leaf per node, staggered up the stem.",
+  "src": {
+   "t": "Wikipedia: Phyllotaxis",
+   "u": "https://en.wikipedia.org/wiki/Phyllotaxis"
+  },
+  "phase": [
+   "grow",
+   "bloom"
+  ],
+  "status": "reviewed"
+ },
+ {
+  "id": "t-n05",
+  "kind": "fact",
+  "topic": "Botany",
+  "text": "Cannabis is usually dioecious: male and female flowers grow on separate plants. Feminised seeds exist so that home growers get only the resin-rich female flowers.",
+  "src": {
+   "t": "Wikipedia: Cannabis",
+   "u": "https://en.wikipedia.org/wiki/Cannabis"
+  },
+  "status": "reviewed"
+ },
+ {
+  "id": "t-n06",
+  "kind": "fact",
+  "topic": "Botany",
+  "text": "Cannabis is wind-pollinated. That's why its flowers have no petals or nectar: they don't need to attract insects, just catch pollen from the air.",
+  "src": {
+   "t": "Wikipedia: Anemophily",
+   "u": "https://en.wikipedia.org/wiki/Anemophily"
+  },
+  "phase": [
+   "bloom"
+  ],
+  "status": "reviewed"
+ },
+ {
+  "id": "t-n07",
+  "kind": "fact",
+  "topic": "Botany",
+  "text": "A cannabis 'seed' is botanically a fruit, an achene: one seed inside a thin hard shell that doesn't split open by itself.",
+  "src": {
+   "t": "Wikipedia: Achene",
+   "u": "https://en.wikipedia.org/wiki/Achene"
+  },
+  "phase": [
+   "germ"
+  ],
+  "status": "reviewed"
+ },
+ {
+  "id": "t-n08",
+  "kind": "fact",
+  "topic": "Botany",
+  "text": "Autoflowering genetics come from Cannabis ruderalis, a short, hardy type from Central Asia that flowers with age instead of night length.",
+  "src": {
+   "t": "Wikipedia: Cannabis ruderalis",
+   "u": "https://en.wikipedia.org/wiki/Cannabis_ruderalis"
+  },
+  "status": "reviewed"
+ },
+ {
+  "id": "t-n09",
+  "kind": "fact",
+  "topic": "Botany",
+  "text": "Stomata are tiny pores on the leaf underside. They let CO₂ in and water vapour out, and they close when the air is too dry. That's one reason VPD matters.",
+  "src": {
+   "t": "Wikipedia: Stoma",
+   "u": "https://en.wikipedia.org/wiki/Stoma"
+  },
+  "phase": [
+   "grow",
+   "bloom"
+  ],
+  "status": "reviewed"
+ },
+ {
+  "id": "t-n10",
+  "kind": "fact",
+  "topic": "Botany",
+  "text": "Root hairs are single-cell outgrowths behind the root tip. They multiply the root surface many times over and do most of the water and nutrient uptake.",
+  "src": {
+   "t": "Wikipedia: Root hair",
+   "u": "https://en.wikipedia.org/wiki/Root_hair"
+  },
+  "phase": [
+   "grow"
+  ],
+  "medium": [
+   "hydro",
+   "soil",
+   "living-soil",
+   "coco"
+  ],
+  "status": "reviewed"
+ },
+ {
+  "id": "t-n11",
+  "kind": "fact",
+  "topic": "Botany",
+  "text": "Chlorophyll absorbs mostly red and blue light and reflects green. That's why leaves look green, and why grow lights put most of their output into red and blue.",
+  "src": {
+   "t": "Wikipedia: Chlorophyll",
+   "u": "https://en.wikipedia.org/wiki/Chlorophyll"
+  },
+  "phase": [
+   "grow",
+   "bloom"
+  ],
+  "status": "reviewed"
+ },
+ {
+  "id": "t-n12",
+  "kind": "fact",
+  "topic": "Botany",
+  "text": "Purple leaves and buds come from anthocyanins, the pigments in blueberries and red cabbage. Genetics decide whether a plant can make them; cool nights late in bloom often bring them out.",
+  "src": {
+   "t": "Wikipedia: Anthocyanin",
+   "u": "https://en.wikipedia.org/wiki/Anthocyanin"
+  },
+  "phase": [
+   "bloom"
+  ],
+  "status": "reviewed"
+ },
+ {
+  "id": "t-n13",
+  "kind": "fact",
+  "topic": "Botany",
+  "text": "Mycorrhizal fungi live on and in roots and extend them with fine threads, trading water and minerals for sugars from the plant. Living soil relies on partnerships like this.",
+  "src": {
+   "t": "Wikipedia: Mycorrhiza",
+   "u": "https://en.wikipedia.org/wiki/Mycorrhiza"
+  },
+  "medium": [
+   "living-soil",
+   "soil"
+  ],
+  "status": "reviewed"
+ },
+ {
+  "id": "t-n14",
+  "kind": "fact",
+  "topic": "Botany",
+  "text": "Trichomes come in three main types on cannabis: bulbous, capitate-sessile and capitate-stalked. The stalked ones on the flowers make most of the resin.",
+  "src": {
+   "t": "Wikipedia: Trichome",
+   "u": "https://en.wikipedia.org/wiki/Trichome"
+  },
+  "phase": [
+   "bloom",
+   "dry",
+   "cure"
+  ],
+  "status": "reviewed"
+ },
+ {
+  "id": "t-n15",
+  "kind": "fact",
+  "topic": "Good to know",
+  "text": "PAR is the light plants can use for photosynthesis: wavelengths from 400 to 700 nm. PPFD measures how many of those photons land on a square metre each second.",
+  "src": {
+   "t": "Wikipedia: Photosynthetically active radiation",
+   "u": "https://en.wikipedia.org/wiki/Photosynthetically_active_radiation"
+  },
+  "phase": [
+   "grow",
+   "bloom"
+  ],
+  "status": "reviewed"
+ },
+ {
+  "id": "t-n16",
+  "kind": "fact",
+  "topic": "Good to know",
+  "text": "DLI, the daily light integral, adds up all the light a plant gets in a day. The same PPFD gives a smaller DLI on 12/12 than on 18/6, because the day is shorter.",
+  "src": {
+   "t": "Wikipedia: Daily light integral",
+   "u": "https://en.wikipedia.org/wiki/Daily_light_integral"
+  },
+  "phase": [
+   "grow",
+   "bloom"
+  ],
+  "status": "reviewed"
+ },
+ {
+  "id": "t-n17",
+  "kind": "fact",
+  "topic": "Chemistry",
+  "text": "Cannabinoids start from one 'mother' molecule, CBGA. Enzymes in the plant turn it into THCA, CBDA or CBCA; which one depends on the plant's genes.",
+  "src": {
+   "t": "Wikipedia: Cannabigerolic acid",
+   "u": "https://en.wikipedia.org/wiki/Cannabigerolic_acid"
+  },
+  "status": "reviewed"
+ },
+ {
+  "id": "t-n18",
+  "kind": "fact",
+  "topic": "Chemistry",
+  "text": "Fresh cannabis contains almost no THC. It makes THCA, which turns into THC with heat (decarboxylation). That's why raw flowers aren't intoxicating.",
+  "src": {
+   "t": "Wikipedia: Tetrahydrocannabinolic acid",
+   "u": "https://en.wikipedia.org/wiki/Tetrahydrocannabinolic_acid"
+  },
+  "phase": [
+   "bloom",
+   "cure",
+   "done"
+  ],
+  "status": "reviewed"
+ },
+ {
+  "id": "t-n19",
+  "kind": "fact",
+  "topic": "Chemistry",
+  "text": "The skunky smell of cannabis isn't mainly terpenes. A 2021 study traced it to sulfur compounds, mainly 3-methyl-2-butene-1-thiol, a cousin of compounds in garlic and skunk spray.",
+  "src": {
+   "t": "Oswald et al., ACS Omega 2021",
+   "u": "https://pmc.ncbi.nlm.nih.gov/articles/PMC8638000"
+  },
+  "phase": [
+   "bloom",
+   "dry",
+   "cure"
+  ],
+  "status": "reviewed"
+ },
+ {
+  "id": "t-n20",
+  "kind": "fact",
+  "topic": "Chemistry",
+  "text": "In the same study, the skunky sulfur compounds rose sharply in the last weeks of flowering and peaked during curing.",
+  "src": {
+   "t": "Oswald et al., ACS Omega 2021",
+   "u": "https://pmc.ncbi.nlm.nih.gov/articles/PMC8638000"
+  },
+  "phase": [
+   "bloom",
+   "cure"
+  ],
+  "status": "reviewed"
+ },
+ {
+  "id": "t-n21",
+  "kind": "fact",
+  "topic": "Chemistry",
+  "text": "Myrcene, often the most abundant terpene in cannabis, is also in hops, mango and lemongrass.",
+  "src": {
+   "t": "Wikipedia: Myrcene",
+   "u": "https://en.wikipedia.org/wiki/Myrcene"
+  },
+  "status": "reviewed"
+ },
+ {
+  "id": "t-n22",
+  "kind": "fact",
+  "topic": "Chemistry",
+  "text": "Limonene is the main scent compound of citrus peel. In cannabis it gives the bright, lemony notes.",
+  "src": {
+   "t": "Wikipedia: Limonene",
+   "u": "https://en.wikipedia.org/wiki/Limonene"
+  },
+  "status": "reviewed"
+ },
+ {
+  "id": "t-n23",
+  "kind": "fact",
+  "topic": "Chemistry",
+  "text": "Pinene is the most common terpene in nature; its two forms smell of pine needles and rosemary.",
+  "src": {
+   "t": "Wikipedia: Pinene",
+   "u": "https://en.wikipedia.org/wiki/Pinene"
+  },
+  "status": "reviewed"
+ },
+ {
+  "id": "t-n24",
+  "kind": "fact",
+  "topic": "Chemistry",
+  "text": "Linalool is the flowery terpene of lavender. It's also one of the terpenes cannabis can make.",
+  "src": {
+   "t": "Wikipedia: Linalool",
+   "u": "https://en.wikipedia.org/wiki/Linalool"
+  },
+  "status": "reviewed"
+ },
+ {
+  "id": "t-n25",
+  "kind": "fact",
+  "topic": "Chemistry",
+  "text": "Humulene is named after hops (Humulus lupulus), cannabis's close relative. It gives a woody, earthy note.",
+  "src": {
+   "t": "Wikipedia: Humulene",
+   "u": "https://en.wikipedia.org/wiki/Humulene"
+  },
+  "status": "reviewed"
+ },
+ {
+  "id": "t-n26",
+  "kind": "fact",
+  "topic": "Chemistry",
+  "text": "Terpenes are volatile: they evaporate easily, which is why a slow, cool dry keeps more aroma than a fast, warm one.",
+  "src": {
+   "t": "Wikipedia: Terpene",
+   "u": "https://en.wikipedia.org/wiki/Terpene"
+  },
+  "phase": [
+   "dry",
+   "cure"
+  ],
+  "status": "reviewed"
+ },
+ {
+  "id": "t-n27",
+  "kind": "fact",
+  "topic": "Good to know",
+  "text": "There's an ASTM standard for stored cannabis: water activity between 0.55 and 0.65. Above 0.65 mould can grow; below 0.55 the flowers turn brittle. 58–62 % jar RH lands right in that range.",
+  "src": {
+   "t": "ASTM D8197-22",
+   "u": "https://webstore.ansi.org/standards/astm/astmd819722"
+  },
+  "phase": [
+   "cure",
+   "done"
+  ],
+  "status": "reviewed"
+ },
+ {
+  "id": "t-n28",
+  "kind": "fact",
+  "topic": "Good to know",
+  "text": "Water activity measures how freely water can move out of a material, not how much water it holds. A jar hygrometer reads it indirectly: in a sealed jar, the air settles at the buds' water activity.",
+  "src": {
+   "t": "Wikipedia: Water activity",
+   "u": "https://en.wikipedia.org/wiki/Water_activity"
+  },
+  "phase": [
+   "cure",
+   "done"
+  ],
+  "status": "reviewed"
+ },
+ {
+  "id": "t-n29",
+  "kind": "fact",
+  "topic": "Good to know",
+  "text": "Grey fuzzy rot inside dense buds is usually Botrytis cinerea, the same fungus that rots strawberries. It loves cool, humid air and still air.",
+  "src": {
+   "t": "Wikipedia: Botrytis cinerea",
+   "u": "https://en.wikipedia.org/wiki/Botrytis_cinerea"
+  },
+  "phase": [
+   "bloom",
+   "dry"
+  ],
+  "status": "reviewed"
+ },
+ {
+  "id": "t-n30",
+  "kind": "fact",
+  "topic": "Hydro",
+  "text": "In hydro, brown slimy roots and a swampy smell often mean Pythium, a water mould that thrives in warm, low-oxygen water.",
+  "src": {
+   "t": "Wikipedia: Pythium",
+   "u": "https://en.wikipedia.org/wiki/Pythium"
+  },
+  "phase": [
+   "grow",
+   "bloom"
+  ],
+  "medium": [
+   "hydro"
+  ],
+  "status": "reviewed"
+ },
+ {
+  "id": "t-n31",
+  "kind": "fact",
+  "topic": "Hydro",
+  "text": "DWC (deep water culture) roots hang in aerated nutrient water. The air stone isn't for stirring: it keeps the water full of dissolved oxygen the roots breathe.",
+  "src": {
+   "t": "Wikipedia: Hydroponics",
+   "u": "https://en.wikipedia.org/wiki/Hydroponics"
+  },
+  "phase": [
+   "grow",
+   "bloom"
+  ],
+  "medium": [
+   "hydro"
+  ],
+  "status": "reviewed"
+ },
+ {
+  "id": "t-n32",
+  "kind": "fact",
+  "topic": "Good to know",
+  "text": "An EC meter measures how many dissolved ions carry current, not which ones. It can't tell CalMag from bloom nutrients, only the total.",
+  "src": {
+   "t": "Wikipedia: Electrical resistivity and conductivity",
+   "u": "https://en.wikipedia.org/wiki/Electrical_resistivity_and_conductivity"
+  },
+  "phase": [
+   "grow",
+   "bloom"
+  ],
+  "medium": [
+   "hydro",
+   "coco"
+  ],
+  "status": "reviewed"
+ },
+ {
+  "id": "t-n33",
+  "kind": "fact",
+  "topic": "Good to know",
+  "text": "Nitrogen is mobile in the plant: when it runs short, the plant moves it from old leaves to new growth, so yellowing starts at the bottom.",
+  "src": {
+   "t": "Wikipedia: Nitrogen deficiency",
+   "u": "https://en.wikipedia.org/wiki/Nitrogen_deficiency"
+  },
+  "phase": [
+   "grow",
+   "bloom"
+  ],
+  "status": "reviewed"
+ },
+ {
+  "id": "t-n34",
+  "kind": "fact",
+  "topic": "Good to know",
+  "text": "Calcium is immobile in the plant: it can't be moved once placed. Calcium problems therefore show up on new growth first.",
+  "src": {
+   "t": "Wikipedia: Plant nutrition",
+   "u": "https://en.wikipedia.org/wiki/Plant_nutrition"
+  },
+  "phase": [
+   "grow",
+   "bloom"
+  ],
+  "status": "reviewed"
+ },
+ {
+  "id": "t-n35",
+  "kind": "fact",
+  "topic": "Good to know",
+  "text": "pH decides which nutrients roots can take up. Most are available in a middle band; outside it, some get locked out even when they're in the water or soil.",
+  "src": {
+   "t": "Wikipedia: Soil pH",
+   "u": "https://en.wikipedia.org/wiki/Soil_pH"
+  },
+  "phase": [
+   "grow",
+   "bloom"
+  ],
+  "status": "reviewed"
+ },
+ {
+  "id": "t-n36",
+  "kind": "fact",
+  "topic": "History",
+  "text": "Cannabis found in the Yanghai tombs in China, about 2,700 years old, is among the oldest known evidence of cannabis used for its psychoactive properties.",
+  "src": {
+   "t": "Wikipedia: Yanghai Tombs",
+   "u": "https://en.wikipedia.org/wiki/Yanghai_Tombs"
+  },
+  "status": "reviewed"
+ },
+ {
+  "id": "t-n37",
+  "kind": "fact",
+  "topic": "History",
+  "text": "Hemp is one of the oldest fibre crops: rope, sails and paper were made from cannabis stems long before the flowers became the focus.",
+  "src": {
+   "t": "Wikipedia: Hemp",
+   "u": "https://en.wikipedia.org/wiki/Hemp"
+  },
+  "status": "reviewed"
+ },
+ {
+  "id": "t-n38",
+  "kind": "fact",
+  "topic": "History",
+  "text": "Auxin, the hormone behind apical dominance, was the first plant hormone discovered, partly through experiments by Charles Darwin and his son on bending grass seedlings.",
+  "src": {
+   "t": "Wikipedia: Auxin",
+   "u": "https://en.wikipedia.org/wiki/Auxin"
+  },
+  "phase": [
+   "grow"
+  ],
+  "status": "reviewed"
+ },
+ {
+  "id": "t-n39",
+  "kind": "lore",
+  "text": "Some growers swear by a few days of slightly cooler nights late in bloom to bring out purple colour. It only works if the genetics carry anthocyanins.",
+  "phase": [
+   "bloom"
+  ],
+  "status": "reviewed"
+ },
+ {
+  "id": "t-n40",
+  "kind": "lore",
+  "text": "'Stems should snap, not bend' is the classic jar rule, but some growers jar a little earlier and let the jars finish the dry, burping often.",
+  "phase": [
+   "dry"
+  ],
+  "status": "reviewed"
+ },
+ {
+  "id": "t-n41",
+  "kind": "lore",
+  "text": "Many hydro growers say a few drops of hydrogen peroxide keep roots clean. Others warn it kills the helpful microbes too; opinions are split.",
+  "phase": [
+   "grow",
+   "bloom"
+  ],
+  "medium": [
+   "hydro"
+  ],
+  "status": "reviewed"
+ },
+ {
+  "id": "t-n42",
+  "kind": "lore",
+  "text": "'Feed the plant, not the schedule' is a forum favourite: watch the leaves and the EC curve rather than the nutrient chart.",
+  "phase": [
+   "grow",
+   "bloom"
+  ],
+  "status": "reviewed"
+ },
+ {
+  "id": "t-n43",
+  "kind": "lore",
+  "text": "Some growers stroke or gently shake their plants daily, claiming thicker stems. Wind-like movement does stiffen stems in many plants (thigmomorphogenesis); the cannabis-specific claims are mostly anecdotal.",
+  "phase": [
+   "grow"
+  ],
+  "status": "reviewed"
+ },
+ {
+  "id": "t-n44",
+  "kind": "lore",
+  "text": "A popular rule of thumb says fan leaves 'pray' (point upward) when the plant is happy with light and water.",
+  "phase": [
+   "grow",
+   "bloom"
+  ],
+  "status": "reviewed"
+ },
+ {
+  "id": "t-n45",
+  "kind": "lore",
+  "text": "Some growers swear by curing for 2–3 months before judging a strain. Forum consensus: taste keeps improving for weeks, strength doesn't.",
+  "phase": [
+   "cure",
+   "done"
+  ],
+  "status": "reviewed"
+ }
+]

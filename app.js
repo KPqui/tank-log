@@ -348,6 +348,42 @@ function loadCfg(){ try { return JSON.parse(localStorage.getItem(CFG_KEY) || "nu
 function saveCfg(c){ try { c ? localStorage.setItem(CFG_KEY, JSON.stringify(c)) : localStorage.removeItem(CFG_KEY); } catch(e){} }
 function b64enc(str){ const b = new TextEncoder().encode(str); let s = ""; for (let i=0;i<b.length;i+=0x8000) s += String.fromCharCode.apply(null, b.subarray(i,i+0x8000)); return btoa(s); }
 function b64dec(b64){ const bin = atob(b64.replace(/\n/g,"")); const b = new Uint8Array(bin.length); for (let i=0;i<bin.length;i++) b[i] = bin.charCodeAt(i); return new TextDecoder().decode(b); }
+
+/* ---------- storage: GitHub repo (S.cfg {owner, repo, token}) or this phone only (S.cfg {mode:"local"}) ----------
+   Try mode keeps every file in the phone's IndexedDB under the same paths the repo uses (plants.json, media/…),
+   so the rest of the app doesn't care where data lives. Browsers may clear site data, so Settings offers a backup file. */
+const isLocal = () => !!(S.cfg && S.cfg.mode === "local");
+let idbP = null;
+function idb(){ if (!idbP) idbP = new Promise((res, rej) => { const r = indexedDB.open("flowerphile-local", 1); r.onupgradeneeded = () => r.result.createObjectStore("files"); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); }); return idbP; }
+async function lget(path){ const db = await idb(); return new Promise((res, rej) => { const q = db.transaction("files").objectStore("files").get(path); q.onsuccess = () => res(q.result === undefined ? null : q.result); q.onerror = () => rej(q.error); }); }
+async function lput(path, v){ const db = await idb(); return new Promise((res, rej) => { const t = db.transaction("files", "readwrite"); t.objectStore("files").put(v, path); t.oncomplete = () => res(); t.onerror = () => rej(t.error); }); }
+async function lall(){ const db = await idb(); return new Promise((res, rej) => { const out = {}, q = db.transaction("files").objectStore("files").openCursor(); q.onsuccess = () => { const c = q.result; if (c){ out[c.key] = c.value; c.continue(); } else res(out); }; q.onerror = () => rej(q.error); }); }
+async function lclear(){ const db = await idb(); return new Promise((res, rej) => { const t = db.transaction("files", "readwrite"); t.objectStore("files").clear(); t.oncomplete = () => res(); t.onerror = () => rej(t.error); }); }
+async function startLocal(){
+  S.cfg = {mode:"local", since:new Date().toISOString()}; saveCfg(S.cfg);
+  try { if (navigator.storage && navigator.storage.persist) await navigator.storage.persist(); } catch(e){}   // ask the browser not to clear it
+  await loadAll(); location.hash = S.plants.length ? "#today" : "#plant-new";
+}
+/* backup: every file as JSON (photos and sensor files base64), one download; restore writes them back */
+async function makeBackup(withMedia){
+  const files = {};
+  if (isLocal()){ const all = await lall(); for (const [k, v] of Object.entries(all)){ if (v instanceof Blob){ if (withMedia) files[k] = {b64: await blobToB64(v), type: v.type}; } else files[k] = {json: v}; } }
+  else { for (const f of ["plants.json","tasks.json","logs.json","changes.json","tips.json","strains.json","library.json","experiments.json","sensors.json"]){ const d = (await getJSON(f)).data; if (d != null) files[f] = {json: d}; }
+    if (withMedia) for (const l of S.logs) for (const pth of (l.photos || []).concat(l.files || [])){ const r = await api(pth, null, "application/vnd.github.raw"); if (r.ok){ const b = await r.blob(); files[pth] = {b64: await blobToB64(b), type: b.type}; } } }
+  const blob = new Blob([JSON.stringify({app:"flowerphile", version:APP_V, made:new Date().toISOString(), files})], {type:"application/json"});
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "flowerphile-backup-" + today() + ".json"; document.body.append(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 2000);
+  return Object.keys(files).length;
+}
+async function restoreBackup(file){
+  const j = JSON.parse(await file.text()); if (!j || j.app !== "flowerphile" || !j.files) throw new Error("Not a Flowerphile backup");
+  if (!isLocal()) throw new Error("Restore works in try mode (this phone only)");
+  for (const [k, v] of Object.entries(j.files)){
+    if (v.json !== undefined) await lput(k, v.json);
+    else if (v.b64){ const bin = atob(v.b64), u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i); await lput(k, new Blob([u], {type: v.type || "application/octet-stream"})); }
+  }
+  imgCache.clear(); await loadAll(); return Object.keys(j.files).length;
+}
+
 function api(path, init, accept){
   const c = S.cfg;
   return fetch("https://api.github.com/repos/"+encodeURIComponent(c.owner)+"/"+encodeURIComponent(c.repo)+"/contents/"+path, Object.assign({cache:"no-store"}, init, {
@@ -356,6 +392,7 @@ function api(path, init, accept){
 }
 class StoreError extends Error { constructor(code, status){ super(code); this.code = code; this.status = status; } }
 async function getJSON(path){
+  if (isLocal()) return {data: await lget(path), sha: "local"};
   const r = await api(path);
   if (r.status === 404) return {data:null, sha:null};
   if (r.status === 401 || r.status === 403) throw new StoreError("auth", r.status);
@@ -372,6 +409,7 @@ async function putB64(path, b64, sha, message){
   return r;
 }
 async function mutate(path, fn, message){
+  if (isLocal()){ const next = fn(await lget(path)); await lput(path, JSON.parse(JSON.stringify(next))); return next; }
   for (let i = 0; i < 4; i++){
     const {data, sha} = await getJSON(path);
     const next = fn(data);
@@ -402,6 +440,7 @@ async function uploadFiles(list, kind){
     const base = csv && f.name ? f.name.replace(/[^\w.-]+/g,"_").replace(/\.(csv|txt)$/i,"") : kind;
     const path = "media/" + stamp.slice(0,10) + "/" + stamp.replace(/[:.]/g,"-") + "-" + n + "-" + base + "." + (csv ? "csv" : "jpg");
     if (blob.size > 20e6) throw new StoreError("too_large");
+    if (isLocal()){ await lput(path, blob); out.push(path); continue; }
     const r = await putB64(path, await blobToB64(blob), null, "media " + path);
     if (!r.ok) throw new StoreError("http", r.status);
     out.push(path);
@@ -411,7 +450,7 @@ async function uploadFiles(list, kind){
 const imgCache = new Map();
 function mediaUrl(path){
   if (imgCache.has(path)) return imgCache.get(path);
-  const p = api(path, null, "application/vnd.github.raw").then(r => r.ok ? r.blob() : null).then(b => b ? URL.createObjectURL(b) : null).catch(() => null);
+  const p = (isLocal() ? lget(path) : api(path, null, "application/vnd.github.raw").then(r => r.ok ? r.blob() : null)).then(b => b instanceof Blob ? URL.createObjectURL(b) : null).catch(() => null);
   imgCache.set(path, p); return p;
 }
 
@@ -612,7 +651,7 @@ async function loadAll(){
   try {
     let [plants, tasks, logs, changes, tips, strainsRes, libRes, expRes, senRes] = await Promise.all(["plants.json","tasks.json","logs.json","changes.json","tips.json","strains.json","library.json","experiments.json","sensors.json"].map(p => getJSON(p).catch(() => ({data:null}))));
     S.tips = (tips && tips.data) || []; S.experiments = (expRes && expRes.data) || []; S.smeta = (senRes && senRes.data) || null; S.strains = (strainsRes && strainsRes.data) || []; S.library = (libRes && libRes.data) || [];
-    if (!plants.data){
+    if (!plants.data && !isLocal()){
       const run = (await getJSON("run.json")).data;
       if (run){
         const p = Object.assign({}, run, {id:run.id || "tank1", medium:"hydro", system:"dwc", where:"indoor", status:"active", sensor:"Grow Fridge 3000"});
@@ -637,7 +676,7 @@ function loadCache(){
 
 /* ---------- routing ---------- */
 const VIEWS = ["today","log","plan","setup","plant","quiz","strain","library"];
-const APP_V = "v44";
+const APP_V = "v45";
 const GEAR_SVG = '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="3.2"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1"/></svg>';
 function route(){
   let v = location.hash.slice(1);
@@ -1222,7 +1261,7 @@ const EVENT_MARK = {"Fed":"F", "Water change":"W", "Topped off":"T", "pH adjuste
 const EVENTS_FOR = {ph:["Fed","Water change","Topped off","pH adjusted"], ec:["Fed","Water change","Topped off"], water:["Water change","Topped off"], height:["Trained","Trimmed","Light changed"],
   air:["Light changed","Sensor moved"], rh:["Sensor moved","Humidity pack in"], vpd:["Light changed","Sensor moved"], jar_rh:["Burped","Humidity pack in"], weight:[], lost:[]};
 const textCache = new Map();
-function fetchText(path){ if (!textCache.has(path)) textCache.set(path, api(path, null, "application/vnd.github.raw").then(r => r.ok ? r.text() : null).catch(() => null)); return textCache.get(path); }
+function fetchText(path){ if (!textCache.has(path)) textCache.set(path, isLocal() ? lget(path).then(b => b instanceof Blob ? b.text() : null).catch(() => null) : api(path, null, "application/vnd.github.raw").then(r => r.ok ? r.text() : null).catch(() => null)); return textCache.get(path); }
 S.chartRange = (() => { try { return +(localStorage.getItem("ff-chart-range") ?? 7); } catch(e){ return 7; } })();
 async function sensorPoints(p, from, kinds){
   const rows = new Map();
@@ -1545,7 +1584,8 @@ async function loadKnowledge(){
     if (pages || tips || strains){ S.kn = {pages: pages || S.kn.pages, tips: tips || S.kn.tips, strains: strains || S.kn.strains}; try { localStorage.setItem(KN_KEY, JSON.stringify(S.kn)); } catch(e){} }
   } catch(e){}
 }
-const allTips = () => (S.tips || []).concat((S.kn.tips || []).filter(t => t.status !== "rejected"));
+const allTips = () => { const own = S.tips || [], ids = new Set(own.map(t => t.id));   // own tips first; public starter tips fill in (same ids skipped)
+  return own.concat((S.kn.tips || []).filter(t => t.status !== "rejected" && !ids.has(t.id))); };
 function allStrains(){ const own = S.strains || [], seen = new Set(own.map(x => norm(x.name)));
   return own.concat((S.kn.strains || []).filter(x => !seen.has(norm(x.name)) && x.status !== "rejected")); }
 const AREA = {technique:"Techniques", problem:"Problems", environment:"Environment", nutrition:"Nutrition", botany:"Botany", chemistry:"Chemistry", harvest:"Harvest & drying", cure:"Curing", history:"History"};
@@ -1758,6 +1798,7 @@ async function saveQuiz(){
     text:"Setup questions answered" + (tasks.length ? "; added " + tasks.map(t => t.title.toLowerCase()).join(", ") : "") + (warn ? "; " + warn + " warning" + (warn > 1 ? "s" : "") + " to watch" : "") + "."}), "setup: why")).slice().sort((x, y) => (y.date||"").localeCompare(x.date||"")); } catch(e){}
   cache(); S.sel = id; try { localStorage.setItem(SEL_KEY, id); } catch(e){}
   S.qz = null; renderAll(); location.hash = isNew ? "#today" : "#plan";
+  S.planRan = null; keepPlans();                          // a new plant gets its first days planned right away
 }
 function setupPanel(p){
   if (!p || p.status !== "active" || !["germ","grow","bloom"].includes(phaseOf(p))) return null;
@@ -2166,13 +2207,21 @@ function renderSetup(){
   const c = S.cfg;
   const tb = $("#s-theme"); tb.replaceChildren(); for (const [v,l] of [["auto","Follow phone"],["day","Day"],["night","Night"],["plant","Follow plant"]]) tb.append(h("button",{type:"button",class:"chip","aria-pressed": themePref()===v ? "true":"false", onclick:() => { try { localStorage.setItem(THEME_KEY, v); } catch(e){} applyTheme(); renderSetup(); }}, l));
   renderThemeNote();
+  // first visit: a welcome with two ways in; the GitHub form only shows when asked for
+  const local = isLocal(), fresh = !c;
+  $("#s-welcome").hidden = !fresh; $("#setupform").hidden = (fresh && !S.showConnect) || local;
+  $("#s-local").hidden = !local; $("#s-backup").hidden = !c;
+  if (local) $("#s-localsince").textContent = "Since " + fmtDay(c.since.slice(0, 10)) + ". Nothing leaves this phone. Browsers can clear site data, so save a backup now and then.";
   if (document.activeElement && document.activeElement.closest && document.activeElement.closest("#setupform")) return;
+  if (local){ $("#s-plants").hidden = false; $("#s-connected").hidden = true; renderSensorList(); renderPlantList(); return; }
   $("#s-owner").value = c ? c.owner : ""; $("#s-repo").value = c ? c.repo : "tank-log-data"; $("#s-token").value = "";
   $("#s-token").placeholder = c ? "saved · paste a new one to replace" : "github_pat_…";
   $("#s-connected").hidden = !c; if (c) $("#s-where").textContent = c.owner + "/" + c.repo;
   $("#s-save").textContent = c ? "Save" : "Connect";
   $("#s-plants").hidden = !c;
-  renderSensorList();
+  renderSensorList(); renderPlantList();
+}
+function renderPlantList(){
   const pl = $("#s-plantlist"); pl.replaceChildren();
   if (!S.plants.length) pl.append(h("p",{class:"empty"},"No plants yet."));
   for (const p of S.plants){
@@ -2203,6 +2252,19 @@ $("#setupform").addEventListener("submit", async e => {
       : "Couldn't reach the store. Check your connection.";
   } finally { $("#s-save").disabled = false; }
 });
+$("#s-try").addEventListener("click", () => startLocal());
+$("#s-showconnect").addEventListener("click", () => { S.showConnect = true; renderSetup(); $("#s-owner").focus(); });
+$("#s-bk-save").addEventListener("click", async () => { const st = $("#s-bk-status"); st.textContent = "Packing…";
+  try { const n = await makeBackup($("#s-bk-media").checked); st.textContent = "Saved " + n + " files. Keep the file somewhere safe (cloud drive, e-mail to yourself)."; } catch(e){ st.textContent = "Couldn't make the backup: " + (e.message || e); } });
+$("#s-bk-file").addEventListener("change", async e => { const f = e.target.files[0]; if (!f) return; const st = $("#s-bk-status"); st.textContent = "Restoring…";
+  try { const n = await restoreBackup(f); st.textContent = "Restored " + n + " files."; } catch(err){ st.textContent = err.message || "Couldn't restore."; } e.target.value = ""; });
+$("#s-local-erase").addEventListener("click", async () => {
+  if (!confirmTwice($("#s-local-erase"), "Tap again to erase everything on this phone")) return;
+  await lclear(); saveCfg(null); S.cfg = null; try { localStorage.removeItem(CACHE_KEY); } catch(e){}
+  Object.assign(S, {plants:[], tasks:[], logs:[], changes:[], library:[], strains:[], tips:[], experiments:[]}); imgCache.clear(); renderAll(); renderSetup(); setSync("–");
+});
+/* a destructive button asks twice (no browser dialogs): first tap arms it for 4 s */
+function confirmTwice(btn, text){ if (btn._armed){ btn._armed = false; btn.textContent = btn._orig; return true; } btn._orig = btn.textContent; btn._armed = true; btn.textContent = text; setTimeout(() => { if (btn._armed){ btn._armed = false; btn.textContent = btn._orig; } }, 4000); return false; }
 $("#s-out").addEventListener("click", () => {
   saveCfg(null); S.cfg = null; try { localStorage.removeItem(CACHE_KEY); } catch(e){}
   Object.assign(S, {plants:[], tasks:[], logs:[], changes:[]}); renderAll(); renderSetup(); setSync("–");
