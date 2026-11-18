@@ -4,6 +4,9 @@
 const APP = "Flowerphile";
 const CFG_KEY = "tanklog-cfg", CACHE_KEY = "tanklog-cache", SEL_KEY = "ff-plant";
 const BERLIN = {lat:52.4996, lon:13.4180};
+/* where an outdoor plant stands: its own lat/lon (setup questions); without one, no weather in try mode
+   (a newcomer shouldn't get Berlin weather); the GitHub setup keeps Berlin as its old default */
+function placeOf(p){ if (p && p.lat != null && p.lon != null) return {lat:p.lat, lon:p.lon}; return isLocal() ? null : BERLIN; }
 
 /* ---------- grow styles ---------- */
 const MEDIA = {
@@ -318,7 +321,7 @@ function drawBackground(p){
   const ph = p ? phaseOf(p) : "grow", indoorGrow = p && p.where !== "outdoor" && ["germ","grow","bloom"].includes(ph);
   const outdoor = p && p.where === "outdoor" && !["dry","cure","done"].includes(ph);
   let wx = {};
-  if (outdoor){ const w = S.weather[(p.lat||BERLIN.lat)+","+(p.lon||BERLIN.lon)], c = w && w.j.current || {}, d = w && w.j.daily || {};
+  if (outdoor && placeOf(p)){ const pl = placeOf(p), w = S.weather[pl.lat+","+pl.lon], c = w && w.j.current || {}, d = w && w.j.daily || {};
     wx = {cloud: c.cloud_cover, rain: (d.precipitation_sum && d.precipitation_sum[0]) || 0, gust: (d.wind_gusts_10m_max && d.wind_gusts_10m_max[0]) || 0}; }
   const warm = indoorGrow && (latestSensor() || {}).temp > ((targetsOf(p).air || [0, 99])[1]);
   const key = [W, H, p && p.id, ph, p && p.medium, indoorGrow, outdoor, JSON.stringify(wx), warm, document.documentElement.dataset.theme].join("|");
@@ -615,7 +618,8 @@ function plantNight(p){
   if (ph === "dry" || ph === "cure") return {night: true, why: (ph === "dry" ? "Drying" : "Curing") + " happens in the dark"};
   if (ph === "done") return null;
   if (p.where === "outdoor"){
-    const w = S.weather[(p.lat || BERLIN.lat) + "," + (p.lon || BERLIN.lon)], d = w && w.j && w.j.daily;
+    const pl = placeOf(p); if (!pl) return null;
+    const w = S.weather[pl.lat + "," + pl.lon], d = w && w.j && w.j.daily;
     if (!d || !d.sunrise){ loadWeather(p).then(() => applyTheme()); return null; }
     const rise = hm2min((d.sunrise[0] || "").slice(11, 16)), set = hm2min((d.sunset[0] || "").slice(11, 16));
     const night = mins < rise || mins >= set;
@@ -629,7 +633,8 @@ function plantNight(p){
 
 /* ---------- weather (outdoor) ---------- */
 async function loadWeather(p){
-  const lat = p.lat || BERLIN.lat, lon = p.lon || BERLIN.lon, key = lat+","+lon;
+  const pl = placeOf(p); if (!pl) return null;
+  const lat = pl.lat, lon = pl.lon, key = lat+","+lon;
   const c = S.weather[key];
   if (c && Date.now() - c.at < 30*60e3) return c;
   const url = "https://api.open-meteo.com/v1/forecast?latitude="+lat+"&longitude="+lon+
@@ -676,7 +681,7 @@ function loadCache(){
 
 /* ---------- routing ---------- */
 const VIEWS = ["today","log","plan","setup","plant","quiz","strain","library"];
-const APP_V = "v45";
+const APP_V = "v46";
 const GEAR_SVG = '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="3.2"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1"/></svg>';
 function route(){
   let v = location.hash.slice(1);
@@ -932,7 +937,8 @@ function researchBrief(e){
   const sh = (S.strains || [])[0];
   return ["Flowerphile strain research: " + e.name + (e.breeder ? " (" + e.breeder + ")" : ""),
     "Research this strain from sourced material: the breeder's page, lab results where they exist, and broad user reports. Write in your own words, list the sources, mark claims that only the breeder makes.",
-    "Then add a sheet to strains.json in KPqui/tank-log-data in the same shape as the existing sheets" + (sh ? " (keys: " + Object.keys(sh).join(", ") + ")" : "") + ", link it from the library.json entry id \"" + e.id + "\" via `sheet`, fill kind/flower (days)/thc/terps/effects on that entry and remove `request`.",
+    isLocal() || !S.cfg ? "Give me the result as a short sheet: type, genetics, flowering days, height, THC, main terpenes, taste, effects, a few grow notes, sources."
+      : "Then add a sheet to strains.json in " + S.cfg.owner + "/" + S.cfg.repo + " in the same shape as the existing sheets" + (sh ? " (keys: " + Object.keys(sh).join(", ") + ")" : "") + ", link it from the library.json entry id \"" + e.id + "\" via `sheet`, fill kind/flower (days)/thc/terps/effects on that entry and remove `request`.",
     "Days, not weeks. Commit and push. Reply with two lines: what stands out, and how it compares to what I grow now."].join("\n");
 }
 async function researchNow(e){
@@ -1537,7 +1543,7 @@ function renderToday(){
 function envTiles(p){
   const none = {cls:"none", word:"", txt:""}; const note = $("#t-envnote"); note.textContent = "";
   if ((p.where || "indoor") === "outdoor" && !["dry","cure","done"].includes(phaseOf(p))){
-    const w = S.weather[(p.lat||BERLIN.lat)+","+(p.lon||BERLIN.lon)];
+    const pl = placeOf(p), w = pl && S.weather[pl.lat+","+pl.lon];
     if (!w){ loadWeather(p).then(x => { if (x && sel() === p) renderToday(); }); return {tiles:[["Now","–",none],["Rain mm","–",none],["Gusts km/h","–",none]], age:"loading weather"}; }
     const c = w.j.current || {}, d = w.j.daily || {};
     const t0 = c.temperature_2m, mn = d.temperature_2m_min ? d.temperature_2m_min[0] : null, rain = d.precipitation_sum ? d.precipitation_sum[0] : null, gust = d.wind_gusts_10m_max ? d.wind_gusts_10m_max[0] : null;
@@ -1743,6 +1749,15 @@ function renderQuiz(){
         go(); }}, "Next"), msg, h("a",{href:"#plant-full", class:"small"}, "All fields instead"));
     return;
   }
+  if (q.type === "geo"){
+    const msg = h("p",{class:"sub", style:"margin:0"}, a[q.id] ? "Saved: " + a[q.id].lat + ", " + a[q.id].lon : "");
+    box.append(h("button",{type:"button", class:"btn primary", onclick:() => { msg.textContent = "Asking the phone…";
+      if (!navigator.geolocation){ msg.textContent = "This browser can't share a location. Skip for now."; return; }
+      navigator.geolocation.getCurrentPosition(pos => { a[q.id] = {lat: Math.round(pos.coords.latitude * 100) / 100, lon: Math.round(pos.coords.longitude * 100) / 100}; go(); },
+        () => { msg.textContent = "No location shared. You can skip; weather just stays off."; }, {timeout: 10000, maximumAge: 3600e3}); }}, "Use my location"), msg,
+      h("button",{type:"button", class:"donebtn", onclick:go}, a[q.id] ? "Keep this" : "Skip"));
+    return;
+  }
   if (q.type === "text"){
     const inp = h("input",{type:"text", autocomplete:"off", value:a[q.id] || "", placeholder:q.placeholder || ""});
     box.append(inp, h("button",{type:"button", class:"btn primary", onclick:() => { a[q.id] = inp.value.trim() || null; go(); }}, inp.value ? "Next" : "Next (or skip)"));
@@ -1769,7 +1784,7 @@ function renderQuiz(){
 }
 function renderQuizSummary(box, steps, prog, back){
   const a = S.qz.ans, d = S.qz.draft, ctx = quizCtx(Object.assign({}, d, {id: d.id || "new"}));
-  const r = Quiz.derive(a, ctx), label = (q, v) => { const o = q.opts ? qv(q.opts, a).find(x => x[0] === v) : null; return o ? o[1] : v == null || v === "" ? "–" : String(v) + (q.num && typeof v === "number" ? " " + q.num : ""); };
+  const r = Quiz.derive(a, ctx), label = (q, v) => { const o = q.opts ? qv(q.opts, a).find(x => x[0] === v) : null; return o ? o[1] : v == null || v === "" ? "–" : v.lat != null ? v.lat + ", " + v.lon : String(v) + (q.num && typeof v === "number" ? " " + q.num : ""); };
   box.append(prog, back, h("h1",null, S.qz.mode === "new" ? (d.strain || d.name) : "Setup of " + (d.strain || d.name)));
   const list = h("div",{class:"runrows"});
   steps.forEach((q, k) => { if (q.type === "form") return;

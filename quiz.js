@@ -18,8 +18,8 @@
   ];
   const WATER = {
     distilled: {l: "Distilled or RO", ec: 0.0, sub: "EC about 0.0"},
-    filtered:  {l: "Filter pitcher (e.g. Aarke)", ec: 0.4, sub: "EC about 0.4–0.6"},
-    tap:       {l: "Tap water", ec: 0.7, sub: "Berlin tap is hard; measure it"},
+    filtered:  {l: "Filter pitcher", ec: 0.4, sub: "EC about 0.4–0.6"},
+    tap:       {l: "Tap water", ec: 0.7, sub: "often hard; measure it"},
     rain:      {l: "Rain water", ec: 0.05, sub: "EC about 0.0–0.1"}
   };
 
@@ -55,6 +55,7 @@
       show: a => a.where !== "outdoor", opts: [40, 60, 80, 100, 120].map(v => [v, v + " cm"]), def: () => (p.setup || {}).lampMax});
     Q.push({id: "floor", type: "one", title: "How big is the floor?", show: a => a.where !== "outdoor",
       opts: [["40x45", "About 40 × 45 cm", "fridge, small box"], ["60x60", "60 × 60 cm"], ["80x80", "80 × 80 cm"], ["100x100", "100 × 100 cm"], ["120x120", "120 × 120 cm or more"]], def: () => (p.setup || {}).floor});
+    Q.push({id: "loc", type: "geo", title: "Where roughly?", why: "For weather, frost and sunrise at the plant. Rounded to about 1 km; it stays in your data.", show: a => a.where === "outdoor", def: () => p.lat != null ? {lat: p.lat, lon: p.lon} : null});
     Q.push({id: "heightLimit", type: "one", num: "cm", title: "Any height limit outside?", why: "Balcony screen, neighbours, wind.", show: a => a.where === "outdoor",
       opts: [[0, "No limit"], [100, "About 1 m"], [150, "About 1.5 m"], [200, "About 2 m"]], def: () => (p.setup || {}).heightLimit});
     Q.push({id: "water", type: "one", title: "Which water?", opts: Object.entries(WATER).map(([k, w]) => [k, w.l, w.sub]), def: () => (p.setup || {}).water});
@@ -101,7 +102,7 @@
     // first plan steps (only where the plan has nothing like it yet)
     if (hydro && vol && !has(/water change/i)){
       const every = vol <= 10 ? 8 : 12;
-      t("wc", "Water change", "With " + vol + " L it's about every " + every + " days. Distilled + CalMag first, then A and B to the target EC; rinse the air stone." + (a.water === "filtered" ? " Filtered water: 50/50 with distilled for fresh mixes once the target EC is ~0.8+, distilled for top-offs." : ""), "Every ~" + every + " days", add(p.sprout || T, 14) < T ? add(T, every) : add(p.sprout || T, 14), {size: "big"});
+      t("wc", "Water change", "With " + vol + " L it's about every " + every + " days. Fresh water, nutrients to the target EC (CalMag first if you use it), pH last; rinse the air stone." + (a.water === "filtered" ? " Filtered water: 50/50 with distilled for fresh mixes once the target EC is ~0.8+, distilled for top-offs." : ""), "Every ~" + every + " days", add(p.sprout || T, 14) < T ? add(T, every) : add(p.sprout || T, 14), {size: "big"});
     }
     if (flipAt && !has(/12\s*\/\s*12|flip/i)) t("flip", "Switch light to 12/12", "Flip when the plant is about " + flipAt + " cm above the " + (hydro ? "lid" : "pot rim") + ": with ×" + f.stretch + " stretch it ends near " + room + " cm, under the lamp's limit.", "Height ~" + flipAt + " cm", null, {size: "big"});
     if (a.seed === "auto" && (a.stretch === "train" || a.goal === "big") && !has(/lst|bend/i)) t("lst", "Bend the main stem (LST)", "Tie the top down sideways so the side shoots catch up. No topping on an autoflower after ~day 21.", "Veg days 14–21");
@@ -112,8 +113,8 @@
     if (room && f.heightMax && a.seed !== "auto" && f.heightMax > room && a.stretch !== "flip" && a.stretch !== "both" && a.stretch !== "train") flags.push({lvl: "warn", k: "stretch", text: f.name + " can reach " + f.heightMax + " cm; you have ~" + room + " cm of canopy room. Flip around " + (flipAt || "?") + " cm and train it flat."});
     else if (flipAt) flags.push({lvl: "info", k: "flip", text: "Flip at about " + flipAt + " cm above the " + (hydro ? "lid" : "rim") + " (×" + f.stretch + " stretch into ~" + room + " cm of room)."});
     if (a.floor === "40x45" && a.goal === "small") flags.push({lvl: "warn", k: "floor", text: "A 40 × 45 cm floor fits one plant well. Several small ones will shade each other."});
-    if (a.water === "filtered") flags.push({lvl: "info", k: "water", text: "Pitcher filters swap calcium and magnesium for sodium, which builds up in a recirculating bucket. Use it 50/50 with distilled for fresh mixes from EC ~0.8, distilled for top-offs. A Berlin water analysis or a small RO unit would settle it."});
-    if (a.water === "tap") flags.push({lvl: "info", k: "water", text: "Tap water EC " + (a.waterEc ?? "?") + ": measure it, cut CalMag accordingly, and keep the target EC above the water's own."});
+    if (a.water === "filtered") flags.push({lvl: "info", k: "water", text: "Pitcher filters swap calcium and magnesium for sodium, which builds up in a recirculating bucket. Use it 50/50 with distilled for fresh mixes from EC ~0.8, distilled for top-offs. Your water supplier's analysis or a small RO unit would settle it."});
+    if (a.water === "tap") flags.push({lvl: "info", k: "water", text: "Tap water EC " + (a.waterEc ?? "?") + ": measure it, cut CalMag if you use it, and keep the target EC above the water's own."});
     if (hydro && a.where !== "outdoor") flags.push({lvl: "info", k: "warm", text: "DWC water above 23 °C invites root rot. Keep the cooling (water bath, ice packs) ready before the lamp goes up."});
     if (a.seed === "unsure") flags.push({lvl: "info", k: "seed", text: "Seed type unknown: watch for pistils from veg day ~21. If they come on 18/6, it's an autoflower."});
     if (a.timing === "by" && a.by && end && end > a.by) flags.push({lvl: "warn", k: "timing", text: "Harvest lands around " + short(end) + ", after your date (" + short(a.by) + ")." + (a.seed === "auto" ? "" : " Flip earlier or pick a faster strain.")});
@@ -123,6 +124,7 @@
     const setup = {at: T, seed: a.seed, where: a.where, medium, system, volume: vol, light: a.light || null, lampMax: a.lampMax ?? null, floor: a.floor || null, heightLimit: a.heightLimit ?? null,
       water: a.water || null, waterEc: a.waterEc ?? null, goal: a.goal || null, stretch: a.stretch || null, timing: a.timing || null, by: a.by || null, flipAt, endEst: end};
     const fields = {medium, system, where: a.where || "indoor", kind: a.seed === "unsure" ? null : a.seed};
+    if (a.where === "outdoor" && a.loc && a.loc.lat != null){ fields.lat = a.loc.lat; fields.lon = a.loc.lon; }
     return {fields, setup, targets, tasks, flags, flipAt, end};
   }
   window.Quiz = {questions, derive, strainFacts, WATER};

@@ -86,7 +86,7 @@
     lollipop: () => { let s = lid() + P("M60 100 L60 32", {w: 1.3}); for (let i = 3; i <= 6; i++) s += pair(60, 100 - 11 * i, 16 - i, {n: 5}); s += leaf(60, 30, -90, 7);
       return svg(s + P("M60 100 L60 72", {w: 1.3}) + T(84, 92, "clear stem", {size: 7, anchor: "start"})); },
     mix: () => { let s = '<path d="M30 48 L32 108 L88 108 L90 48" fill="none" stroke="currentColor" stroke-width="1"/>' + P("M32 66 L88 66", {w: 0.5, op: 0.6}) + '<path d="M33 66 L35 106 L85 106 L87 66Z" style="fill:var(--soak);fill-opacity:.2"/>';
-      [["CalMag", 28], ["A", 60], ["B", 92]].forEach(([l, x], i) => { s += '<rect x="' + (x - 7) + '" y="8" width="14" height="22" rx="2" fill="none" stroke="currentColor" stroke-width=".8"/>' + T(x, 38, (i + 1) + ". " + l, {size: 6.5}); });
+      [["CalMag", 28], ["part A", 60], ["part B", 92]].forEach(([l, x], i) => { s += '<rect x="' + (x - 7) + '" y="8" width="14" height="22" rx="2" fill="none" stroke="currentColor" stroke-width=".8"/>' + T(x, 38, (i + 1) + ". " + l, {size: 6.5}); });
       return svg(s + arrow(60, 40, 60, 60)); },
     lift: () => { let s = P("M24 70 L30 116 L90 116 L96 70", {w: 0.9}) + '<path d="M28 84 L31 114 L89 114 L92 84Z" style="fill:var(--soak);fill-opacity:.2"/>';
       s += P("M46 34 L48 44 L72 44 L74 34 Z", {w: 0.9}) + P("M60 34 L60 12", {w: 1.2}) + pair(60, 20, 10);
@@ -152,20 +152,20 @@
      vs: "Defoliation in bloom also removes fan leaves that shade bud sites; it's more aggressive."},
     {id: "water-change", title: "Water change (DWC)", match: /water change/i,
      what: "Replacing the whole nutrient water in the bucket, so salts don't build up and the roots get fresh water.",
-     steps: [{fig: "mix", text: "Mix the fresh water first, at about the same temperature as the old. CalMag, stir, then A, stir, then B. pH last."},
+     steps: [{fig: "mix", text: "Mix the fresh water first, at about the same temperature as the old. CalMag first if you use it, then each part of your nutrients, stirring in between. pH last."},
              {fig: "lift", text: "Lift the net pot with the roots, empty the bucket, rinse it and the air stone."},
              {fig: "refill", text: "Refill so the water sits 2–4 cm below the net pot, put the plant back, check EC and pH after 15 minutes."}],
      watch: ["Roots out of the water only for a few minutes, and out of bright light.", "Temperature within ±2 °C of the old water.", "Never pour the concentrates into each other."]},
     {id: "flip", title: "Switching to 12/12 (the flip)", match: /12\s*\/\s*12|\bflip\b/i,
      what: "Photoperiod plants start flowering when the nights get long: 12 hours of light, 12 hours of real darkness.",
-     steps: [{fig: "timer", text: "Set the timer to 12 hours on, 12 hours off (the Tapo schedule)."},
+     steps: [{fig: "timer", text: "Set the timer to 12 hours on, 12 hours off (a plug timer or the lamp's own schedule)."},
              {fig: "leak", text: "Dark means dark: check for light leaks with the door closed. Small LEDs count."},
              {fig: "stretch", text: "Expect the stretch: the plant grows 1.5 to 2.5 times taller over the next 2–3 weeks. Keep the lamp distance."}],
      watch: ["Don't open the space or switch on a light during the dark hours.", "Autoflowers don't need this; they flower on their own.", "Do it on a day with nothing else stressful."]},
     {id: "feed", title: "A feed step", match: /feed step|\bfeed\b|nutrient/i,
      what: "Raising the strength of the nutrient water a little (EC), as the plant grows and eats more.",
      steps: [{fig: "measure", text: "Measure the EC before adding anything."},
-             {fig: "mix", text: "CalMag first, stir, then A, stir, then B. Never pour concentrates into each other."},
+             {fig: "mix", text: "CalMag first if you use it, then each part of your nutrients, stirring in between. Never pour concentrates into each other."},
              {fig: "wait", text: "Wait about 15 minutes, measure the EC, then adjust the pH last."}],
      watch: ["Small steps: +0.1 to 0.2 EC at a time.", "Watch the leaf tips for the next few days: burnt tips mean too much.", "Calculators overshoot; measure, then dose.", "Top off with plain water only."]},
     {id: "ph", title: "Adjusting pH", match: /adjust ph|\bph\b/i,

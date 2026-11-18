@@ -36,7 +36,7 @@
     }
     if (ph === "dry" && start){
       for (let k = 0; k <= HORIZON; k++){ const d = add(T, k), day = diff(start, d);
-        want("dry-check-" + d, d, "Check the drying", "Note the dry fridge's RH and temperature, weigh the same sample, bend a small stem.", "Daily while drying (day " + day + ")"); }
+        want("dry-check-" + d, d, "Check the drying", "Note the drying space's RH and temperature, weigh the same sample, bend a small stem.", "Daily while drying (day " + day + ")"); }
       const snap = add(start, 7); if (snap >= T) want("dry-snap", snap, "Snap test", "Small stems should snap, not bend. If they snap and the sample has lost ~72–75 %, it's time for jars.", "About 7 days in");
     }
     if ((ph === "cure" || ph === "done") && start){
@@ -52,6 +52,13 @@
   }
 
 
+
+  function doseText(p, from, to){
+    const r = p.doseRef, vol = (p.setup && p.setup.volume) || (r && r.l);
+    if (!r || !vol) return "Add a small amount of your nutrients (CalMag first if you use it, then the other parts one by one, stirring in between), aiming for about +" + Math.max(0.1, Math.round((to - from) * 10) / 10) + " EC.";
+    const per = r.ec * r.l / vol, ml = Math.max(0.5, Math.round((to - from) / per * 2) / 2);
+    return "Add about " + ml + " ml each of " + (r.parts || "your nutrient parts") + " (≈ +" + Math.round(per * 100) / 100 + " EC per ml each in " + vol + " L), stirring in between.";
+  }
 
   /* --- trends: rate of change per day from the last logs (least squares), so frequent small logs sharpen the picture --- */
   function series(ctx, p, key, log, hours){
@@ -74,15 +81,17 @@
   const FEED = /feed|nutrient|\bEC\b.*(to|→)/i;
   function ecReact(p, log, ctx, rng, out, moves, why){
     const T = ctx.today, tomorrow = add(T, 1), ec = log.ec, lo = rng[0], hi = rng[1];
-    const vol = (p.setup && p.setup.volume) || 7.5, perMl = Math.round(0.2 * 7.5 / vol * 100) / 100;   // ≈ +0.2 EC per 1 ml each CalMag/A/B in 7.5 L
+    // a dose in ml only when the plant has its own reference (p.doseRef {ml, ec, l, parts}: "ml of each part raise EC by ec in l litres");
+    // without one the step stays generic, because nutrient lines differ a lot
+    const dose = (from, to) => doseText(p, from, to);
     const prev = ctx.logs.filter(l => l.run === p.id && l.id !== log.id && l.ec != null && (l.at || "") < (log.at || "~")).sort((a, b) => (b.at || "").localeCompare(a.at || ""))[0];
     const feed = ctx.tasks.filter(t => t.run === p.id && t.status === "open" && FEED.test(t.title) && !/plain water/i.test(t.title)).sort((a, b) => (a.due || "9").localeCompare(b.due || "9"))[0];
     const warm = log.water != null && log.water > 23.5;
     const pull = (when, reason) => {
       if (feed){ if (!feed.due || feed.due > when){ moves.push({id: feed.id, due: when, why: reason + " \"" + feed.title + "\" moved to " + (when === T ? "today" : "tomorrow") + "."}); why.push(reason); } }
       else if (!openSoon(ctx, p, FEED, 2)){
-        const aim = Math.round(hi * 10) / 10, ml = Math.max(0.5, Math.round((aim - ec) / perMl * 2) / 2);
-        out.push(task(p, "feed-" + T, when, "Feed step to EC " + aim.toFixed(1), "EC " + ec + " is below " + lo + "–" + hi + ". Add about " + ml + " ml each of CalMag, then A and B (≈ +" + perMl + " EC per ml each in " + vol + " L), stir, wait 15 minutes, measure. Skip if leaf tips are burnt" + (warm ? "; cool the water first" : "") + ".", "EC below target"));
+        const aim = Math.round(hi * 10) / 10;
+        out.push(task(p, "feed-" + T, when, "Feed step to EC " + aim.toFixed(1), "EC " + ec + " is below " + lo + "–" + hi + ". " + dose(ec, aim) + " Wait 15 minutes, measure. Skip if leaf tips are burnt" + (warm ? "; cool the water first" : "") + ".", "EC below target"));
         why.push(reason);
       }
     };
@@ -123,7 +132,7 @@
       }
     }
     if (ph === "dry" && sn.havg != null){
-      if (sn.havg > 65) urgent("The dry fridge averaged " + sn.havg + " % RH over the last day (aim 55–62 %). Mould risk.");
+      if (sn.havg > 65) urgent("The drying space averaged " + sn.havg + " % RH over the last day (aim 55–62 %). Mould risk.");
       else if (sn.havg < 50 && !openSoon(ctx, p, /slow the dry/i, 2)){ out.push(task(p, "dry-fast-" + T, T, "Slow the dry", "RH averaged " + sn.havg + " %, below 55 %. Raise the humidity or close the vent a bit, or the buds dry too fast.", "After your log")); why.push("dry RH " + sn.havg + " %"); }
     }
     if (ph === "grow" || ph === "bloom"){
@@ -226,8 +235,7 @@
       const ceil = ctx.phase === "bloom" ? 1.6 : 1.2;
       if (lastEc && diff(lastEc.date, T) <= 2 && lastEc.ec >= tg[0] && lastEc.ec <= tg[1] && (!lastW || lastW.water <= 23) && !burnt && since >= 4 && tg[1] < ceil){
         const aim = [Math.round((tg[0] + 0.2) * 10) / 10, Math.round(Math.min(ceil, tg[1] + 0.2) * 10) / 10];
-        const vol = (p.setup && p.setup.volume) || 7.5, perMl = 0.2 * 7.5 / vol, ml = Math.max(0.5, Math.round((aim[1] - lastEc.ec) / perMl * 2) / 2);
-        tasks.push(task(p, "ramp-" + T, add(T, 1), "Feed step to EC " + aim[0] + "–" + aim[1], "EC has held in " + tg[0] + "–" + tg[1] + " and the last step was " + since + " days ago. About " + ml + " ml each of CalMag, then A and B, stir, measure. Ticking it done moves the EC target to " + aim[0] + "–" + aim[1] + ".", "Leaf tips clean, water ≤ 23 °C", {aim}));
+        tasks.push(task(p, "ramp-" + T, add(T, 1), "Feed step to EC " + aim[0] + "–" + aim[1], "EC has held in " + tg[0] + "–" + tg[1] + " and the last step was " + since + " days ago. " + doseText(p, lastEc.ec, aim[1]) + " Measure after 15 minutes. Ticking it done moves the EC target to " + aim[0] + "–" + aim[1] + ".", "Leaf tips clean, water ≤ 23 °C", {aim}));
       }
     }
     return {tasks, moves, close};
