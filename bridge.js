@@ -46,7 +46,7 @@
     const last = pts[pts.length - 1].t, day = pts.filter(p => p.t > last - 24 * H);
     const per = {};
     for (const p of pts) per[p.id] = p;                  // newest per sensor (pts are sorted)
-    const fresh = Object.values(per).filter(p => p.t > last - 3 * H);
+    const fresh = Object.values(per).filter(p => p.t > last - 3 * H);   // sensors that stopped (moved away) drop out
     const ts = day.map(p => p.temp).filter(v => v != null), rs = day.map(p => p.rh).filter(v => v != null);
     const mean = a => a.length ? a.reduce((x, y) => x + y, 0) / a.length : null;
     return {src: "bridge", at: new Date(last).toISOString(), first: new Date(day[0].t).toISOString(), n: day.length,
@@ -54,7 +54,7 @@
       tmin: ts.length ? r1(Math.min(...ts)) : null, tmax: ts.length ? r1(Math.max(...ts)) : null,
       hmin: rs.length ? r1(Math.min(...rs)) : null, hmax: rs.length ? r1(Math.max(...rs)) : null,
       tavg: r1(mean(ts)), havg: r1(mean(rs)),
-      sensors: Object.values(per).map(p => ({id: p.id, rh: r1(p.rh), temp: r1(p.temp), at: new Date(p.t).toISOString(), place: p.place, kind: p.kind}))};
+      sensors: fresh.map(p => ({id: p.id, rh: r1(p.rh), temp: r1(p.temp), at: new Date(p.t).toISOString(), place: p.place, kind: p.kind}))};
   }
   // problems worth a line: silent sensors, low batteries, two sensors in different places reading the same
   function health(rows, meta, now){
@@ -68,16 +68,17 @@
       if (!l || now - l.t > 3 * H) out.push({k: "silent", id, lvl: "warn", text: label(id) + (l ? " silent for " + Math.round((now - l.t) / H) + " h" : " has no readings yet")});
       else if (l.bat != null && l.bat < 20) out.push({k: "battery", id, lvl: "info", text: label(id) + " battery " + l.bat + " %"});
     }
-    // twins: same temperature trace (±0.3 °C, ±1.5 % RH) for the last 3 h while placed in different places
+    // twins: the same trace (±0.3 °C, ±1 % RH) for the last 3 h while listed in different places, e.g. a move that
+    // wasn't logged. Only readings taken at the current placement count; two jars may legitimately read alike, so jar–jar pairs are skipped.
     const recent = rows.filter(r => r.t > now - 3 * H), by = {};
-    for (const r of recent) (by[r.id] = by[r.id] || new Map()).set(r.t, correct(r, meta));
+    for (const r of recent){ const cur = current(meta, r.id, now), at = placeAt(meta, r.id, r.t); if (!cur || !at || at.f !== cur.f) continue; (by[r.id] = by[r.id] || new Map()).set(r.t, correct(r, meta)); }
     const ids = Object.keys(by), twins = {};
     for (let i = 0; i < ids.length; i++) for (let j = i + 1; j < ids.length; j++){
       const a = ids[i], b = ids[j], pa = current(meta, a, now), pb = current(meta, b, now);
-      if (!pa || !pb || pa.place === pb.place) continue;
+      if (!pa || !pb || pa.place === pb.place || (pa.kind === "jar" && pb.kind === "jar")) continue;
       let n = 0, dt = 0, dh = 0;
       for (const [t, x] of by[a]){ const y = by[b].get(t); if (!y || x.temp == null || y.temp == null) continue; n++; dt += Math.abs(x.temp - y.temp); dh += Math.abs((x.rh || 0) - (y.rh || 0)); }
-      if (n >= 6 && dt / n < 0.3 && dh / n < 1.5){ (twins[a] = twins[a] || new Set()).add(b); (twins[b] = twins[b] || new Set()).add(a); }
+      if (n >= 6 && dt / n < 0.3 && dh / n < 1.0){ (twins[a] = twins[a] || new Set()).add(b); (twins[b] = twins[b] || new Set()).add(a); }
     }
     // one line per cluster of look-alike sensors that are listed in different places
     const seen = new Set();

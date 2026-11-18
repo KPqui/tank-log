@@ -516,11 +516,13 @@ async function loadBridge(extraDays){
 function bridgeRows(from){ const out = []; for (const [d, rows] of Object.entries(S.bdays)) if (!from || d >= utcDay(from - 864e5)) out.push(rows); return Bridge.merge(out); }
 function bridgeLive(){
   if (!window.Bridge || !S.smeta) return;
-  const rows = bridgeRows(Date.now() - 2 * 864e5); S.live = {};
+  const rows = bridgeRows(Date.now() - 2 * 864e5); S.live = {}; S.liveJar = {};
+  // air (the space around the plant: fridge, drying space, dome) and jars are kept apart:
+  // S.live feeds the Air/Humidity/VPD tiles, S.liveJar the Jar RH tile and the cure rules
   for (const p of S.plants){
-    const ph = phaseOf(p), jars = ph === "cure" || ph === "done";
-    let pts = Bridge.forRun(rows, S.smeta, p.id, jars ? ["jar"] : null); if (!pts.length && jars) pts = Bridge.forRun(rows, S.smeta, p.id);
-    const sm = Bridge.summary(pts); if (sm) S.live[p.id] = sm;
+    const air = Bridge.summary(Bridge.forRun(rows, S.smeta, p.id, AIR_KINDS)), jar = Bridge.summary(Bridge.forRun(rows, S.smeta, p.id, ["jar"]));
+    if (air || jar) S.live[p.id] = air || jar;
+    if (jar) S.liveJar[p.id] = jar;
   }
   S.bhealth = Bridge.health(rows, S.smeta);
 }
@@ -534,6 +536,8 @@ function sensorNote(p){
   if (!mineIds.size && ["grow","bloom","dry","cure"].includes(phaseOf(p))) items.push("No sensor placed with this plant. Log → Sensor moved to place one.");
   if (items.length) box.append(...items.map(t => h("span",{class:"warnline"}, t)));
 }
+const AIR_KINDS = ["air", "dry", "dome"];
+function liveJarFor(p){ const s = p && S.liveJar && S.liveJar[p.id]; return s && Date.now() - Date.parse(s.at) < 6 * 36e5 ? s : null; }
 function liveFor(p){ const s = p && S.live[p.id]; return s && Date.now() - Date.parse(s.at) < 6 * 36e5 ? s : null; }
 const sensorNum = id => ((S.smeta && S.smeta.sensors || {})[id] || {}).num || id;
 
@@ -962,8 +966,10 @@ async function keepPlans(){
   // upkeep the nightly review used to do: checks done by logs, overdue big tasks, one stressor a day, EC ramp
   for (const p of S.plants.filter(x => x.status === "active")){ const m = Rules.maintain(p, ruleCtx(p)); if (m.tasks.length || m.moves.length || m.close.length) by.push([p.id, Object.assign(m, {why: [], kind: "upkeep"})]); }
   // sensor readings react like a log would, once per plant per day (gen keys keep it from repeating)
-  for (const p of S.plants.filter(x => x.status === "active")){ const lv = liveFor(p); if (!lv) continue;
-    const pseudo = {id:"bridge-" + today(), run:p.id, at:lv.at, date:today(), sensor:lv}; if (phaseOf(p) === "cure" && lv.rh != null) pseudo.jar_rh = lv.rh;
+  // (finished runs too when a jar sensor watches the storage jars)
+  for (const p of S.plants.filter(x => x.status === "active" || liveJarFor(x))){ const lv = liveFor(p), lj = liveJarFor(p); if (!lv && !lj) continue;
+    const pseudo = {id:"bridge-" + today(), run:p.id, at:(lj || lv).at, date:today()}; if (lv && lv !== lj) pseudo.sensor = lv;
+    if (lj && lj.rh != null && ["cure","done"].includes(phaseOf(p))) pseudo.jar_rh = lj.rh;
     const r = Rules.afterLog(p, pseudo, ruleCtx(p)); if (r.tasks.length) by.push([p.id, Object.assign(r, {kind: "sensor"})]); }
   // the newest log of each plant also gets the instant reaction once (catches logs saved before an update or on another phone)
   let seen = []; try { seen = JSON.parse(localStorage.getItem(REACTED_KEY) || "[]"); } catch(e){}
@@ -1124,7 +1130,7 @@ function coreTiles(p){
       ["Day", ds ? String(daysBetween(ds, T) + 1) : "–", snap ? (snap.actions.includes("Stems snap") ? {cls:"ok", word:"snaps", txt:"ready for jars?"} : {cls:"none", word:"", txt:"still bendy"}) : {cls:"none", word:"", txt:"usually 7–14"}]];
   }
   if (ph === "cure"){
-    const cs = phaseStart(p, "cure"), lv = liveFor(p), j0 = latestSince("jar_rh", cs), w = latestSince("weight", cs), b = lastAction(["Burped"]);
+    const cs = phaseStart(p, "cure"), lv = liveJarFor(p), j0 = latestSince("jar_rh", cs), w = latestSince("weight", cs), b = lastAction(["Burped"]);
     const j = lv && lv.rh != null && (!j0 || lv.at > j0.at) ? {v: lv.rh, at: lv.at, jars: (lv.sensors || []).filter(x => x.kind === "jar")} : j0;
     const bd = b ? daysBetween(b.date, T) : null;
     const jst = statusOf("jar_rh", j && j.v); if (j && j.jars && j.jars.length > 1) jst.txt = "jars " + j.jars.map(x => sensorNum(x.id) + ": " + Math.round(x.rh)).join(" · ");
@@ -1133,6 +1139,9 @@ function coreTiles(p){
       ["Weight", w ? fmtv("weight", w.v) : (run.dry_g ? run.dry_g + " g" : "–"), {cls:"none", word:"", txt: run.dry_g ? "jarred at " + run.dry_g + " g" : ""}, "weight"]];
   }
   if (ph === "done"){
+    const lj = liveJarFor(p);
+    if (lj) return [["Jar RH", fmtv("jar_rh", lj.rh), Object.assign(statusOf("jar_rh", lj.rh), (lj.sensors || []).length > 1 ? {txt: "jars " + lj.sensors.map(x => sensorNum(x.id) + ": " + Math.round(x.rh)).join(" · ")} : {}), "jar_rh"],
+      ["Dry", run.dry_g ? run.dry_g + " g" : "–", none], ["Verdict", run.verdict || "–", none]];
     return [["Wet", run.wet_g ? run.wet_g + " g" : "–", none], ["Dry", run.dry_g ? run.dry_g + " g" : "–", run.wet_g && run.dry_g ? {cls:"none", word:"", txt: Math.round(100 * run.dry_g / run.wet_g) + "% of wet"} : none], ["Verdict", run.verdict || "–", none]];
   }
   return null;
@@ -1176,9 +1185,9 @@ async function chartData(p, key, from){
     const logged = mine(S.logs).map(l => ({t:Date.parse(l.at), v:num(l.jar_rh)})).filter(x => x.v != null).reverse();
     if (pts.length) return {pts: pts.concat(logged.filter(x => x.t < pts[0].t)).sort((a, b) => a.t - b.t), dots:false, src:"sensor"}; }
   if (key === "air" || key === "rh" || key === "vpd"){
-    const rows = await sensorPoints(p, from);
-    const ph = phaseOf(p), rows2 = S.smeta && (ph === "cure" || ph === "done") ? await sensorPoints(p, from, ["jar"]) : rows;
-    const pts = (rows2.length ? rows2 : rows).map(x => ({t:+x.at, v: key === "air" ? x.t : key === "rh" ? x.r : vpd(x.t, x.r)})).filter(x => x.v != null);
+    const rows = await sensorPoints(p, from, S.smeta ? AIR_KINDS : undefined);
+    const ph = phaseOf(p), rows2 = !rows.length && S.smeta && (ph === "cure" || ph === "done") ? await sensorPoints(p, from, ["jar"]) : rows;
+    const pts = rows2.map(x => ({t:+x.at, v: key === "air" ? x.t : key === "rh" ? x.r : vpd(x.t, x.r)})).filter(x => x.v != null);
     if (pts.length) return {pts, dots: pts.length < 30, src: "sensor"};
     const k2 = key === "vpd" ? null : key;                // manual entries
     return {pts: k2 ? mine(S.logs).map(l => ({t:Date.parse(l.at), v:num(l[k2])})).filter(x => x.v != null).reverse() : [], dots:true, src:"log"};
@@ -1888,6 +1897,7 @@ $("#logform").addEventListener("submit", async e => {
     const moved = S.edit ? [] : await saveMoves(p, at);
     // no CSV: the bridge's last 24 h for this plant ride along with the log
     if (!sensor && !S.edit){ const lv = liveFor(p); if (lv) sensor = Object.assign({}, lv); }
+    const ljar = !S.edit && liveJarFor(p);
     const newPhotos = photos.length ? await uploadFiles(photos, "photo") : [];
     const newFiles = files.length ? await uploadFiles(files, "sensor") : [];
     const wasEdit = !!S.edit;
@@ -1904,7 +1914,7 @@ $("#logform").addEventListener("submit", async e => {
       const entry = Object.assign({id:"l-" + Date.now(), run:p.id, at, date:today(), source:"app", actions, note, photos:newPhotos, files:newFiles}, vals);
       if (sensor) entry.sensor = sensor;
       if (moved.length) entry.moved = moved;
-      if (sensor && sensor.src === "bridge" && phaseOf(p) === "cure" && entry.jar_rh == null && sensor.rh != null) entry.jar_rh = sensor.rh;
+      if (ljar && ljar.rh != null && ["cure","done"].includes(phaseOf(p)) && entry.jar_rh == null) entry.jar_rh = ljar.rh;
       // tier 0: the app reacts and says so, quietly (the line is stored with the log)
       let r = {tasks:[], moves:[], why:[]};
       if (window.Rules){ const ctx = Object.assign(ruleCtx(p), {targets: targetsOf(p)}); r = Rules.afterLog(p, entry, ctx); entry.ack = Rules.ack(p, entry, ctx, r); }
