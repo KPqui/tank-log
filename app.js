@@ -485,7 +485,7 @@ async function fetchDaysGQL(R, days){
   const q = "query{repository(owner:" + JSON.stringify(R.owner) + ",name:" + JSON.stringify(R.repo) + "){" + days.map((d, i) => "d" + i + ":object(expression:" + JSON.stringify("HEAD:readings/" + d) + "){...on Tree{entries{name object{...on Blob{text}}}}}").join(" ") + "}}";
   const r = await fetch("https://api.github.com/graphql", {method:"POST", headers:{Authorization:"Bearer " + S.cfg.token, "Content-Type":"application/json"}, body:JSON.stringify({query:q})});
   if (!r.ok) throw new Error("gql " + r.status);
-  const j = await r.json(); if (!j.data || !j.data.repository) throw new Error("gql data");
+  const j = await r.json(); if (!j.data || !j.data.repository) throw new Error("gql: " + ((j.errors && j.errors[0] && j.errors[0].message) || "no repository"));
   const out = {}; days.forEach((d, i) => { const t = j.data.repository["d" + i]; out[d] = t && t.entries ? Bridge.merge(t.entries.map(e => Bridge.parse(e.object && e.object.text))) : []; });
   return out;
 }
@@ -494,7 +494,10 @@ async function fetchDaysREST(R, days){
   const out = {};
   for (const d of days){
     const l = await fetch(base + d, {headers:Object.assign({Accept:"application/vnd.github+json"}, H), cache:"no-store"});
-    if (l.status === 404){ out[d] = []; continue; }
+    if (l.status === 404){                                 // a missing day is normal; a missing repo means the key can't see it
+      const rr = await fetch("https://api.github.com/repos/" + encodeURIComponent(R.owner) + "/" + encodeURIComponent(R.repo), {headers:Object.assign({Accept:"application/vnd.github+json"}, H), cache:"no-store"});
+      if (!rr.ok) throw new StoreError("auth", rr.status);
+      out[d] = []; continue; }
     if (!l.ok) throw new StoreError(l.status === 401 || l.status === 403 ? "auth" : "http", l.status);
     const files = (await l.json()).filter(f => /\.jsonl$/.test(f.name));
     const texts = await Promise.all(files.map(f => fetch(base + d + "/" + f.name, {headers:Object.assign({Accept:"application/vnd.github.raw"}, H)}).then(r => r.ok ? r.text() : "")));
@@ -508,7 +511,7 @@ async function loadBridge(extraDays){
   const need = [...want].filter(d => !S.bdays[d] || d >= utcDay(now - 864e5));
   if (!need.length){ bridgeLive(); return; }
   try {
-    let got; try { got = await fetchDaysGQL(R, need); } catch(e){ got = await fetchDaysREST(R, need); }
+    let got; try { got = await fetchDaysGQL(R, need); S.bridgeVia = "GraphQL"; } catch(e){ S.bridgeGqlErr = String(e.message || e); got = await fetchDaysREST(R, need); S.bridgeVia = "REST"; }
     Object.assign(S.bdays, got); S.bridgeErr = null; S.bridgeAt = now; bridgeSave();
   } catch(e){ S.bridgeErr = e.code === "auth" ? "The app key can't read " + R.repo + " yet." : "Sensor data couldn't load."; }
   bridgeLive();
@@ -590,6 +593,7 @@ function loadCache(){
 
 /* ---------- routing ---------- */
 const VIEWS = ["today","log","plan","setup","plant","quiz","strain","library"];
+const APP_V = "v42";
 const GEAR_SVG = '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="3.2"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1"/></svg>';
 function route(){
   let v = location.hash.slice(1);
@@ -2075,6 +2079,23 @@ function renderSensorList(){
       h("span",{class:"when num"}, r ? (r.temp != null ? r.temp.toFixed(1) + "° " : "") + (r.rh != null ? r.rh.toFixed(1) + "% · " : "") + ago(new Date(r.t).toISOString()) + (r.bat != null && r.bat < 25 ? " · bat " + r.bat + "%" : "") : "no data"))); }
   const hs = S.bhealth || []; if (hs.length || S.bridgeErr) list.append(...[S.bridgeErr].concat(hs.map(x => x.text)).filter(Boolean).map(t => h("p",{class:"warnline", style:"margin:0"}, t)));
   list.append(h("p",{class:"sub", style:"margin:0"}, "Values are corrected (calibration in sensors.json). To move a sensor: log on the plant → Sensor moved."));
+  const out = h("pre",{class:"diag", hidden:""});
+  list.append(h("button",{type:"button", class:"btn ghost sm", onclick: async () => { out.hidden = false; out.textContent = "Checking…"; out.textContent = await sensorDiag(); }}, "Check the sensor connection"), out);
+}
+/* step-by-step check of the sensor path, in plain words, for when readings don't show */
+async function sensorDiag(){
+  const L = ["App " + APP_V + " · data sensors.json: " + (S.smeta ? Object.keys(S.smeta.sensors || {}).length + " sensors, " + (S.smeta.placements || []).filter(x => !x.to).length + " placed" : "MISSING")];
+  const R = bridgeRepo(); if (!R){ L.push("No sensors repo configured."); return L.join("\n"); }
+  const H = {Authorization:"Bearer " + S.cfg.token, Accept:"application/vnd.github+json", "X-GitHub-Api-Version":"2022-11-28"};
+  try { const r = await fetch("https://api.github.com/repos/" + R.owner + "/" + R.repo, {headers:H, cache:"no-store"});
+    L.push("Key can see " + R.owner + "/" + R.repo + ": " + (r.ok ? "yes" : "NO (HTTP " + r.status + ") → add the repo to the app key, Contents: read")); if (!r.ok) return L.join("\n"); } catch(e){ L.push("Network error: " + e.message); return L.join("\n"); }
+  const d = utcDay(Date.now());
+  try { const g = await fetchDaysGQL(R, [d]); L.push("GraphQL: ok, " + g[d].length + " readings today"); } catch(e){ L.push("GraphQL: failed (" + (e.message || e) + "), REST fallback used"); }
+  try { const g = await fetchDaysREST(R, [d]); L.push("REST: ok, " + g[d].length + " readings today"); } catch(e){ L.push("REST: failed (" + (e.code || e.message) + " " + (e.status || "") + ")"); }
+  L.push("Last load: " + (S.bridgeAt ? fmtTime(new Date(S.bridgeAt).toISOString()) + " via " + (S.bridgeVia || "?") : "never") + (S.bridgeErr ? " · error: " + S.bridgeErr : ""));
+  for (const p of S.plants.filter(x => x.status === "active")){ const lv = S.live[p.id], lj = S.liveJar && S.liveJar[p.id];
+    L.push((p.strain || p.name) + ": " + (lv ? "air " + lv.temp + "° " + lv.rh + "% at " + fmtTime(lv.at) : "no air data") + (lj ? " · jars " + lj.rh + "%" : "")); }
+  return L.join("\n");
 }
 
 /* ---------- setup ---------- */
