@@ -697,7 +697,7 @@ function loadCache(){
 
 /* ---------- routing ---------- */
 const VIEWS = ["today","log","plan","setup","plant","quiz","strain","library"];
-const APP_V = "v49";
+const APP_V = "v50";
 const GEAR_SVG = '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="3.2"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1"/></svg>';
 function route(){
   let v = location.hash.slice(1);
@@ -1057,7 +1057,7 @@ function askCard(p){
 }
 
 /* ---------- the app's own plan keeping (rules.js) ---------- */
-function ruleCtx(p){ const ph = phaseOf(p); return {today: today(), phase: ph, phaseStart: phaseStart(p, ph === "done" ? "cure" : ph), tasks: S.tasks, logs: S.logs, profile: S.profile, check: window.Branch ? Branch.check(p, S.profile) : null}; }
+function ruleCtx(p){ const ph = phaseOf(p); return {today: today(), phase: ph, phaseStart: phaseStart(p, ph === "done" ? "cure" : ph), tasks: S.tasks, logs: S.logs, profile: S.profile, check: window.Branch ? Branch.check(p, S.profile) : null, jar: liveJarFor(p)}; }
 async function applyRules(byPlant, label){
   const add = [], mv = [], ch = [], T = today();
   const cl = [];

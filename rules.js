@@ -20,6 +20,24 @@
   const openSoon = (ctx, p, re, days) => ctx.tasks.some(t => t.run === p.id && t.status === "open" && re.test(t.title) && (!t.due || diff(ctx.today, t.due) <= days));
   const task = (p, gen, due, title, detail, trigger, extra) => Object.assign({id:"g-" + gen.replace(/[^a-z0-9]+/gi, "-") + "-" + p.id, run:p.id, gen, due, title, detail, trigger, status:"open", src:"app"}, extra || {});
 
+  /* jar state for the burp schedule: live jar sensors (ctx.jar = bridge summary) or, without them, logged jar RH of the last 2 days.
+     steady = every jar 58–63 % (and the 24 h high ≤ 63); dry = a jar under 58 % and none above 60 %. */
+  function jarState(p, ctx){
+    const j = ctx.jar; let v = [];
+    if (j && j.rh != null) v = [j.rh].concat((j.sensors || []).map(x => x.rh), j.hmax != null ? [j.hmax] : [], j.hmin != null ? [j.hmin] : []).filter(x => x != null);
+    else v = (ctx.logs || []).filter(l => l.run === p.id && l.jar_rh != null && l.date >= add(ctx.today, -2)).map(l => +l.jar_rh);
+    if (v.length < (j ? 1 : 2)) return null;
+    const lo = Math.min(...v), hi = Math.max(...v);
+    return {lo, hi, steady: lo >= 58 && hi <= 63, dry: lo < 58 && hi < 60, src: j ? "sensors" : "logs"};
+  }
+  /* cure days 1–14: daily for the first 5 days; after that every 3 days while the jars hold steady, none while they run dry */
+  function burpDay(cd, js){
+    if (cd < 0 || cd >= 14) return cd >= 14 && cd < 56 && (cd - 14) % 7 === 0;
+    if (cd < 5 || !js) return true;
+    if (js.dry) return false;
+    return js.steady ? (cd - 5) % 3 === 0 : true;
+  }
+
   /* --- 1. phase templates --- */
   function plan(p, ctx){
     const T = ctx.today, ph = ctx.phase, start = ctx.phaseStart, out = [];
@@ -40,9 +58,11 @@
       const snap = add(start, 7); if (snap >= T) want("dry-snap", snap, "Snap test", "Small stems should snap, not bend. If they snap and the sample has lost ~72–75 %, it's time for jars.", "About 7 days in");
     }
     if ((ph === "cure" || ph === "done") && start){
-      const cureDay = d => diff(start, d);
+      const cureDay = d => diff(start, d), js = ph === "cure" ? jarState(p, ctx) : null, r = js ? Math.round(js.lo) + "–" + Math.round(js.hi) + " %" : "";
       for (let k = 0; k <= HORIZON; k++){ const d = add(T, k), cd = cureDay(d);
-        if (ph === "cure" && cd >= 0 && cd < 14) want("cure-burp-" + d, d, "Burp jars", "Open every jar about 10 minutes (longer if a jar reads over 63 %). Note the jar RH.", "Daily, cure days 1–14 (day " + (cd + 1) + ")");
+        if (ph === "cure" && cd >= 0 && cd < 14 && burpDay(cd, js)) want("cure-burp-" + d, d, "Burp jars",
+          cd >= 5 && js && js.steady ? "Jars are steady at " + r + ": a short open (2–3 minutes) for fresh air and a smell check is enough." : "Open every jar about 10 minutes (longer if a jar reads over 63 %). Note the jar RH.",
+          cd >= 5 && js && js.steady ? "Every 3 days while the jars hold 58–63 % (cure day " + (cd + 1) + ")" : "Daily, cure days 1–14 (day " + (cd + 1) + ")");
         if (ph === "cure" && cd >= 14 && cd < 56 && (cd - 14) % 7 === 0) want("cure-burp-" + d, d, "Burp jars", "Open each jar for a few minutes, smell, note the jar RH.", "Every 7 days from cure day 15");
         if (cd >= 56 && (cd - 56) % 30 === 0) want("store-check-" + d, d, "Storage check", "Look, smell, check the jar RH (58–62 %). Swap a spent humidity pack.", "Monthly in storage");
       }
@@ -238,6 +258,11 @@
         tasks.push(task(p, "ramp-" + T, add(T, 1), "Feed step to EC " + aim[0] + "–" + aim[1], "EC has held in " + tg[0] + "–" + tg[1] + " and the last step was " + since + " days ago. " + doseText(p, lastEc.ec, aim[1]) + " Measure after 15 minutes. Ticking it done moves the EC target to " + aim[0] + "–" + aim[1] + ".", "Leaf tips clean, water ≤ 23 °C", {aim}));
       }
     }
+    // burps the jars don't need: steady (58–63 %) after cure day 5 → every 3 days; running dry → none
+    if (ctx.phase === "cure" && ctx.phaseStart){ const js = jarState(p, ctx);
+      if (js) for (const t of open.filter(t => /^cure-burp-\d{4}-\d{2}-\d{2}$/.test(t.gen || "") && t.due && t.due >= T)){
+        const cd = diff(ctx.phaseStart, t.due); if (cd < 14 && !burpDay(cd, js))
+          close.push({id: t.id, skipped: true, why: "Burp on " + t.due.slice(5) + " dropped: jars " + (js.dry ? "are drying out (" + Math.round(js.lo) + " %), keep them closed" : "steady at " + Math.round(js.lo) + "–" + Math.round(js.hi) + " %, every 3 days is enough") + " (" + js.src + ")."}); } }
     return {tasks, moves, close};
   }
   window.Rules = {plan, afterLog, focus, isoWeek, ack, maintain, slope};
