@@ -697,7 +697,7 @@ function loadCache(){
 
 /* ---------- routing ---------- */
 const VIEWS = ["today","log","plan","setup","plant","quiz","strain","library"];
-const APP_V = "v50";
+const APP_V = "v51";
 const GEAR_SVG = '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="3.2"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1"/></svg>';
 function route(){
   let v = location.hash.slice(1);
@@ -1523,7 +1523,7 @@ function renderToday(){
   $("#t-logbtn").textContent = todays.length ? "Log again" : ph === "germ" ? "Log a step" : "Log values";
 
   const due = openTasks().filter(t => t.due && t.due <= T).sort(sortTasks);
-  const doneToday = mine(S.tasks).filter(t => t.status === "done" && t.doneAt && ymd(new Date(t.doneAt)) === T);
+  const doneToday = mine(S.tasks).filter(t => t.status === "done" && t.doneAt && ymd(new Date(t.doneAt)) === T && t.auto !== "skipped" && !t.dropped);   // the app's own skips are not "done" (they show under Why things moved)
   const box = $("#t-tasks"); box.replaceChildren();
   if (!due.length && !doneToday.length) box.append(h("p",{class:"empty"},"Nothing due today."));
   for (const t of due) box.append(taskRow(t));
@@ -1988,7 +1988,7 @@ function renderPlan(){
       open && howtoFor(t) && S.openHow.has("p-" + t.id) ? howtoCard(howtoFor(t)) : null));
   }
   const dl = $("#p-donelist"); dl.replaceChildren();
-  const done = mine(S.tasks).filter(t => t.status === "done").sort((a,b) => (b.doneAt||"").localeCompare(a.doneAt||""));
+  const done = mine(S.tasks).filter(t => t.status === "done" && t.auto !== "skipped" && !t.dropped).sort((a,b) => (b.doneAt||"").localeCompare(a.doneAt||""));
   $("#p-done").hidden = !done.length;
   for (const t of done) dl.append(h("li",null, h("span",{class:"muted"},t.title), h("span",{class:"when"}, t.doneAt ? fmtDay(ymd(new Date(t.doneAt))) : "done")));
   renderGuides();

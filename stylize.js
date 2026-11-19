@@ -150,17 +150,32 @@
     // 3. ink lines (XDoG)
     const g1 = blur(gray, w, h, 1), g2 = blur(gray, w, h, 3);
 
-    // 4. alpha: feathered mask, faded toward the bottom of the plant like the plates
-    const mf = blur(Float32Array.from(m), w, h, 2);
-    const H = Math.max(1, y1 - y0);
+    // 4. alpha (v51, KP: "more margin, a wide gradual edge that bleeds into the background, no holes, no cut stems"):
+    //    the plant mask is closed with a radius of ~3.5 % of the plant's size (leaf gaps and glare holes fill), every
+    //    enclosed hole is filled, grown by the same radius and blurred wide, so a halo of the real background fades
+    //    out around the plant. Dilate/erode by thresholded box blurs (linear time).
+    const H = Math.max(1, y1 - y0), S0 = Math.max(x1 - x0, H), RM = Math.max(6, Math.round(S0 * 0.035));
+    const thr = (a, t) => { const o = new Uint8Array(N); for (let i = 0; i < N; i++) o[i] = a[i] > t ? 1 : 0; return o; };
+    let soft = thr(blur(thr(blur(Float32Array.from(m), w, h, RM / 2), 0.02), w, h, RM / 2), 0.98);   // close
+    { const inv = new Uint8Array(N); for (let i = 0; i < N; i++) inv[i] = soft[i] ? 0 : 1;
+      const cc = components(inv, w, h), edge = new Set();
+      for (let x = 0; x < w; x++){ edge.add(cc.lab[x]); edge.add(cc.lab[(h - 1) * w + x]); }
+      for (let y = 0; y < h; y++){ edge.add(cc.lab[y * w]); edge.add(cc.lab[y * w + w - 1]); }
+      for (let i = 0; i < N; i++) if (inv[i] && !edge.has(cc.lab[i])) soft[i] = 1; }
+    for (let i = 0; i < N; i++) if (m[i]) soft[i] = 1;
+    { const yc = Math.round(sy1 + RM * 0.5);                // under the leaves only the stem itself (no pot, no stones)
+      for (let i = yc * w; i < N; i++) soft[i] = m[i] && Math.abs(i % w - cx) <= half * 2 ? 1 : 0; }
+    soft = thr(blur(Float32Array.from(soft), w, h, RM / 2), 0.02);                                    // margin
+    const halo = blur(Float32Array.from(soft), w, h, RM * 0.9), crisp = blur(Float32Array.from(m), w, h, 2);
+    const mf = new Float32Array(N); for (let i = 0; i < N; i++){ const q = Math.min(1, halo[i] * 1.6); mf[i] = Math.max(crisp[i], q * q * (3 - 2 * q)); }
 
-    const pad = 24, cx0 = Math.max(0, x0 - pad), cy0 = Math.max(0, y0 - pad), cx1 = Math.min(w - 1, x1 + pad), cy1 = Math.min(h - 1, y1 + pad);
+    const pad = Math.round(RM * 3.5), cx0 = Math.max(0, x0 - pad), cy0 = Math.max(0, y0 - pad), cx1 = Math.min(w - 1, x1 + pad), cy1 = Math.min(h - 1, y1 + pad);
     const ow = cx1 - cx0 + 1, oh = cy1 - cy0 + 1;
     const out = document.createElement("canvas"); out.width = ow; out.height = oh;
     const og = out.getContext("2d"), od = og.createImageData(ow, oh), o = od.data;
     for (let y = cy0; y <= cy1; y++) for (let x = cx0; x <= cx1; x++){
       const i = y * w + x, j = ((y - cy0) * ow + (x - cx0)) * 4;
-      const fade = Math.min(1, Math.max(0, (y1 - y) / (0.05 * H)));
+      const fade = Math.min(1, Math.max(0, (y1 + RM - y) / (0.12 * H)));
       const a = Math.min(1, mf[i]) * fade;
       if (a <= 0.01){ o[j + 3] = 0; continue; }
       const t = tone(gray[i]), sat = 0.78;
@@ -174,7 +189,7 @@
       // band-pass: a line only where the fine blur is darker than its surroundings (an edge or a vein)
       const dd = (g1[i] - g2[i]) / sd;
       const line = Math.min(1, Math.max(0, (-dd - 0.12) * 2.2));
-      const ia = line * (0.35 + 0.65 * (1 - mix)) * Math.min(1, mf[i] * 1.2);
+      const ia = line * (0.35 + 0.65 * (1 - mix)) * Math.min(1, mf[i] * 1.2) * (0.25 + 0.75 * Math.min(1, crisp[i] * 1.5));   // background lines fainter
       R = R * (1 - ia) + INK[0] / 255 * ia; G = G * (1 - ia) + INK[1] / 255 * ia; B = B * (1 - ia) + INK[2] / 255 * ia;
       o[j] = Math.min(255, R * 255); o[j + 1] = Math.min(255, G * 255); o[j + 2] = Math.min(255, B * 255);
       o[j + 3] = Math.min(255, Math.max(a, ia * fade) * 255);
