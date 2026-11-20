@@ -4,7 +4,7 @@
 # Cloudflare Pages: build command "sh build.sh", output directory "dist". Netlify: same (netlify.toml).
 set -e
 rm -rf dist && mkdir -p dist/knowledge dist/icons dist/skill
-cp index.html start.html manifest.webmanifest sw.js *.js _headers dist/
+cp index.html start.html manifest.webmanifest *.js _headers dist/
 rm -f dist/build.sh
 cp icons/* dist/icons/
 cp knowledge/*.json dist/knowledge/

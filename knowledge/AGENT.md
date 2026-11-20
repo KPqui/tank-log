@@ -48,9 +48,12 @@ that someone would act on (temperatures, EC, RH, days).
   phase?: ["germ","grow","bloom","dry","cure","done"], medium?: ["hydro","soil","living-soil","coco"], summary (1–2 sentences),
   sections: [{h, text}] (2–5 short sections), howto?: "<howto.js id>", related?: [ids], sources: [{t,u,d}],
   status, updated (YYYY-MM-DD)}`
-- strains.json: `{id (name-breeder slug), name, breeder, type, genetics, flowering (days), height, thc, terpenes: [{name, basis}],
-  taste: [], effects: [], lineage: {name, by, parents: [...]}, story (own words, 3–5 sentences), growNotes: [generic notes],
-  sources: [{t,u,d}], status, updated}` — generic only, no remarks about a specific grow.
+- strains.json: `{id (name-breeder slug), name, breeder, kind: "auto"|"photo", type, genetics, flowering (days only: "56–63 days of bloom"
+  or "70–77 days from seed"), height, yield, thc, cbd (both labelled "breeder claim" unless lab data), climate, terpenes: [{name, basis}],
+  taste: [], effects: [] (neutral words, no medical claims), lineage: {name, by, parents: [{name}]}, story (own words, 2–4 sentences),
+  growNotes: [generic notes], sources: [{t,u,d}], level: 1|2, status, updated}` — generic only, no remarks about a specific grow.
+  Level 1 = the sheet above, mostly from the breeder page plus one vendor/database page. Level 2 (later) adds a short
+  summary of public grow reports ("claimed vs reported").
 - tips.json: `{id (k-YYYYMMDD-n), kind: "fact"|"lore", topic: "Botany"|"Chemistry"|"Good to know"|"Hydro"|"History",
   text (1–2 sentences), src: {t,u} (facts only), phase?, medium?, status, updated}`. Check that no existing tip (here or
   in the app's own tips) states the same fact.
@@ -66,3 +69,11 @@ that someone would act on (temperatures, EC, RH, days).
 
 ## catalogue.json (starter strain catalogue)
 One line per strain: {name, breeder, kind auto|photo, genetics Indica-dom|Sativa-dom|Hybrid (optional)}. Names and types only, for search and suggestions in the app; labelled "to be verified". Add strains freely (popular, well-known breeder listings); never add anything about the owner (stash, counts, notes). Full sheets still go to strains.json.
+
+## Strain database run (separate weekly task, since Nov 20 2026)
+A second weekly task fills strains.json with Level 1 sheets for the ~500 most popular seeds (about 60 % autos, 40 % photos,
+EU/US breeders about 50/50, ranked by seed availability: breeder/seedbank bestsellers and award winners; no clone-only strains).
+Its queue is PRIVATE: KPqui/tank-log-data/strain-queue.json. Budget per run: up to 40 sheets, about 1 web lookup per strain
+(one search that shows the breeder or a big vendor's data sheet; a second only when the first has no flowering time).
+Work in batches of 10: search all 10 in parallel, write those 10 sheets to the file, then the next batch.
+The weekly topic run above keeps its own limits and does not write strain sheets for the database.

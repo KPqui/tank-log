@@ -1,1 +1,1595 @@
-[]
+[
+ {
+  "id": "gorilla-glue-auto-fast-buds",
+  "name": "Gorilla Glue Auto",
+  "breeder": "Fast Buds",
+  "kind": "auto",
+  "type": "Autoflower · feminized",
+  "genetics": "Balanced hybrid (ruderalis/indica/sativa)",
+  "flowering": "56–63 days from seed (breeder); growers often report ~70",
+  "height": "60–100 cm indoors",
+  "yield": "400–600 g/m² indoors, 50–300 g/plant",
+  "thc": "up to ~24 % (breeder claim)",
+  "cbd": "~0.8 % (breeder claim)",
+  "climate": "Indoors or a warm outdoor summer",
+  "terpenes": [
+   {
+    "name": "Caryophyllene",
+    "basis": "vendor listings"
+   },
+   {
+    "name": "Limonene",
+    "basis": "vendor listings"
+   },
+   {
+    "name": "Myrcene",
+    "basis": "vendor listings"
+   }
+  ],
+  "taste": [
+   "earthy",
+   "sour",
+   "pine",
+   "diesel"
+  ],
+  "effects": [
+   "relaxing",
+   "heavy"
+  ],
+  "lineage": {
+   "name": "Gorilla Glue Auto",
+   "by": "Fast Buds",
+   "parents": [
+    {
+     "name": "Gorilla Glue (GG4)"
+    },
+    {
+     "name": "Fast Buds Auto #1"
+    }
+   ]
+  },
+  "story": "An autoflowering take on the famous sticky Gorilla Glue cut, bred by Fast Buds by crossing it with their own auto line. It keeps the resin-heavy, pungent character of the original in a compact plant. One of the most-grown autos in public grow diaries.",
+  "growNotes": [
+   "Buds get very sticky; plan good airflow late in bloom.",
+   "Breeder time is 56–63 days from seed, many diaries finish nearer 70 days."
+  ],
+  "sources": [
+   {
+    "t": "Leafly: Fast Buds GG Auto",
+    "u": "https://www.leafly.com/brands/fast-buds/products/fast-buds-gg-auto",
+    "d": "2026-11-20"
+   },
+   {
+    "t": "GrowDiaries: Gorilla Auto",
+    "u": "https://growdiaries.com/strains/gorilla-auto/reviews",
+    "d": "2026-11-20"
+   }
+  ],
+  "level": 1,
+  "status": "unreviewed",
+  "updated": "2026-11-20"
+ },
+ {
+  "id": "purple-lemonade-auto-fast-buds",
+  "name": "Purple Lemonade Auto",
+  "breeder": "Fast Buds",
+  "kind": "auto",
+  "type": "Autoflower · feminized",
+  "genetics": "Indica-dominant (~70 % indica)",
+  "flowering": "56–70 days from seed",
+  "height": "70–110 cm indoors",
+  "yield": "400–500 g/m² indoors, up to ~250 g/plant",
+  "thc": "up to ~22 % (breeder claim)",
+  "cbd": "low (breeder claim)",
+  "climate": "Indoors and outdoors",
+  "terpenes": [
+   {
+    "name": "Myrcene",
+    "basis": "vendor listing"
+   },
+   {
+    "name": "Limonene",
+    "basis": "vendor listing"
+   }
+  ],
+  "taste": [
+   "sweet",
+   "lemon",
+   "sour"
+  ],
+  "effects": [
+   "relaxing",
+   "physical"
+  ],
+  "lineage": {
+   "name": "Purple Lemonade Auto",
+   "by": "Fast Buds",
+   "parents": [
+    {
+     "name": "Purple and citrus Californian genetics"
+    },
+    {
+     "name": "Ruderalis"
+    }
+   ]
+  },
+  "story": "Fast Buds built this auto from purple and citrus Californian lines plus ruderalis. It is best known for its pink-purple buds with dark sugar leaves. Wide spacing between nodes makes it easy to train.",
+  "growNotes": [
+   "Wide internodes: suits low-stress training.",
+   "Colour shows best with cooler nights late in bloom."
+  ],
+  "sources": [
+   {
+    "t": "Leafly: Fast Buds Purple Lemonade",
+    "u": "https://www.leafly.com/brands/fast-buds/products/fast-buds-purple-lemonade",
+    "d": "2026-11-20"
+   },
+   {
+    "t": "Zamnesia: Purple Lemonade Auto",
+    "u": "https://www.zamnesia.com/fastbuds-autoflowering/5864-purple-lemonade-feminized.html",
+    "d": "2026-11-20"
+   }
+  ],
+  "level": 1,
+  "status": "unreviewed",
+  "updated": "2026-11-20"
+ },
+ {
+  "id": "bruce-banner-auto-fast-buds",
+  "name": "Bruce Banner Auto",
+  "breeder": "Fast Buds",
+  "kind": "auto",
+  "type": "Autoflower · feminized",
+  "genetics": "Sativa-dominant (~65 % sativa)",
+  "flowering": "70–77 days from seed",
+  "height": "110–150 cm",
+  "yield": "450–600 g/m² indoors, 50–200 g/plant",
+  "thc": "up to ~25 % (breeder claim)",
+  "cbd": "<1 % (breeder claim)",
+  "climate": "Indoors and outdoors",
+  "terpenes": [
+   {
+    "name": "Caryophyllene",
+    "basis": "vendor listings"
+   },
+   {
+    "name": "Limonene",
+    "basis": "vendor listings"
+   },
+   {
+    "name": "Myrcene",
+    "basis": "vendor listings"
+   }
+  ],
+  "taste": [
+   "sweet",
+   "berry",
+   "diesel"
+  ],
+  "effects": [
+   "euphoric",
+   "uplifting"
+  ],
+  "lineage": {
+   "name": "Bruce Banner Auto",
+   "by": "Fast Buds",
+   "parents": [
+    {
+     "name": "Bruce Banner (OG Kush × Strawberry Diesel)"
+    },
+    {
+     "name": "Ruderalis"
+    }
+   ]
+  },
+  "story": "An autoflowering version of Bruce Banner, itself an OG Kush × Strawberry Diesel cross. It is one of the taller, slower autos and can outgrow small spaces. Known for a berry-and-fuel nose.",
+  "growNotes": [
+   "Can reach ~150 cm: leave headroom or train early.",
+   "Longer than many autos: ~70–77 days from seed."
+  ],
+  "sources": [
+   {
+    "t": "SeedFinder: Bruce Banner Auto (Fast Buds)",
+    "u": "https://seedfinder.eu/en/strain-info/bruce-banner-auto/fast-buds-company",
+    "d": "2026-11-20"
+   },
+   {
+    "t": "Cannapot: Bruce Banner Auto",
+    "u": "https://www.cannapot.com/shop/cannabis-seeds/fast-buds/bruce-banner-auto-fem_seeds.html",
+    "d": "2026-11-20"
+   }
+  ],
+  "level": 1,
+  "status": "unreviewed",
+  "updated": "2026-11-20"
+ },
+ {
+  "id": "northern-light-auto-royal-queen-seeds",
+  "name": "Northern Light Auto",
+  "breeder": "Royal Queen Seeds",
+  "kind": "auto",
+  "type": "Autoflower · feminized",
+  "genetics": "Indica-dominant",
+  "flowering": "70–84 days from seed (breeder); growers report ~60 days of bloom",
+  "height": "80–120 cm indoors, up to 160 cm outdoors",
+  "yield": "500–550 g/m² indoors, 170–220 g/plant",
+  "thc": "~14 % (breeder claim)",
+  "cbd": "low (breeder claim)",
+  "climate": "Indoors; outdoors in a warm summer",
+  "terpenes": [],
+  "taste": [
+   "sweet",
+   "earthy",
+   "pine",
+   "citrus"
+  ],
+  "effects": [
+   "relaxing"
+  ],
+  "lineage": {
+   "name": "Northern Light Auto",
+   "by": "Royal Queen Seeds",
+   "parents": [
+    {
+     "name": "Northern Light"
+    },
+    {
+     "name": "Ruderalis"
+    }
+   ]
+  },
+  "story": "RQS combined the classic Afghan-based Northern Light with ruderalis for an easy autoflower. The parent strain was bred in the US in the 1970s and moved to the Netherlands in the 1980s. A forgiving choice for first grows.",
+  "growNotes": [
+   "Beginner-friendly and compact.",
+   "Grower reports show strong stretch after bloom starts (~2×)."
+  ],
+  "sources": [
+   {
+    "t": "Grow with Jane: Northern Light Automatic",
+    "u": "https://growithjane.com/strain/northern-light-automatic-royal-queen-seeds",
+    "d": "2026-11-20"
+   },
+   {
+    "t": "SeedFinder: Northern Light Automatic",
+    "u": "https://seedfinder.eu/en/strain-info/northern-light-automatic/royal-queen-seeds",
+    "d": "2026-11-20"
+   }
+  ],
+  "level": 1,
+  "status": "unreviewed",
+  "updated": "2026-11-20"
+ },
+ {
+  "id": "royal-gorilla-auto-royal-queen-seeds",
+  "name": "Royal Gorilla Auto",
+  "breeder": "Royal Queen Seeds",
+  "kind": "auto",
+  "type": "Autoflower · feminized",
+  "genetics": "Indica-leaning hybrid",
+  "flowering": "56–70 days from germination (breeder)",
+  "height": "60–120 cm indoors, up to 140 cm outdoors",
+  "yield": "325–400 g/m² indoors, 120–170 g/plant",
+  "thc": "~20 % (breeder claim)",
+  "cbd": "low (breeder claim)",
+  "climate": "Indoors and outdoors",
+  "terpenes": [
+   {
+    "name": "Ocimene",
+    "basis": "vendor listing"
+   },
+   {
+    "name": "Limonene",
+    "basis": "vendor listing"
+   }
+  ],
+  "taste": [
+   "sweet",
+   "citrus",
+   "woody",
+   "diesel"
+  ],
+  "effects": [
+   "relaxing",
+   "euphoric"
+  ],
+  "lineage": {
+   "name": "Royal Gorilla Auto",
+   "by": "Royal Queen Seeds",
+   "parents": [
+    {
+     "name": "Royal Gorilla"
+    },
+    {
+     "name": "Royal Cookies"
+    },
+    {
+     "name": "Ruderalis"
+    }
+   ]
+  },
+  "story": "RQS crossed two of its strongest photoperiod lines, Royal Gorilla and Royal Cookies, with ruderalis. The result is a short, bushy auto with a diesel-leaning aroma. Yields are moderate rather than large.",
+  "growNotes": [
+   "Bushy and squat; a single grower report took ~80 days.",
+   "Yield is modest for an auto; quality over bulk."
+  ],
+  "sources": [
+   {
+    "t": "SeedFinder: Royal Gorilla Automatic",
+    "u": "https://seedfinder.eu/index.php/en/strain-info/royal-gorilla-automatic/royal-queen-seeds",
+    "d": "2026-11-20"
+   },
+   {
+    "t": "Zamnesia: Royal Gorilla Autoflower",
+    "u": "https://www.zamnesia.com/5129-royal-queen-seeds-royal-gorilla-automatic-feminized.html",
+    "d": "2026-11-20"
+   }
+  ],
+  "level": 1,
+  "status": "unreviewed",
+  "updated": "2026-11-20"
+ },
+ {
+  "id": "amnesia-haze-auto-royal-queen-seeds",
+  "name": "Amnesia Haze Auto",
+  "breeder": "Royal Queen Seeds",
+  "kind": "auto",
+  "type": "Autoflower · feminized",
+  "genetics": "Sativa-dominant",
+  "flowering": "77–84 days from seed (breeder)",
+  "height": "50–100 cm indoors, up to 120 cm outdoors",
+  "yield": "350–400 g/m² indoors, 130–180 g/plant",
+  "thc": "~18 % (breeder claim)",
+  "cbd": "medium (breeder claim)",
+  "climate": "Indoors and outdoors",
+  "terpenes": [
+   {
+    "name": "Ocimene",
+    "basis": "vendor listing"
+   },
+   {
+    "name": "Caryophyllene",
+    "basis": "vendor listing"
+   }
+  ],
+  "taste": [
+   "sweet",
+   "spicy",
+   "earthy"
+  ],
+  "effects": [
+   "uplifting",
+   "cerebral"
+  ],
+  "lineage": {
+   "name": "Amnesia Haze Auto",
+   "by": "Royal Queen Seeds",
+   "parents": [
+    {
+     "name": "Amnesia Haze"
+    },
+    {
+     "name": "Ruderalis"
+    }
+   ]
+  },
+  "story": "A ruderalis cross of the Dutch Amnesia Haze, made to give the Haze character without its long bloom. It still runs longer than most autos. Grower results vary more than with indica-leaning autos.",
+  "growNotes": [
+   "One of the slower autos: plan ~80 days.",
+   "Some growers report small plants in poor conditions; give it a stress-free start."
+  ],
+  "sources": [
+   {
+    "t": "Biltong & Budz: Amnesia Haze Automatic data",
+    "u": "https://www.biltongandbudz.co.za/?p=40299",
+    "d": "2026-11-20"
+   },
+   {
+    "t": "GrowDiaries: Amnesia Haze Auto (RQS)",
+    "u": "https://growdiaries.com/seedbank/royal-queen-seeds/amnesia-haze-auto/reviews",
+    "d": "2026-11-20"
+   }
+  ],
+  "level": 1,
+  "status": "unreviewed",
+  "updated": "2026-11-20"
+ },
+ {
+  "id": "blue-cheese-auto-barney-s-farm",
+  "name": "Blue Cheese Auto",
+  "breeder": "Barney's Farm",
+  "kind": "auto",
+  "type": "Autoflower · feminized",
+  "genetics": "Indica-dominant (~80 % indica)",
+  "flowering": "65–75 days from seed",
+  "height": "80–100 cm",
+  "yield": "up to 450–550 g/m² indoors, 180–250 g/plant outdoors",
+  "thc": "~16 % (breeder claim)",
+  "cbd": "~1.8 % (breeder claim)",
+  "climate": "Indoors and outdoors",
+  "terpenes": [],
+  "taste": [
+   "cheese",
+   "blueberry",
+   "earthy"
+  ],
+  "effects": [
+   "relaxing"
+  ],
+  "lineage": {
+   "name": "Blue Cheese Auto",
+   "by": "Barney's Farm",
+   "parents": [
+    {
+     "name": "Blue Cheese"
+    },
+    {
+     "name": "Ruderalis"
+    }
+   ]
+  },
+  "story": "Barney's Farm's autoflowering Blue Cheese keeps the pungent aged-cheese smell softened by blueberry. The parent line comes from the UK Cheese family crossed with Blueberry. Buds are dense and hard.",
+  "growNotes": [
+   "Strong smell: plan odour control.",
+   "A grower reported ~70 days seed to harvest and ~70 cm height."
+  ],
+  "sources": [
+   {
+    "t": "SeedFinder: Blue Cheese Auto (Barney's Farm)",
+    "u": "https://seedfinder.eu/en/strain-info/blue-cheese-auto/barneys-farm",
+    "d": "2026-11-20"
+   },
+   {
+    "t": "GrowWeedEasy forum: Blue Cheese Auto grow",
+    "u": "https://forum.growweedeasy.com/forum/growing-community/181720-blue-cheese-auto-grow",
+    "d": "2026-11-20"
+   }
+  ],
+  "level": 1,
+  "status": "unreviewed",
+  "updated": "2026-11-20"
+ },
+ {
+  "id": "tangerine-dream-auto-barney-s-farm",
+  "name": "Tangerine Dream Auto",
+  "breeder": "Barney's Farm",
+  "kind": "auto",
+  "type": "Autoflower · feminized",
+  "genetics": "Hybrid (breeder: 60 % sativa)",
+  "flowering": "67–75 days from seed",
+  "height": "70–90 cm indoors, ~110 cm outdoors",
+  "yield": "450–500 g/m² indoors, 130–200 g/plant",
+  "thc": "medium (breeder claim)",
+  "cbd": "low (breeder claim)",
+  "climate": "Indoors and outdoors",
+  "terpenes": [
+   {
+    "name": "Myrcene",
+    "basis": "vendor listing"
+   },
+   {
+    "name": "Limonene",
+    "basis": "vendor listing"
+   }
+  ],
+  "taste": [
+   "tangerine",
+   "citrus",
+   "sweet"
+  ],
+  "effects": [
+   "balanced",
+   "uplifting"
+  ],
+  "lineage": {
+   "name": "Tangerine Dream Auto",
+   "by": "Barney's Farm",
+   "parents": [
+    {
+     "name": "Tangerine Dream"
+    },
+    {
+     "name": "Barney's Farm Auto #1"
+    }
+   ]
+  },
+  "story": "The auto version of Barney's Farm's Tangerine Dream, a G13 × Neville's Haze line that won a High Times Cannabis Cup in 2010. It keeps the tangy citrus smell in a short plant. Side branches are numerous and strong.",
+  "growNotes": [
+   "Many side branches; some phenos grow bigger than listed.",
+   "Breeder time ~70 days from seed."
+  ],
+  "sources": [
+   {
+    "t": "Barney's Farm: Tangerine Dream Auto",
+    "u": "https://www.barneysfarm.co.uk/tangerine-dream-auto-330",
+    "d": "2026-11-20"
+   },
+   {
+    "t": "SeedFinder: Tangerine Dream Auto",
+    "u": "https://seedfinder.eu/en/strain-info/tangerine-dream-auto/barneys-farm",
+    "d": "2026-11-20"
+   }
+  ],
+  "level": 1,
+  "status": "unreviewed",
+  "updated": "2026-11-20"
+ },
+ {
+  "id": "auto-ultimate-dutch-passion",
+  "name": "Auto Ultimate",
+  "breeder": "Dutch Passion",
+  "kind": "auto",
+  "type": "Autoflower · feminized",
+  "genetics": "Hybrid",
+  "flowering": "84–98 days from seed (vendor); grow reports ~84 days",
+  "height": "up to ~150 cm",
+  "yield": "high; vendor lists up to ~1000 g/m²",
+  "thc": "~20 % (vendor) (breeder claim)",
+  "cbd": "0–1 % (vendor)",
+  "climate": "Indoors; outdoors in a warm summer",
+  "terpenes": [
+   {
+    "name": "Myrcene",
+    "basis": "vendor listing"
+   },
+   {
+    "name": "Limonene",
+    "basis": "vendor listing"
+   }
+  ],
+  "taste": [
+   "citrus",
+   "lemon",
+   "candy"
+  ],
+  "effects": [
+   "relaxing",
+   "uplifting"
+  ],
+  "lineage": {
+   "name": "Auto Ultimate",
+   "by": "Dutch Passion",
+   "parents": [
+    {
+     "name": "The Ultimate"
+    },
+    {
+     "name": "AutoMazar"
+    }
+   ]
+  },
+  "story": "Dutch Passion's autoflowering version of The Ultimate, crossed with their AutoMazar. It is sold as one of their heaviest-yielding autos and grows large for an autoflower. Growers report noticeably different phenotypes.",
+  "growNotes": [
+   "Large auto: needs space and a big pot from the start.",
+   "Longer cycle than most autos (~84+ days)."
+  ],
+  "sources": [
+   {
+    "t": "Dutch Passion: Auto Ultimate",
+    "u": "https://dutch-passion.com/cannabis-seeds/auto-ultimate",
+    "d": "2026-11-20"
+   },
+   {
+    "t": "Zamnesia: Auto Ultimate",
+    "u": "https://www.zamnesia.com/dutch-passion/3039-auto-ultimate-feminized.html",
+    "d": "2026-11-20"
+   }
+  ],
+  "level": 1,
+  "status": "unreviewed",
+  "updated": "2026-11-20"
+ },
+ {
+  "id": "black-cream-auto-sweet-seeds",
+  "name": "Black Cream Auto",
+  "breeder": "Sweet Seeds",
+  "kind": "auto",
+  "type": "Autoflower · feminized",
+  "genetics": "Indica-dominant",
+  "flowering": "56–63 days from germination",
+  "height": "60–110 cm",
+  "yield": "350–550 g/m² indoors, 35–150 g/plant",
+  "thc": "15–18 % (breeder claim)",
+  "cbd": "~0.8 % (breeder claim)",
+  "climate": "Indoors and outdoors; temperate to Mediterranean",
+  "terpenes": [
+   {
+    "name": "Myrcene",
+    "basis": "vendor listing"
+   }
+  ],
+  "taste": [
+   "sweet",
+   "fruity",
+   "earthy"
+  ],
+  "effects": [
+   "relaxing"
+  ],
+  "lineage": {
+   "name": "Black Cream Auto",
+   "by": "Sweet Seeds",
+   "parents": [
+    {
+     "name": "Cream Caramel"
+    },
+    {
+     "name": "Pakistani Kush (ruderalis line)"
+    }
+   ]
+  },
+  "story": "Sweet Seeds crossed its awarded Cream Caramel with a ruderalis Pakistani Kush. About 90 % of plants turn very dark purple in bloom. One of the fastest autos in this list.",
+  "growNotes": [
+   "Very fast: ~56–63 days from seed.",
+   "Purple colour shows in most plants regardless of temperature."
+  ],
+  "sources": [
+   {
+    "t": "Grow with Jane: Black Cream Auto",
+    "u": "https://growithjane.com/strain/black-cream-auto",
+    "d": "2026-11-20"
+   },
+   {
+    "t": "Zamnesia: Black Cream Auto",
+    "u": "https://www.zamnesia.com/1882-sweet-seeds-black-cream-feminized.html",
+    "d": "2026-11-20"
+   }
+  ],
+  "level": 1,
+  "status": "unreviewed",
+  "updated": "2026-11-20"
+ },
+ {
+  "id": "fantasmo-express-mephisto-genetics",
+  "name": "Fantasmo Express",
+  "breeder": "Mephisto Genetics",
+  "kind": "auto",
+  "type": "Autoflower · feminized",
+  "genetics": "Sativa-leaning hybrid",
+  "flowering": "65–75 days from sprout",
+  "height": "~90 cm",
+  "yield": "90+ g/plant (breeder)",
+  "thc": "not published",
+  "cbd": "not published",
+  "climate": "Indoors and outdoors",
+  "terpenes": [],
+  "taste": [
+   "citrus",
+   "pine"
+  ],
+  "effects": [
+   "energetic",
+   "creative"
+  ],
+  "lineage": {
+   "name": "Fantasmo Express",
+   "by": "Mephisto Genetics",
+   "parents": [
+    {
+     "name": "Ghost Train Haze #1"
+    },
+    {
+     "name": "Mephisto auto line (ruderalis)"
+    }
+   ]
+  },
+  "story": "Also called Auto OG Ghost Train Haze, it is the most sativa-leaning plant in Mephisto's range. Mephisto later used it as a parent for several other autos, such as Ghost Toof. Growers describe it as bushy and resinous.",
+  "growNotes": [
+   "Bushy: growers recommend some defoliation.",
+   "Mephisto counts days from sprout, not from seed."
+  ],
+  "sources": [
+   {
+    "t": "SeedFinder: Fantasmo Express",
+    "u": "https://seedfinder.eu/en/strain-info/fantasmo-express/mephisto-genetics",
+    "d": "2026-11-20"
+   },
+   {
+    "t": "GrowDiaries: Fantasmo Express",
+    "u": "https://growdiaries.com/seedbank/mephisto-genetics/fantasmo-express/reviews",
+    "d": "2026-11-20"
+   }
+  ],
+  "level": 1,
+  "status": "unreviewed",
+  "updated": "2026-11-20"
+ },
+ {
+  "id": "ripley-s-og-mephisto-genetics",
+  "name": "Ripley's OG",
+  "breeder": "Mephisto Genetics",
+  "kind": "auto",
+  "type": "Autoflower · feminized",
+  "genetics": "Indica-leaning hybrid",
+  "flowering": "~70 days from sprout",
+  "height": "not published",
+  "yield": "~100–150 g/plant reported",
+  "thc": "not published",
+  "cbd": "not published",
+  "climate": "Indoors and outdoors",
+  "terpenes": [],
+  "taste": [
+   "fuel",
+   "earthy"
+  ],
+  "effects": [
+   "relaxing"
+  ],
+  "lineage": {
+   "name": "Ripley's OG",
+   "by": "Mephisto Genetics",
+   "parents": [
+    {
+     "name": "OG Kush family auto line"
+    }
+   ]
+  },
+  "story": "One of Mephisto's foundation OG autos, widely used as a parent (Grape Crinkle, Toof Fairy, Ripley's Wedding). It gives structure and a heavy OG fuel tone to its offspring. Public breeder data is thin.",
+  "growNotes": [
+   "Breeder data is sparse; treat numbers as rough.",
+   "A grower report: ~75 days, ~96 g buds."
+  ],
+  "sources": [
+   {
+    "t": "SeedFinder: Ripley's OG",
+    "u": "https://seedfinder.eu/en/strain-info/ripleys-og/mephisto-genetics",
+    "d": "2026-11-20"
+   },
+   {
+    "t": "GrowDiaries: Ripley's OG grow",
+    "u": "https://growdiaries.com/diaries/178272-grow-journal-by-iniquityx12/week/1035021",
+    "d": "2026-11-20"
+   }
+  ],
+  "level": 1,
+  "status": "unreviewed",
+  "updated": "2026-11-20"
+ },
+ {
+  "id": "double-grape-mephisto-genetics",
+  "name": "Double Grape",
+  "breeder": "Mephisto Genetics",
+  "kind": "auto",
+  "type": "Autoflower · feminized",
+  "genetics": "Hybrid (60 % indica per breeder text)",
+  "flowering": "63–70 days from sprout",
+  "height": "compact",
+  "yield": "not published",
+  "thc": "~26 % (diary average) (breeder claim)",
+  "cbd": "not published",
+  "climate": "Indoors and outdoors",
+  "terpenes": [
+   {
+    "name": "Myrcene",
+    "basis": "strain guide, unverified"
+   }
+  ],
+  "taste": [
+   "grape",
+   "sweet",
+   "fruity"
+  ],
+  "effects": [
+   "balanced"
+  ],
+  "lineage": {
+   "name": "Double Grape",
+   "by": "Mephisto Genetics",
+   "parents": [
+    {
+     "name": "Sour Stomper"
+    },
+    {
+     "name": "Grape Crinkle"
+    }
+   ]
+  },
+  "story": "A stabilised Mephisto auto from two grape-scented lines, Sour Stomper and Grape Crinkle. It is known for heavy resin and works well for hash and rosin. It became a parent of Mephisto's Wedding.",
+  "growNotes": [
+   "Compact and frosty; good for small spaces.",
+   "Stress in the first 14–21 days shrinks the final plant."
+  ],
+  "sources": [
+   {
+    "t": "GrowDiaries: Double Grape",
+    "u": "https://growdiaries.com/strains/double-grape",
+    "d": "2026-11-20"
+   },
+   {
+    "t": "SeedFinder: Double Grape",
+    "u": "https://seedfinder.eu/en/strain-info/double-grape/mephisto-genetics",
+    "d": "2026-11-20"
+   }
+  ],
+  "level": 1,
+  "status": "unreviewed",
+  "updated": "2026-11-20"
+ },
+ {
+  "id": "durban-poison-auto-humboldt-seed-company",
+  "name": "Durban Poison Auto",
+  "breeder": "Humboldt Seed Company",
+  "kind": "auto",
+  "type": "Autoflower · feminized",
+  "genetics": "Sativa-dominant (~90 % sativa per vendor)",
+  "flowering": "~100 days from sprout (breeder)",
+  "height": "medium",
+  "yield": "~650 g/m² indoors, ~200 g/plant (vendor)",
+  "thc": "up to ~32 % (vendor claim)",
+  "cbd": "~0 %",
+  "climate": "Indoors; outdoors in a long summer",
+  "terpenes": [
+   {
+    "name": "Caryophyllene",
+    "basis": "vendor listing"
+   },
+   {
+    "name": "Limonene",
+    "basis": "vendor listing"
+   },
+   {
+    "name": "Pinene",
+    "basis": "vendor listing"
+   }
+  ],
+  "taste": [
+   "mint",
+   "citrus",
+   "pine"
+  ],
+  "effects": [
+   "energising"
+  ],
+  "lineage": {
+   "name": "Durban Poison Auto",
+   "by": "Humboldt Seed Company",
+   "parents": [
+    {
+     "name": "Mint Jelly Auto"
+    },
+    {
+     "name": "Durban Poison Het"
+    },
+    {
+     "name": "Durban Poison Auto"
+    }
+   ]
+  },
+  "story": "An autoflowering version of the South African sativa Durban Poison, built from Humboldt's Mint Jelly Auto and Durban Poison lines. It is unusually slow for an auto. The flavour leans minty and citrus.",
+  "growNotes": [
+   "Slow auto: ~100 days, plan the season accordingly.",
+   "Responds well to SCROG or low-stress training."
+  ],
+  "sources": [
+   {
+    "t": "Humboldt Seed Company (ES): Durban Poison Auto",
+    "u": "https://humboldtseedcompany.es/en/product/durban-poison-auto",
+    "d": "2026-11-20"
+   },
+   {
+    "t": "Zamnesia: Durban Poison Auto",
+    "u": "https://www.zamnesia.com/15022-durban-poison-autoflower-humboldt-seed-company-feminized.html",
+    "d": "2026-11-20"
+   }
+  ],
+  "level": 1,
+  "status": "unreviewed",
+  "updated": "2026-11-20"
+ },
+ {
+  "id": "vanilla-latte-auto-humboldt-seed-company",
+  "name": "Vanilla Latte Auto",
+  "breeder": "Humboldt Seed Company",
+  "kind": "auto",
+  "type": "Autoflower · feminized",
+  "genetics": "Indica-dominant",
+  "flowering": "75–90 days from seed (breeder sites differ)",
+  "height": "not published",
+  "yield": "moderate",
+  "thc": "25–30 % (breeder claim)",
+  "cbd": "<1 %",
+  "climate": "Indoors and outdoors",
+  "terpenes": [
+   {
+    "name": "Caryophyllene",
+    "basis": "vendor listing"
+   },
+   {
+    "name": "Myrcene",
+    "basis": "vendor listing"
+   },
+   {
+    "name": "Linalool",
+    "basis": "vendor listing"
+   }
+  ],
+  "taste": [
+   "vanilla",
+   "cream",
+   "coffee"
+  ],
+  "effects": [
+   "soothing"
+  ],
+  "lineage": {
+   "name": "Vanilla Latte Auto",
+   "by": "Humboldt Seed Company",
+   "parents": [
+    {
+     "name": "Vanilla Frosting"
+    },
+    {
+     "name": "Sol Mate Auto"
+    }
+   ]
+  },
+  "story": "Humboldt crossed its Vanilla Frosting with the Sol Mate autoflower line. The aim was a dessert-style creamy vanilla smell in an easy auto. Breeder pages list slightly different cycle times.",
+  "growNotes": [
+   "Cycle 75–90 days depending on the source.",
+   "Described as easy and robust."
+  ],
+  "sources": [
+   {
+    "t": "Humboldt Seed Company: Vanilla Latte Auto",
+    "u": "https://humboldtseedcompany.com/vanilla-latte-autoflower/",
+    "d": "2026-11-20"
+   },
+   {
+    "t": "SeedFinder: Vanilla Latte Auto",
+    "u": "https://seedfinder.eu/en/strain-info/vanilla-latte-auto/humboldt-seed-company",
+    "d": "2026-11-20"
+   }
+  ],
+  "level": 1,
+  "status": "unreviewed",
+  "updated": "2026-11-20"
+ },
+ {
+  "id": "california-cream-humboldt-seed-company",
+  "name": "California Cream",
+  "breeder": "Humboldt Seed Company",
+  "kind": "photo",
+  "type": "Photoperiod · feminized",
+  "genetics": "Indica-dominant",
+  "flowering": "~56–70 days of bloom",
+  "height": "large",
+  "yield": "high",
+  "thc": ">25 % (vendor claim)",
+  "cbd": "<1 %",
+  "climate": "Indoors and outdoors",
+  "terpenes": [],
+  "taste": [
+   "salted caramel",
+   "cream",
+   "diesel"
+  ],
+  "effects": [
+   "relaxing"
+  ],
+  "lineage": {
+   "name": "California Cream",
+   "by": "Humboldt Seed Company",
+   "parents": [
+    {
+     "name": "Humboldt Reserve OG"
+    },
+    {
+     "name": "Royal Highness"
+    },
+    {
+     "name": "Old School Cookies"
+    }
+   ]
+  },
+  "story": "Also sold as Caramel Cream, it won Humboldt Seed Company's 2018 phenotype hunt out of a very large field. The cross brings together Humboldt Reserve OG, Royal Highness and Old School Cookies. Its signature is a salted-caramel smell.",
+  "growNotes": [
+   "Named Caramel Cream in some shops.",
+   "A vigorous plant; leave room for stretch."
+  ],
+  "sources": [
+   {
+    "t": "Weedmaps: Caramel Cream",
+    "u": "https://weedmaps.com/strains/caramel-cream",
+    "d": "2026-11-20"
+   },
+   {
+    "t": "Cannapot: Caramel Cream",
+    "u": "https://www.cannapot.com/shop/cannabis-seeds/humbold-seed-company/caramel-cream_seeds.html",
+    "d": "2026-11-20"
+   }
+  ],
+  "level": 1,
+  "status": "unreviewed",
+  "updated": "2026-11-20"
+ },
+ {
+  "id": "humboldt-dream-humboldt-seed-company",
+  "name": "Humboldt Dream",
+  "breeder": "Humboldt Seed Company",
+  "kind": "photo",
+  "type": "Photoperiod · feminized",
+  "genetics": "Indica-dominant (~70 % indica)",
+  "flowering": "~60 days of bloom; outdoors early October",
+  "height": "very large outdoors",
+  "yield": "very high outdoors",
+  "thc": "18–25 % (vendor claims)",
+  "cbd": "low",
+  "climate": "Outdoors in temperate climates",
+  "terpenes": [
+   {
+    "name": "Myrcene",
+    "basis": "breeder text"
+   }
+  ],
+  "taste": [
+   "blueberry",
+   "sweet",
+   "pine"
+  ],
+  "effects": [
+   "relaxing",
+   "heady"
+  ],
+  "lineage": {
+   "name": "Humboldt Dream",
+   "by": "Humboldt Seed Company",
+   "parents": [
+    {
+     "name": "Blue Dream (backcrossed)"
+    },
+    {
+     "name": "Purple Panty Dropper"
+    }
+   ]
+  },
+  "story": "Humboldt's update of Blue Dream, crossed with Purple Panty Dropper. It keeps the blueberry smell with a shorter bloom. Outdoors the plants can grow huge.",
+  "growNotes": [
+   "Comparatively early outdoors (early October).",
+   "Very vigorous: plan the space."
+  ],
+  "sources": [
+   {
+    "t": "Humboldt Seed Company: Humboldt Dream",
+    "u": "https://humboldtseedcompany.com/?p=802",
+    "d": "2026-11-20"
+   },
+   {
+    "t": "SeedFinder: Humboldt Dream",
+    "u": "https://seedfinder.eu/de/strain-info/humboldt-dream/humboldt-seed-company",
+    "d": "2026-11-20"
+   }
+  ],
+  "level": 1,
+  "status": "unreviewed",
+  "updated": "2026-11-20"
+ },
+ {
+  "id": "gorilla-zkittlez-barney-s-farm",
+  "name": "Gorilla Zkittlez",
+  "breeder": "Barney's Farm",
+  "kind": "photo",
+  "type": "Photoperiod · feminized",
+  "genetics": "Indica-dominant (~60 % indica)",
+  "flowering": "56–65 days of bloom",
+  "height": "100–170 cm indoors, up to 180 cm outdoors",
+  "yield": "500–800 g/m² indoors",
+  "thc": "~24 % (breeder claim)",
+  "cbd": "low",
+  "climate": "Indoors and outdoors; outdoors late Sept–early Oct",
+  "terpenes": [],
+  "taste": [
+   "berry",
+   "pine",
+   "sweet fruit"
+  ],
+  "effects": [
+   "relaxing",
+   "thought-provoking"
+  ],
+  "lineage": {
+   "name": "Gorilla Zkittlez",
+   "by": "Barney's Farm",
+   "parents": [
+    {
+     "name": "Gorilla Glue (GG4)"
+    },
+    {
+     "name": "Zkittlez"
+    }
+   ]
+  },
+  "story": "Barney's Farm crossed GG4 with Zkittlez, now also sold as Gorilla Z. The fruit side meets the Glue's pungency and resin. Grows tall for an indica-leaning plant.",
+  "growNotes": [
+   "Strong stretch in the first 14 days of bloom; flip early in tight spaces.",
+   "Support heavy colas late in bloom."
+  ],
+  "sources": [
+   {
+    "t": "Leafly: Barney's Farm Gorilla Zkittlez",
+    "u": "https://www.leafly.com/brands/discount-cannabis-seeds/products/discount-cannabis-seeds-barneys-farm-gorilla-zkittlez-feminised",
+    "d": "2026-11-20"
+   },
+   {
+    "t": "Weedmaps: Gorilla Zkittlez",
+    "u": "https://weedmaps.com/strains/gorilla-zkittlez",
+    "d": "2026-11-20"
+   }
+  ],
+  "level": 1,
+  "status": "unreviewed",
+  "updated": "2026-11-20"
+ },
+ {
+  "id": "northern-lights-sensi-seeds",
+  "name": "Northern Lights",
+  "breeder": "Sensi Seeds",
+  "kind": "photo",
+  "type": "Photoperiod · feminized",
+  "genetics": "Indica (~90 %)",
+  "flowering": "45–55 days of bloom (breeder); Sensi's own test took 77",
+  "height": "80–130 cm indoors",
+  "yield": "heavy",
+  "thc": "~20 % in Sensi's test",
+  "cbd": "low",
+  "climate": "Indoors; outdoors only in warm, long summers",
+  "terpenes": [],
+  "taste": [
+   "pine",
+   "sweet",
+   "herbal"
+  ],
+  "effects": [
+   "relaxing"
+  ],
+  "lineage": {
+   "name": "Northern Lights",
+   "by": "Sensi Seeds",
+   "parents": [
+    {
+     "name": "Afghani"
+    },
+    {
+     "name": "Thai (via Northern Lights #1–#5)"
+    }
+   ]
+  },
+  "story": "One of the classic breeding pillars, built from Afghan and Thai genetics and refined by Sensi Seeds. Compact, low-odour while growing and easy to keep. Many modern indoor strains carry its genes.",
+  "growNotes": [
+   "Short and low-odour: good for discreet indoor grows.",
+   "Sensi's own grow report ran longer than listed (77 days of bloom)."
+  ],
+  "sources": [
+   {
+    "t": "Sensi Seeds: Northern Lights Feminized",
+    "u": "https://sensiseeds.com/en/feminized-seeds/sensi-seeds/northern-lights",
+    "d": "2026-11-20"
+   },
+   {
+    "t": "Sensi Seeds grow report",
+    "u": "https://sensiseeds.com/en/blog/northern-lights-feminized-grow-report",
+    "d": "2026-11-20"
+   }
+  ],
+  "level": 1,
+  "status": "unreviewed",
+  "updated": "2026-11-20"
+ },
+ {
+  "id": "white-widow-green-house-seeds",
+  "name": "White Widow",
+  "breeder": "Green House Seeds",
+  "kind": "photo",
+  "type": "Photoperiod · feminized",
+  "genetics": "Indica-leaning hybrid",
+  "flowering": "56–63 days of bloom; outdoors early October",
+  "height": "short to medium",
+  "yield": "400–600 g/m² indoors",
+  "thc": "~19 % (breeder lab test)",
+  "cbd": "~0.1 %",
+  "climate": "Indoors; outdoors in mild temperate climates",
+  "terpenes": [
+   {
+    "name": "Caryophyllene",
+    "basis": "common listing"
+   }
+  ],
+  "taste": [
+   "woody",
+   "earthy",
+   "spicy"
+  ],
+  "effects": [
+   "balanced"
+  ],
+  "lineage": {
+   "name": "White Widow",
+   "by": "Green House Seeds",
+   "parents": [
+    {
+     "name": "Brazilian sativa landrace"
+    },
+    {
+     "name": "South Indian indica"
+    }
+   ]
+  },
+  "story": "Green House Seeds popularised White Widow in Amsterdam in the 1990s; its exact origins are debated. Named for the white resin that covers the buds. Breeder recommends SCROG indoors.",
+  "growNotes": [
+   "Breeder suggests SCROG indoors.",
+   "Grower stretch varies widely (×1.2–3)."
+  ],
+  "sources": [
+   {
+    "t": "Weedmaps: White Widow",
+    "u": "https://weedmaps.com/strains/white-widow",
+    "d": "2026-11-20"
+   },
+   {
+    "t": "SeedFinder: White Widow (Green House)",
+    "u": "https://seedfinder.eu/en/strain-info/white-widow/green-house-seeds",
+    "d": "2026-11-20"
+   }
+  ],
+  "level": 1,
+  "status": "unreviewed",
+  "updated": "2026-11-20"
+ },
+ {
+  "id": "amnesia-haze-royal-queen-seeds",
+  "name": "Amnesia Haze",
+  "breeder": "Royal Queen Seeds",
+  "kind": "photo",
+  "type": "Photoperiod · feminized",
+  "genetics": "Sativa-dominant (~70 % sativa)",
+  "flowering": "70–77 days of bloom; outdoors late October",
+  "height": "80–140 cm indoors, up to 210 cm outdoors",
+  "yield": "400–650 g/m² indoors",
+  "thc": "~20–22 % (breeder claim)",
+  "cbd": "medium",
+  "climate": "Indoors; outdoors only where October is mild",
+  "terpenes": [],
+  "taste": [
+   "citrus",
+   "earthy",
+   "pepper"
+  ],
+  "effects": [
+   "cerebral",
+   "strong"
+  ],
+  "lineage": {
+   "name": "Amnesia Haze",
+   "by": "Royal Queen Seeds",
+   "parents": [
+    {
+     "name": "Original Amnesia Haze"
+    }
+   ]
+  },
+  "story": "A Haze line that combines American Haze with Dutch hybrids; Amnesia Haze won High Times Cups in 2004 and 2006. Long bloom and tall structure. Late outdoors in Central Europe.",
+  "growNotes": [
+   "Long bloom: ~70–77 days.",
+   "Outdoor harvest late October: risky in cool, wet autumns."
+  ],
+  "sources": [
+   {
+    "t": "Zamnesia: Amnesia Haze (RQS)",
+    "u": "https://www.zamnesia.com/100-royal-queen-seeds-amnesia-haze-feminized.html",
+    "d": "2026-11-20"
+   },
+   {
+    "t": "Grow with Jane: Amnesia Haze",
+    "u": "https://growithjane.com/strain/66048d0a2e63f1b47c03892f",
+    "d": "2026-11-20"
+   }
+  ],
+  "level": 1,
+  "status": "unreviewed",
+  "updated": "2026-11-20"
+ },
+ {
+  "id": "skunk-1-sensi-seeds",
+  "name": "Skunk #1",
+  "breeder": "Sensi Seeds",
+  "kind": "photo",
+  "type": "Photoperiod · feminized",
+  "genetics": "Indica-leaning hybrid (65 % indica)",
+  "flowering": "45–50 days of bloom (breeder); Sensi test 81 days seed to harvest",
+  "height": "average",
+  "yield": "large",
+  "thc": "~16 % in Sensi's test",
+  "cbd": "low",
+  "climate": "Indoors; outdoors in sunny climates",
+  "terpenes": [],
+  "taste": [
+   "sweet",
+   "sharp",
+   "skunky"
+  ],
+  "effects": [
+   "balanced"
+  ],
+  "lineage": {
+   "name": "Skunk #1",
+   "by": "Sensi Seeds",
+   "parents": [
+    {
+     "name": "Afghani"
+    },
+    {
+     "name": "Acapulco Gold"
+    },
+    {
+     "name": "Colombian Gold"
+    }
+   ]
+  },
+  "story": "A 1970s classic so influential that 'skunk' became slang for strong bud. Squat, thick-stemmed plants with only moderate stretch. Leaves can colour late in bloom.",
+  "growNotes": [
+   "Short bloom and sturdy stems.",
+   "Strong smell in bloom: plan odour control."
+  ],
+  "sources": [
+   {
+    "t": "Weedmaps: Sensi Seeds Skunk #1 Feminized",
+    "u": "https://weedmaps.com/brands/sensi-seeds/products/sensi-seeds-skunk-1-feminized",
+    "d": "2026-11-20"
+   },
+   {
+    "t": "Sensi Seeds grow report",
+    "u": "https://sensiseeds.com/en/blog/skunk-1-feminized-grow-report-indoor",
+    "d": "2026-11-20"
+   }
+  ],
+  "level": 1,
+  "status": "unreviewed",
+  "updated": "2026-11-20"
+ },
+ {
+  "id": "mimosa-evo-barney-s-farm",
+  "name": "Mimosa EVO",
+  "breeder": "Barney's Farm",
+  "kind": "photo",
+  "type": "Photoperiod · feminized",
+  "genetics": "Sativa-leaning hybrid (listings differ)",
+  "flowering": "65–70 days of bloom; outdoors late October",
+  "height": "80–90 cm indoors, up to 220 cm outdoors",
+  "yield": "up to 700 g/m² indoors",
+  "thc": "24–26 % (breeder claim)",
+  "cbd": "low",
+  "climate": "Indoors; outdoors only with a mild October",
+  "terpenes": [
+   {
+    "name": "Caryophyllene",
+    "basis": "vendor listing"
+   },
+   {
+    "name": "Limonene",
+    "basis": "vendor listing"
+   }
+  ],
+  "taste": [
+   "citrus",
+   "berry",
+   "orange"
+  ],
+  "effects": [
+   "uplifting",
+   "focused"
+  ],
+  "lineage": {
+   "name": "Mimosa EVO",
+   "by": "Barney's Farm",
+   "parents": [
+    {
+     "name": "Purple Punch"
+    },
+    {
+     "name": "Clementine"
+    }
+   ]
+  },
+  "story": "Barney's Farm's take on the Mimosa line (Purple Punch × Clementine). Listings disagree on the sativa/indica balance. Grower reports show strong stretch indoors.",
+  "growNotes": [
+   "Strong stretch reported (×1.4–3).",
+   "Outdoor harvest is late October."
+  ],
+  "sources": [
+   {
+    "t": "SeedFinder: Mimosa Evo",
+    "u": "https://seedfinder.eu/de/strain-info/mimosa-evo/barneys-farm",
+    "d": "2026-11-20"
+   },
+   {
+    "t": "Zamnesia: Mimosa EVO",
+    "u": "https://www.zamnesia.com/6128-barneys-farm-mimosa-evo-feminized.html",
+    "d": "2026-11-20"
+   }
+  ],
+  "level": 1,
+  "status": "unreviewed",
+  "updated": "2026-11-20"
+ },
+ {
+  "id": "blackberry-moonrocks-anesia-seeds",
+  "name": "Blackberry Moonrocks",
+  "breeder": "Anesia Seeds",
+  "kind": "photo",
+  "type": "Photoperiod · feminized",
+  "genetics": "Indica-dominant",
+  "flowering": "56–63 days of bloom",
+  "height": "compact",
+  "yield": "~550 g/m² indoors",
+  "thc": "very high (breeder claim)",
+  "cbd": "low",
+  "climate": "Indoors and outdoors",
+  "terpenes": [
+   {
+    "name": "Limonene",
+    "basis": "Leafly listing"
+   },
+   {
+    "name": "Myrcene",
+    "basis": "Leafly listing"
+   },
+   {
+    "name": "Caryophyllene",
+    "basis": "Leafly listing"
+   }
+  ],
+  "taste": [
+   "berry",
+   "blueberry"
+  ],
+  "effects": [
+   "calming",
+   "sleepy"
+  ],
+  "lineage": {
+   "name": "Blackberry Moonrocks",
+   "by": "Anesia Seeds",
+   "parents": [
+    {
+     "name": "Blue Moonrock"
+    },
+    {
+     "name": "Blackberry Kush"
+    }
+   ]
+  },
+  "story": "Anesia Seeds crossed a Blue Moonrock female with a Blackberry Kush male. The name refers to the heavy resin, not to moonrock concentrates. The breeder describes it as mould-resistant.",
+  "growNotes": [
+   "Breeder lists strong mould resistance.",
+   "Very high THC claims; no independent lab data found."
+  ],
+  "sources": [
+   {
+    "t": "SeedFinder: Blackberry Moonrocks (Anesia)",
+    "u": "https://seedfinder.eu/en/strain-info/blackberry-moonrocks/anesia-seeds",
+    "d": "2026-11-20"
+   },
+   {
+    "t": "Leafly: Blackberry Moonrocks",
+    "u": "https://www.leafly.com/strains/blackberry-moonrocks",
+    "d": "2026-11-20"
+   }
+  ],
+  "level": 1,
+  "status": "unreviewed",
+  "updated": "2026-11-20"
+ },
+ {
+  "name": "Purple Lobster",
+  "breeder": "Anesia Seeds",
+  "genetics": "Hybrid, listed 50/50 indica/sativa",
+  "thc": "34 % (breeder claim)",
+  "cbd": "0–1 %",
+  "height": "Indoor 100–140 cm",
+  "yield": "Indoor up to 650 g/m² (breeder)",
+  "lineage": {
+   "name": "Purple Lobster",
+   "by": "Anesia Seeds",
+   "parents": [
+    {
+     "name": "Blue Lobster",
+     "by": "Compound Genetics · Maine Trees selection",
+     "note": "Won three awards at the East Coast Zalympix 2023, incl. best terpenes.",
+     "parents": [
+      {
+       "name": "Apples & Bananas",
+       "by": "Compound Genetics",
+       "note": "Platinum Cookies, Granddaddy Purple, Blue Power and Gelatti in its family. Known to pass its fruit-salad terps on reliably."
+      },
+      {
+       "name": "Eye Candy",
+       "by": "Compound Genetics",
+       "note": "Sources disagree: Biscotti × The Menthol, or a 707 Seed Bank line (Thin Mints GSC × Kush Cleaner)."
+      }
+     ]
+    },
+    {
+     "name": "Planet Red",
+     "by": "Alien Labs, 2023",
+     "note": "Sweet fruit, candy and cream.",
+     "parents": [
+      {
+       "name": "Red Pop",
+       "by": "Alien Labs"
+      },
+      {
+       "name": "Apples & Bananas #9",
+       "by": "Compound Genetics"
+      }
+     ]
+    }
+   ]
+  },
+  "story": "Anesia took Blue Lobster, the East Coast cult hit that Maine Trees picked out of Compound Genetics' Apples & Bananas × Eye Candy cross, and paired it with Alien Labs' Planet Red. The twist: Planet Red is also an Apples & Bananas child. So your plant carries Apples & Bananas on both sides of the family. Breeders do that to lock in a trait, here the candied-fruit terpenes and the dense, colourful, resin-heavy buds. The 'purple' is a promise of the Red Pop side and the berry lines of Blue Lobster: cool nights late in bloom tend to bring it out.",
+  "terpenes": [
+   {
+    "name": "Myrcene",
+    "note": "musky, ripe fruit; often linked to body relaxation",
+    "basis": "likely: dominant in Apples & Bananas and listed first for Blue Lobster"
+   },
+   {
+    "name": "Limonene",
+    "note": "citrus, bright; mood",
+    "basis": "likely: listed for Blue Lobster"
+   },
+   {
+    "name": "β-Caryophyllene",
+    "note": "pepper, spice; binds CB2 receptors",
+    "basis": "likely: listed for Blue Lobster"
+   }
+  ],
+  "taste": [
+   "blueberry",
+   "candy",
+   "sweet fruit",
+   "creamy"
+  ],
+  "effects": [
+   "relaxing",
+   "creative",
+   "strong body and mind"
+  ],
+  "sources": [
+   {
+    "t": "Zamnesia: Purple Lobster (Anesia Seeds) data sheet",
+    "u": "https://www.zamnesia.com/12870-anesia-seeds-purple-lobster.html"
+   },
+   {
+    "t": "Seedfinder: Purple Lobster (Anesia Seeds)",
+    "u": "https://seedfinder.eu/en/strain-info/purple-lobster/anesia-seeds"
+   },
+   {
+    "t": "Seedfinder: Planet Red (Alien Labs)",
+    "u": "https://seedfinder.eu/en/strain-info/planet-red/alienlabs"
+   },
+   {
+    "t": "Seedfinder: Blue Lobster (Compound Genetics)",
+    "u": "https://seedfinder.eu/en/strain-info/blue-lobster/compound-genetics"
+   },
+   {
+    "t": "Leafly: Crystal Lobster (on Blue Lobster's origin)",
+    "u": "https://leafly.ca/strains/crystal-lobster"
+   },
+   {
+    "t": "Seedfinder: Eye Candy genealogy",
+    "u": "https://seedfinder.eu/en/strain-info/eye-candy/compound-genetics/genealogy"
+   }
+  ],
+  "id": "purple-lobster-anesia-seeds",
+  "kind": "photo",
+  "type": "Photoperiod · feminized",
+  "flowering": "63–70 days of bloom (~67)",
+  "climate": "Indoors",
+  "terpNote": "Anesia publishes no lab terpene profile. These are inherited from the parents, so treat them as expectations, not measurements.",
+  "growNotes": [
+   "Indoors 100–140 cm: flip early and train in low spaces.",
+   "Breeder lists no lab terpene profile; parents suggest a fruity, myrcene-led nose."
+  ],
+  "level": 1,
+  "status": "unreviewed",
+  "updated": "2026-11-20"
+ }
+]
