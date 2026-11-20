@@ -63,3 +63,6 @@ that someone would act on (temperatures, EC, RH, days).
   `git pull --rebase` before pushing (other sessions write too).
 - If a page shows that a technique needs an illustrated how-to, add a queue item `kind: "howto"` instead of writing app code.
 - Reply with one short line: what was added. No other messages.
+
+## catalogue.json (starter strain catalogue)
+One line per strain: {name, breeder, kind auto|photo, genetics Indica-dom|Sativa-dom|Hybrid (optional)}. Names and types only, for search and suggestions in the app; labelled "to be verified". Add strains freely (popular, well-known breeder listings); never add anything about the owner (stash, counts, notes). Full sheets still go to strains.json.

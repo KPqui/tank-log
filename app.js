@@ -114,9 +114,9 @@ function labelFor(p, k, short){
 function actionsFor(p){
   const m = p.medium || "hydro", indoor = (p.where || "indoor") === "indoor", auto = p.system === "autopot", ph = phaseOf(p);
   if (ph === "germ") return ["Soaked","Paper towel","Tail visible","Planted","Broke surface"];
-  if (ph === "dry") return ["Hung","Rotated","Bucked","Trimmed","Stems snap","Still bendy","Sensor moved"];
-  if (ph === "cure") return ["Burped","Humidity pack in","Jar changed","Smell check","Long storage","Sensor moved"];
-  if (ph === "done") return ["Smell check","Jar changed","Sensor moved"];
+  if (ph === "dry") return ["Hung","Rotated","Bucked","Trimmed","Stems snap","Still bendy","Result photo","Sensor moved"];
+  if (ph === "cure") return ["Burped","Humidity pack in","Jar changed","Smell check","Long storage","Result photo","Sensor moved"];
+  if (ph === "done") return ["Smell check","Jar changed","Result photo","Sensor moved"];
   if (window.Branch) return [...new Set(Branch.chips(p).concat((p.ui && p.ui.chips) || []))];
   let a;
   if (m === "hydro") a = ["Fed","Topped off","Water change","pH adjusted","Trimmed","Trained"];
@@ -684,6 +684,7 @@ async function loadAll(){
     if (!S.plants.find(p => p.id === S.sel)) S.sel = (S.plants.find(p => p.status !== "done") || S.plants[0] || {}).id || null;
     S.synced = new Date(); cache();
     setSync("↻ " + hm(S.synced.toISOString()));
+    if (SHARED){ const t = SHARED; SHARED = null; setTimeout(() => takeAnswer(t), 50); }
     loadKnowledge().then(() => renderAll());
     loadBridge().then(() => { renderAll(); keepPlans(); });
   } catch(e){
@@ -697,7 +698,10 @@ function loadCache(){
 
 /* ---------- routing ---------- */
 const VIEWS = ["today","log","plan","setup","plant","quiz","strain","library"];
-const APP_V = "v51";
+const APP_V = "v52";
+/* Android: Share → Flowerphile lands here as ?title=…&text=… (manifest share_target); taken once the data is loaded */
+let SHARED = (() => { try { const q = new URLSearchParams(location.search); if (!["share","text","title","url"].some(k => q.has(k))) return null;
+  const t = [q.get("title"), q.get("text"), q.get("url")].filter(Boolean).join("\n").trim(); history.replaceState(null, "", location.pathname + "#plan"); return t || null; } catch(e){ return null; } })();
 const GEAR_SVG = '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="3.2"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1"/></svg>';
 function route(){
   let v = location.hash.slice(1);
@@ -776,8 +780,16 @@ const LIB_TERPS = ["Myrcene", "Limonene", "Caryophyllene", "Pinene", "Linalool",
 S.libF = {q:"", scope:"stash", kind:null, eff:new Set(), terp:new Set(), fast:null, sort:"name", dir:1, like:null};
 S.libOpen = null; S.viewSheet = null;
 function sheetById(id){ return allStrains().find(x => x.id === id) || null; }
+/* the public starter catalogue (knowledge/catalogue.json: names, breeders, type) fills Explore and the suggestions;
+   the grower's own library wins on the same name. Researching a catalogue strain adds it to the library. */
+function libBase(){
+  const own = S.library || [], seen = new Set(own.map(e => norm(e.name)));
+  const cat = (S.kn.catalogue || []).filter(c => c.name && !seen.has(norm(c.name)) && (seen.add(norm(c.name)), true))
+    .map(c => ({id: "cat-" + norm(c.name).replace(/ /g, "-"), name: c.name, breeder: c.breeder, kind: c.kind, genetics: c.genetics, inStash: false, cat: true, src: "Starter catalogue · to be verified"}));
+  return own.concat(cat);
+}
 function libEntries(){
-  return (S.library || []).map(e => {
+  return libBase().map(e => {
     const sh = e.sheet ? sheetById(e.sheet) : (S.kn.strains || []).find(x => norm(x.name) === norm(e.name) && x.status !== "rejected") || null;   // research-run sheets match by name
     const grown = S.plants.filter(p => p.strain && norm(p.strain) === norm(e.name));
     return Object.assign({}, e, {
@@ -964,7 +976,8 @@ async function researchNow(e){
   window.open(url, "_blank", "noopener");
 }
 async function requestResearch(e){
-  try { S.library = await mutate("library.json", list => (list || []).map(x => x.id === e.id ? Object.assign({}, x, {request: today()}) : x), "library: research request");
+  try { S.library = await mutate("library.json", list => e.cat ? (list || []).concat([{id: e.id.slice(4) + "-" + Date.now().toString(36).slice(-4), name: e.name, breeder: e.breeder, kind: e.kind, genetics: e.genetics, inStash: false, request: today(), src: "starter catalogue"}])
+      : (list || []).map(x => x.id === e.id ? Object.assign({}, x, {request: today()}) : x), "library: research request");
     cache(); renderLibList(); setSync("Requested · the nightly review researches it"); } catch(err){ setSync("Couldn't save · tap to retry", true); }
 }
 async function addToLibrary(name){
@@ -1116,7 +1129,7 @@ async function keepPlans(){
 async function reactToLog(p, entry, pre){
   if (!window.Rules) return;
   const r = pre || Rules.afterLog(p, entry, ruleCtx(p)); try { const seen = JSON.parse(localStorage.getItem(REACTED_KEY) || "[]"); localStorage.setItem(REACTED_KEY, JSON.stringify(seen.concat(entry.id).slice(-50))); } catch(e){}
-  if (!r.tasks.length && !(r.moves || []).length) return;
+  if (!r.tasks.length && !(r.moves || []).length && !(r.close || []).length) return;
   try { await applyRules([[p.id, r]], "log"); renderAll(); setSync(r.tasks.some(t => t.urgent) ? "Needs a look · check-in added" : "Plan updated after your log"); } catch(e){}
 }
 
@@ -1209,9 +1222,16 @@ function drawSpecimen(p){
    half photo, half ink specimen (stylize.js); the result is kept per plant so it's instant next time */
 S.photoOn = {}; S.styl = {};
 function latestPhoto(p){
-  const l = mine(S.logs).find(x => x.photos && x.photos.length);
+  const card = resultPic(p), l = mine(S.logs).find(x => x.photos && x.photos.length && !(card && x.photos.includes(card.path)));
   if (l) return {path: l.photos[l.photos.length - 1], at: l.at};
-  return p && p.plate ? {path: p.plate, at: phaseStart(p, "dry"), plate: true} : null;
+  return p && p.plate && !card ? {path: p.plate, at: phaseStart(p, "dry"), plate: true} : null;
+}
+/* the run's result picture (shown once, in the run card on Today): the harvest plate, else the newest "Result photo" log */
+function resultPic(p){
+  if (!p || ["germ","grow","bloom"].includes(phaseOf(p))) return null;
+  if (p.plate) return {path: p.plate, plate: true, at: phaseStart(p, "dry")};
+  const l = S.logs.find(x => x.run === p.id && (x.actions || []).includes("Result photo") && (x.photos || []).length);
+  return l ? {path: l.photos[0], at: l.at, all: l.photos} : null;
 }
 async function stylized(p, ph){
   if (ph.plate) return mediaUrl(ph.path);                     // harvest plates are already made
@@ -1534,6 +1554,8 @@ function renderToday(){
   $("#t-count").textContent = "";
   const lastLog = mine(S.logs)[0], ackEl = $("#t-ack");
   ackEl.textContent = lastLog && lastLog.ack && lastLog.date === T ? lastLog.ack.replace(/^Noted/, "Noted " + hm(lastLog.at)) : ""; ackEl.hidden = !ackEl.textContent;
+  const askEl = $("#t-stepask"); if (askEl){ askEl.replaceChildren(); const can = !ackEl.hidden && askable(lastLog) && !(lastLog.replies || []).length;
+    askEl.hidden = !can; if (can) askEl.append(h("button",{type:"button", class:"btn ghost sm", onclick:() => { S.planSeg = "book"; location.hash = "#plan"; askStep(p, lastLog); }}, lastLog.asks ? "Ask your AI this question" : "Ask your AI about this step")); }
 
   // Observations: three plant values + three climate/weather values
   const fields = fieldsFor(p);
@@ -1563,18 +1585,20 @@ function renderToday(){
   else if (!next.length) nb.append(h("p",{class:"empty"},"Nothing scheduled yet."));
   renderTip(p);
   const sb = $("#t-summary"); sb.replaceChildren(); sb._fk = null;
-  const summ = p.summary || [];
-  sb.hidden = !summ.length || ph === "germ" || ph === "grow" || ph === "bloom";
+  const summ = p.summary || [], pic = resultPic(p), late = ["dry","cure","done"].includes(ph);
+  sb.hidden = !late;
   if (!sb.hidden){
     const open = S.sumOpen === p.id, lines = open ? summ : summ.slice(0, 3);
-    if (p.plate){
-      const img = h("img",{class:"plate", alt:"Harvest photo of " + (p.strain || p.name) + ", half photo, half ink"});
-      mediaUrl(p.plate).then(u => { if (u){ img.src = u; img.onload = decorateSoon; } });
-      img.addEventListener("click", async () => { const u = await mediaUrl(p.plate); if (u){ const v = h("div",{class:"viewer paper", role:"dialog", "aria-label":"Harvest plate", onclick:() => v.remove()}, h("img",{src:u, alt:""})); document.body.append(v); } });
+    if (pic){
+      const img = h("img",{class:"plate", alt:"Result photo of " + (p.strain || p.name) + (pic.plate ? ", half photo, half ink" : "")});
+      (pic.plate ? mediaUrl(pic.path) : stylized({id: p.id + "-result"}, pic).catch(() => null).then(u => u || mediaUrl(pic.path))).then(u => { if (u){ img.src = u; img.onload = decorateSoon; } });
+      img.addEventListener("click", async () => { const u = await mediaUrl(pic.path); if (u){ const v = h("div",{class:"viewer paper", role:"dialog", "aria-label":"Result photo", onclick:() => v.remove()}, h("img",{src:u, alt:""})); document.body.append(v); } });
       const hd = phaseStart(p, "dry");
       sb.append(h("figure",{class:"platefig"}, img, h("figcaption",null, (p.strain || p.name) + (hd ? " · harvested " + short(hd) : ""))));
-    }
-    sb.append(h("div",{class:"head",style:"align-items:baseline"}, h("h2",null,"The run"), h("a",{href:"#plan", class:"small"}, "Numbers →")),
+    } else sb.append(h("div",{class:"howto", style:"margin:0 0 6px"},
+      h("p",{class:"what", style:"margin:0"}, "The run's result picture: a photo of the whole plant on harvest day, a close-up of one bud and a handful of buds. Log them with the \u201cResult photo\u201d chip; the first one shows here."),
+      h("button",{type:"button", class:"btn ghost sm", style:"align-self:flex-start", onclick:() => { S.preAct = "Result photo"; location.hash = "#log"; }}, "Add result photos")));
+    if (summ.length) sb.append(h("div",{class:"head",style:"align-items:baseline"}, h("h2",null,"The run"), h("a",{href:"#plan", class:"small"}, "Numbers →")),
       h("ul",{class:"notes"}, lines.map(t => h("li",null,t))),
       ...(summ.length > 3 ? [h("button",{type:"button", class:"donebtn", onclick:() => { S.sumOpen = open ? null : p.id; renderToday(); }}, open ? "Less" : "More (" + (summ.length - 3) + ")")] : []));
   }
@@ -1629,8 +1653,8 @@ S.kn = (() => { try { return JSON.parse(localStorage.getItem(KN_KEY) || "null") 
 async function loadKnowledge(){
   try {
     const get = f => fetch("knowledge/" + f, {cache:"no-cache"}).then(r => r.ok ? r.json() : null).catch(() => null);
-    const [pages, tips, strains] = await Promise.all([get("pages.json"), get("tips.json"), get("strains.json")]);
-    if (pages || tips || strains){ S.kn = {pages: pages || S.kn.pages, tips: tips || S.kn.tips, strains: strains || S.kn.strains}; try { localStorage.setItem(KN_KEY, JSON.stringify(S.kn)); } catch(e){} }
+    const [pages, tips, strains, catalogue] = await Promise.all([get("pages.json"), get("tips.json"), get("strains.json"), get("catalogue.json")]);
+    if (pages || tips || strains || catalogue){ S.kn = {pages: pages || S.kn.pages, tips: tips || S.kn.tips, strains: strains || S.kn.strains, catalogue: catalogue || S.kn.catalogue || []}; try { localStorage.setItem(KN_KEY, JSON.stringify(S.kn)); } catch(e){} }
   } catch(e){}
 }
 const allTips = () => { const own = S.tips || [], ids = new Set(own.map(t => t.id));   // own tips first; public starter tips fill in (same ids skipped)
@@ -2024,6 +2048,8 @@ function renderHistory(){
       l.moved ? h("p",{class:"sub", style:"margin:0"}, "Moved: " + l.moved.map(m => "sensor " + m.num + " → " + m.place).join(", ")) : null,
       l.ack ? h("p",{class:"sub", style:"margin:0"}, l.ack) : null,
       (l.photos && l.photos.length) ? h("div",{class:"thumbs"}, l.photos.map(thumb)) : null,
+      (l.replies || []).length ? h("div",{class:"thread"}, l.replies.map(r => h("div",{class:"reply"}, h("span",{class:"kicker"}, (r.src === "ai" ? "Your AI" : "You") + " · " + short(r.at.slice(0, 10))), h("p",{style:"margin:2px 0 0;white-space:pre-wrap"}, r.text)))) : null,
+      askBox(p, l),
       files.length ? h("div",{class:"thumbs"}, files.map(f => /\.(jpe?g|png|webp)$/i.test(f) ? thumb(f) : h("span",{class:"tag"}, "Sensor file"))) : null,
       h("div",{style:"display:flex;gap:8px"},
         h("button",{type:"button", class:"btn ghost sm", onclick:() => startEdit(l)}, "Edit"),
@@ -2035,6 +2061,7 @@ function renderAll(){ registerCustom(); if (themePref() === "plant") applyTheme(
 /* ---------- log form ---------- */
 function renderLogForm(){
   const p = sel(); if (!p) return;
+  if (S.preAct){ S.actions.add(S.preAct); S.preAct = null; }
   const keep = {}; document.querySelectorAll("#l-fields input").forEach(i => keep[i.dataset.k] = i.value);
   const box = $("#l-fields"); box.replaceChildren();
   const ph = phaseOf(p), fl = fieldsFor(p).slice();
@@ -2155,7 +2182,17 @@ $("#logform").addEventListener("submit", async e => {
       if (ljar && ljar.rh != null && ["cure","done"].includes(phaseOf(p)) && entry.jar_rh == null) entry.jar_rh = ljar.rh;
       // tier 0: the app reacts and says so, quietly (the line is stored with the log)
       let r = {tasks:[], moves:[], why:[]};
-      if (window.Rules){ const ctx = Object.assign(ruleCtx(p), {targets: targetsOf(p)}); r = Rules.afterLog(p, entry, ctx); entry.ack = Rules.ack(p, entry, ctx, r); }
+      const hit = window.Steps ? Steps.detect(entry, openTasks()) : null;
+      if (window.Rules){ const ctx = Object.assign(ruleCtx(p), {targets: targetsOf(p)}); r = Rules.afterLog(p, entry, ctx);
+        if (hit && hit.task) ctx.tasks = ctx.tasks.filter(t => t.id !== hit.task.id);
+        entry.ack = Rules.ack(p, entry, ctx, r); }
+      // tier 0 step feedback: the line answers the step itself, adds a follow-up check and closes the step it names
+      if (window.Steps){
+        if (hit){ const s = hit.step, f = Steps.follow(s, p, entry, today()); entry.step = {id: s.id, name: s.name};
+          r.close = (r.close || []).concat(hit.task ? [{id: hit.task.id, at: entry.at, why: "\"" + hit.task.title + "\" done by your log (" + entry.date.slice(5) + ")."}] : []);
+          if (f && !openTasks().some(t => t.gen === f.gen)){ r.tasks = r.tasks.concat(f); r.why = (r.why || []).concat(s.name.toLowerCase() + " follow-up"); }
+          entry.ack = [Steps.ack(s, entry) + (f ? " · + " + f.title.toLowerCase() + " " + wdShort(f.due) : ""), (entry.ack || "").replace(/^Noted · /, "").replace(/ · plan unchanged( · next: .*)?$|^plan unchanged( · next: .*)?$/, "")].filter(Boolean).join(" · "); }
+        if (Steps.question(entry.note)){ entry.asks = true; entry.ack = (entry.ack || "Noted") + " · question noted: ask your AI on this log"; } }
       S.logs = sortLogs(await mutate("logs.json", list => [...(list||[]), entry], "log " + entry.date));
       S.lastAck = {id: entry.id, text: entry.ack};
       reactToLog(p, entry, r);
@@ -2372,8 +2409,10 @@ function aiData(p){
   return {plant: p, profile: S.profile, stage: ["grow","bloom"].includes(ph) ? stageText(p) : PHASES[ph], phase: ph, today: T, since, first: !since,
     logs, tasks: openTasks().sort(sortTasks), flags: p.flags || [], targets: targetsOf(p), fields: fieldsFor(p), tiles, chips: actionsFor(p), keys: ALL_KEYS.slice(),
     learnings: S.plants.filter(x => x.id !== p.id).flatMap(x => (x.learnings || []).map(l => (x.strain || x.name) + ": " + l.text)).slice(0, 8),
-    knowledge: pages, howtos: window.HowTo ? HowTo.all.map(x => ({id: x.id, title: x.title})) : [], app: APP_V};
+    knowledge: pages, howtos: window.HowTo ? HowTo.all.map(x => ({id: x.id, title: x.title})) : [], app: APP_V,
+    history: p.aiHistory || "", historyAt: p.aiHistoryAt || null, replies: stepReplies(p)};
 }
+function stepReplies(p){ return S.logs.filter(l => l.run === p.id && (l.replies || []).length).flatMap(l => l.replies.filter(r => r.src === "ai").map(r => ({date: l.date, step: (l.step && l.step.name) || "log", text: r.text}))).slice(0, 3); }
 async function aiPhotoFiles(paths){
   const out = [];
   for (const [i, path] of paths.entries()){ try { const u = await mediaUrl(path); if (!u) continue; const b = await (await fetch(u)).blob(); out.push(new File([b], "photo-" + (i + 1) + ".jpg", {type: b.type || "image/jpeg"})); } catch(e){} }
@@ -2411,7 +2450,7 @@ function aiCheck(p, text){
   const st = S.ai || (S.ai = {});
   try { const u = AI.extract(text); registerCustom();
     const res = AI.check(u, {plant: p, tasks: mine(S.tasks), keys: ALL_KEYS.slice(), today: today(), label: k => k === "watered" ? "Watered" : k === "fed" ? "Fed" : F[k] ? labelFor(p, k) : k});
-    st.res = res; st.pick = new Set(res.items.map((x, i) => x.ok ? i : -1).filter(i => i >= 0)); st.err = "";
+    st.res = res; st.step = null; st.pick = new Set(res.items.map((x, i) => x.ok ? i : -1).filter(i => i >= 0)); st.err = "";
   } catch(e){ st.res = null; st.err = e.message; }
   renderAiPanel();
 }
@@ -2429,7 +2468,8 @@ async function aiApply(p){
       return list; }, "ai: check-in steps");
     S.plants = await mutate("plants.json", list => (list || []).map(x => {
       if (x.id !== p.id) return x;
-      const y = Object.assign({}, x, {aiAt: now, aiNote: res.note || "", updated: now});
+      const y = Object.assign({}, x, st.step ? {updated: now} : {aiAt: now, aiNote: res.note || "", updated: now});
+      if (res.history){ y.aiHistory = res.history; y.aiHistoryAt = now; }
       if (of("target").length){ y.targets = Object.assign({}, x.targets); for (const t of of("target")) y.targets[t.data.key] = t.data.range; }
       if (of("flag-add").length || of("flag-remove").length){ const rm = of("flag-remove").map(f => f.data.k);
         y.flags = (x.flags || []).filter(f => !rm.includes(f.k)).concat(of("flag-add").map(f => ({lvl: f.data.lvl, k: "ai-" + rid(), text: f.data.text, src: "ai"}))); }
@@ -2447,7 +2487,7 @@ async function aiApply(p){
     const ch = its.map(x => ({id: "c-" + T.replace(/-/g, "") + "-a" + rid(), run: p.id, date: T, src: "ai", text: "Your AI: " + x.label + (x.why ? " · " + x.why : "")}));
     if (!ch.length) ch.push({id: "c-" + T.replace(/-/g, "") + "-a" + rid(), run: p.id, date: T, src: "ai", text: "Your AI checked in: no changes."});
     S.changes = (await mutate("changes.json", list => (list || []).concat(ch), "ai: why things moved")).slice().sort((a, b) => (b.date || "").localeCompare(a.date || ""));
-    S.ai = {msg: its.length ? "Applied " + its.length + " change" + (its.length > 1 ? "s" : "") + " from your AI." : "Saved the check-in. Nothing changed."};
+    askClear(); S.ai = {msg: its.length ? "Applied " + its.length + " change" + (its.length > 1 ? "s" : "") + " from your AI." : "Saved the check-in. Nothing changed."};
     registerCustom(); cache(); renderAll();
   } catch(e){ st.busy = false; st.err = "Couldn't save all changes (" + (e.code || e.message) + "). Nothing is lost: try Apply again."; renderAiPanel(); }
 }
@@ -2491,5 +2531,93 @@ function aiPanel(p){
   if (st.err) box.append(h("p",{class:"sub", style:"margin:0;color:var(--warn, #9a3b1b)"}, st.err));
   return box;
 }
+
+
+/* ---------- step feedback with your AI (round 2b) ----------
+   A log with a step, a question or photos gets "Ask your AI about this": a small packet (the step, its how-to, photos,
+   note, what to look for, the plant's story so far) goes to the grower's AI; its answer is pasted (or shared) back and
+   shows under the log as a reply thread. A plan block in it goes through the normal preview in Plan → Ask your AI.
+   The AI's running story of the plant (`history`) is kept as plant.aiHistory and sent with every packet. */
+function wdShort(s){ const n = Math.round((new Date(s + "T12:00:00") - new Date(today() + "T12:00:00")) / 864e5);
+  return n === 0 ? "today" : n === 1 ? "tomorrow" : new Date(s + "T12:00:00").toLocaleDateString("en-GB", n > 1 && n < 7 ? {weekday:"short"} : {day:"numeric", month:"short"}); }
+function askable(l){ return !!(l && window.AI && (l.step || l.asks || (l.photos || []).length)); }
+function askPending(){ try { const a = JSON.parse(localStorage.getItem("ff-ask") || "null"); return a && Date.now() - a.t < 2 * 864e5 ? a : null; } catch(e){ return null; } }
+function askClear(){ S.ask = null; try { localStorage.removeItem("ff-ask"); } catch(e){} pasteBar(); }
+function stepData(p, l){
+  const s = (l.step && Steps.byId(l.step.id)) || ((window.Steps && Steps.detect(l, [])) || {}).step || null;
+  const hw = s && s.howto && window.HowTo ? HowTo.byId(s.howto) : null, ph = phaseOf(p);
+  return {plant: p, profile: S.profile, stage: ["grow","bloom"].includes(ph) ? stageText(p) : PHASES[ph], today: today(), log: l, step: s,
+    howto: hw ? {title: hw.title, steps: hw.steps.map(x => x.text)} : null, history: p.aiHistory || "", historyAt: p.aiHistoryAt || null,
+    replies: stepReplies(p), tasks: openTasks().sort(sortTasks), keys: ALL_KEYS.slice(), app: APP_V};
+}
+async function askStep(p, l, how){
+  if (!window.AI || !l) return;
+  S.ask = {log: l.id, plant: p.id, msg: "Getting the photos ready…"}; try { localStorage.setItem("ff-ask", JSON.stringify({log: l.id, plant: p.id, t: Date.now()})); } catch(e){}
+  renderHistory();
+  const pk = AI.stepPacket(stepData(p, l)), title = "Flowerphile step check-in · " + (p.name || p.id);
+  const sp = S.stepPrep || (S.stepPrep = {}), prep = sp[l.id] || (sp[l.id] = {files: await aiPhotoFiles(pk.photos)});
+  try {
+    if (how !== "copy" && navigator.share){
+      const data = Object.assign({title, text: pk.text}, prep.files.length ? {files: prep.files} : {});
+      if (!data.files || !navigator.canShare || navigator.canShare(data)){ await navigator.share(data); S.ask.msg = "Sent. When your AI answers, share its answer to Flowerphile or paste it here."; S.ask.sent = true; renderHistory(); pasteBar(); return; }
+    }
+    await navigator.clipboard.writeText(pk.text);
+    S.ask.msg = "Copied. Paste it into your AI app" + (pk.photos.length ? " and attach the photos of this log." : ".") + " Then paste its answer here."; S.ask.sent = true;
+  } catch(e){ S.ask.msg = e && e.name === "AbortError" ? "" : e && e.name === "NotAllowedError" ? "Ready now: tap Send again." : "Couldn't share or copy here. Try Copy."; }
+  renderHistory(); pasteBar();
+}
+function askBox(p, l){
+  if (!askable(l)) return null;
+  const a = S.ask && S.ask.log === l.id ? S.ask : null;
+  if (!a) return h("button",{type:"button", class:"btn ghost sm", style:"align-self:flex-start", onclick:() => askStep(p, l)}, (l.replies || []).length ? "Ask your AI again" : l.asks ? "Ask your AI this question" : "Ask your AI about this");
+  const ta = h("textarea",{rows:"3", placeholder:"Paste your AI's whole answer", "aria-label":"Your AI's answer on this log"});
+  if (a.draft) ta.value = a.draft;
+  return h("div",{class:"howto", style:"gap:6px"},
+    a.msg ? h("p",{class:"sub", style:"margin:0"}, a.msg) : null,
+    h("div",{class:"chips", style:"gap:8px"},
+      h("button",{type:"button", class:"btn ghost sm", onclick:() => askStep(p, l, "share")}, "Send again"),
+      h("button",{type:"button", class:"btn ghost sm", onclick:() => askStep(p, l, "copy")}, "Copy")),
+    ta, h("div",{class:"chips", style:"gap:8px"},
+      h("button",{type:"button", class:"btn primary sm", onclick:() => { if (ta.value.trim()) stepAnswer(p, l, ta.value); }}, "Add the answer"),
+      h("button",{type:"button", class:"btn ghost sm", onclick:() => { askClear(); renderHistory(); }}, "Cancel")),
+    a.err ? h("p",{class:"sub", style:"margin:0;color:var(--warn, #9a3b1b)"}, a.err) : null);
+}
+async function stepAnswer(p, l, text){
+  const now = new Date().toISOString(); let u = null, res = null;
+  try { u = AI.extract(text); } catch(e){}
+  const rep = AI.reply(text) || (u && u.note) || "";
+  if (!rep && !u){ if (S.ask) S.ask.err = "That looks empty. Paste the whole answer."; renderHistory(); return; }
+  try {
+    S.logs = sortLogs(await mutate("logs.json", list => (list || []).map(x => x.id === l.id ? Object.assign({}, x, {replies: (x.replies || []).concat({at: now, src: "ai", text: rep || "(plan changes only)"})}) : x), "log reply " + l.id));
+    if (u){ registerCustom(); res = AI.check(u, {plant: p, tasks: S.tasks.filter(t => t.run === p.id), keys: ALL_KEYS.slice(), today: today(), label: k => k === "watered" ? "Watered" : k === "fed" ? "Fed" : F[k] ? labelFor(p, k) : k});
+      if (res.history) S.plants = await mutate("plants.json", list => (list || []).map(x => x.id === p.id ? Object.assign({}, x, {aiHistory: res.history, aiHistoryAt: now, updated: now}) : x), "ai: story so far"); }
+    askClear(); cache();
+    if (res && res.items.length){ res.history = ""; S.ai = {res, step: l.id, pick: new Set(res.items.map((x, i) => x.ok ? i : -1).filter(i => i >= 0)), msg: "Your AI's answer on the " + short(l.date) + " log also suggests plan changes:"};
+      S.planSeg = "ahead"; location.hash = "#plan"; renderAll(); setTimeout(planSeg, 0); setTimeout(() => { const o = $("#p-ai"); if (o) o.scrollIntoView({block:"start"}); }, 80); }
+    else { renderAll(); setSync("Answer added under the log"); }
+  } catch(e){ console.error("stepAnswer", e); if (S.ask) S.ask.err = "Couldn't save (" + (e.code || e.message) + "). Tap Add again."; renderHistory(); }
+}
+/* an answer that arrives from outside: the Android share sheet (share_target in the manifest) or the paste bar */
+function takeAnswer(text){
+  text = String(text || "").trim(); if (!text) return;
+  const a = askPending(), lg = a && S.logs.find(l => l.id === a.log), p = lg && S.plants.find(x => x.id === a.plant);
+  if (lg && p){ S.sel = p.id; S.planSeg = "book"; location.hash = "#plan"; stepAnswer(p, lg, text); return; }
+  const q = sel(); if (!q) return;
+  S.ai = Object.assign(S.ai || {}, {draft: text}); S.planSeg = "ahead"; location.hash = "#plan"; renderAll(); aiCheck(q, text); setTimeout(planSeg, 0);
+  setTimeout(() => { const o = $("#p-ai"); if (o) o.scrollIntoView({block:"start"}); }, 80);
+}
+/* coming back from the AI app: one big "Paste your AI's answer" button (iPhones can't share into a home-screen web app) */
+function pasteBar(){
+  let bar = $("#ai-paste"); const want = !!(askPending() || (S.ai && S.ai.sent && !S.ai.res));
+  if (!want){ if (bar) bar.remove(); return; }
+  if (!bar){ bar = h("div",{id:"ai-paste", class:"pastebar paper"},
+      h("button",{type:"button", class:"btn primary", onclick:async () => {
+        try { const t = await navigator.clipboard.readText(); if (t && t.trim()){ bar.remove(); takeAnswer(t); return; } } catch(e){}
+        const a = askPending(); S.planSeg = a ? "book" : "ahead"; location.hash = "#plan"; renderAll();
+        setTimeout(() => { const ta = document.querySelector(a ? "#h-list textarea" : "#p-ai textarea"); if (ta){ ta.scrollIntoView({block:"center"}); ta.focus(); } }, 120); }}, "Paste your AI's answer"),
+      h("button",{type:"button", class:"btn ghost sm", "aria-label":"Not now", onclick:() => { askClear(); if (S.ai) S.ai.sent = false; }}, "✕"));
+    document.body.append(bar); }
+}
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") pasteBar(); });
 
 })();

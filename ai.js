@@ -7,14 +7,19 @@
      AI.check(u, d)                 → {plant, note, items:[{type, label, why, ok, data}], errors:[]}   d = {plant, tasks, keys, today}
    The answer format: a fenced block ```flowerphile-update { … } ``` (schema in the manual, version 1). */
 (function(){
-  const MANUAL = `# Flowerphile manual for your AI (version 1)
+  const MANUAL = `# Flowerphile manual for your AI (version 2)
 
 You are helping a home grower through **Flowerphile**, a grow journal app on their phone. The app already does the routine part by itself: it plans regular checks, reacts to each log entry, and moves steps around. You are the layer on top: you look at photos, read the grower's notes, use judgment, and adjust the plan. The grower pastes your answer back into the app, sees every change you propose, and decides.
+
+## This is a feedback loop
+- The grower logs what they do; you answer it. **Respond to the newest step or log first** (what was done, how it looks, what to fix now, what to watch), then suggest improvements to the plan.
+- Keep a running story of this plant: put it in \`history\` (what happened, what you advised, what came of it, what to check next; up to ~1500 characters, plain sentences). The app stores it and sends it back with every check-in, so you pick up where you left off. Replace it each time; don't just append.
 
 ## Your role
 - Read the check-in below: who the grower is, how this plant is set up, what happened since the last check-in, what is planned.
 - Say plainly how the plant is doing and why, in a few sentences, in the grower's language and at their level (a beginner gets simple words and one thing at a time; an experienced grower gets numbers and reasons).
 - Then propose changes to the plan, only where they help. Fewer good changes beat many small ones. "No changes needed" is a fine answer.
+- A **step check-in** is about one log only (a cut, a bend, a water change…): judge that step from the photos and the note, in a few plain sentences the grower reads under their log ("clean cut; two small leaves at the hub still to remove"). Ask for a better photo if you can't see it. Plan changes are optional there.
 - On the **first check-in** for a plant, tailor the fresh plan once: read the setup answers and the grower's experience, and shape steps, targets, warnings and the screen (tiles, log fields) to how *they* grow.
 
 ## Source standards
@@ -41,6 +46,7 @@ First your short assessment in normal text. Then exactly one fenced block like t
  "v": 1,
  "plant": "<plant id from the check-in>",
  "note": "One or two sentences the grower sees at the top of the preview.",
+ "history": "The story of this plant so far, in your words (replaces the last one).",
  "tasks": {
   "add":  [{"title": "Short imperative title", "detail": "How, in 1–3 sentences", "due": "YYYY-MM-DD", "big": false, "howto": "<how-to id, optional>", "why": "reason"}],
   "move": [{"id": "<step id>", "due": "YYYY-MM-DD", "why": "reason"}],
@@ -102,6 +108,8 @@ First your short assessment in normal text. Then exactly one fenced block like t
     L.push("- Keys you can use for tiles/fields: " + (d.keys || []).join(", ") + ", watered, fed");
     if ((d.flags || []).length){ L.push("", "## Watch-out flags"); d.flags.forEach(f => L.push("- [" + (f.k || "-") + "] " + (f.lvl === "warn" ? "WARNING: " : "") + f.text)); }
     if ((d.learnings || []).length){ L.push("", "## Learnings from earlier runs"); d.learnings.forEach(x => L.push("- " + x)); }
+    if (d.history) L.push("", "## The story so far (your own summary from the last check-in" + (d.historyAt ? ", " + d.historyAt.slice(0, 10) : "") + ")", str(d.history, 1600));
+    if ((d.replies || []).length){ L.push("", "## Your earlier replies on single steps"); d.replies.slice(0, 3).forEach(r => L.push("- " + r.date + " (" + r.step + "): " + str(r.text, 400))); }
     L.push("", "## Logged " + (d.since ? "since the last check-in (" + d.since.slice(0, 10) + ")" : "so far") + ", newest first");
     if (!(d.logs || []).length) L.push("Nothing logged yet.");
     const photos = [];
@@ -187,8 +195,42 @@ First your short assessment in normal text. Then exactly one fenced block like t
       if (!text) return; const lore = !src || /lore|forum|reddit/i.test(x.kind || "");
       push("tip", (lore ? "Tip (forum lore · unverified): " : "Tip: ") + text, x.why || (src ? "Source: " + src.t : ""), {text, topic: str(x.topic, 20) || null, src, kind: lore ? "lore" : "fact"}, !!src || !!x.why); });
     arr(u.learnings).slice(0, 4).forEach(x => { const text = str(x.text, 300); if (text) push("learning", "Learning: " + text, x.why, {text}); });
-    return {plant: p.id, note: str(u.note, 400), items, errors};
+    return {plant: p.id, note: str(u.note, 400), history: typeof u.history === "string" ? u.history.trim().slice(0, 1600) : "", items, errors};
   }
 
-  window.AI = {MANUAL, packet, extract, check, KEY_RE, VERSION: 1};
+  /* ---- a step check-in: one log (a cut, a bend, a water change…), its photos, its how-to, the story so far ----
+     d = {plant, profile, stage, today, log, step {name, expect, look, after}, howto {title, steps:[text]}, history, historyAt, replies, tasks, keys, app} */
+  function stepPacket(d){
+    const p = d.plant, l = d.log, s = d.step, L = [], photos = (l.photos || []).slice(0, 6);
+    const what = s ? s.name : l.asks ? "a question" : "this log";
+    L.push("# Flowerphile step check-in: " + what + " on " + (p.name || p.id) + " · " + (l.at || "").slice(0, 16).replace("T", " "));
+    L.push("Please read the manual, then answer **this one step first**: a few plain sentences the grower reads under their log (how it went, what to fix now, what to watch in the next days" + (l.asks ? ", and the answer to their question" : "") + "). Then, only if it helps, one flowerphile-update block with plan changes and an updated `history`.");
+    L.push("", MANUAL, "", "---", "", "## The grower");
+    const pr = d.profile;
+    L.push(pr ? [EXP[pr.exp] || "", MET[pr.meters] ? "owns " + MET[pr.meters] : ""].filter(Boolean).join("; ") + "." : "No profile given (assume an experienced grower with meters and sensors).");
+    L.push("", "## The plant (id: " + p.id + ")", "- " + [p.strain && "strain " + p.strain, p.kind && (p.kind === "auto" ? "autoflower" : "photoperiod"), p.medium, p.system, p.where].filter(Boolean).join(", ") + " · now " + d.stage);
+    if (d.history) L.push("", "## The story so far (your summary" + (d.historyAt ? ", " + d.historyAt.slice(0, 10) : "") + ")", str(d.history, 1600));
+    if ((d.replies || []).length){ L.push("", "## Your earlier replies on single steps"); d.replies.slice(0, 3).forEach(r => L.push("- " + r.date + " (" + r.step + "): " + str(r.text, 400))); }
+    L.push("", "## The step");
+    const vals = (d.keys || []).filter(k => l[k] != null && l[k] !== "").map(k => k + " " + l[k]);
+    L.push("- What: " + what + ((l.actions || []).length ? " · chips: " + l.actions.join(", ") : ""));
+    if (l.note) L.push("- The grower's note: \"" + str(l.note, 800) + "\"");
+    if (vals.length) L.push("- Values logged with it: " + vals.join(", "));
+    if (l.ack) L.push("- The app already said: " + str(l.ack, 400));
+    if (s) L.push("- Usually: expect " + s.expect + "; look for: " + s.look + ".");
+    if (d.howto) L.push("- The app's how-to (\"" + d.howto.title + "\"): " + d.howto.steps.map((x, i) => (i + 1) + ". " + str(x, 200)).join(" "));
+    if (s && s.after) L.push("- Photos that make it judgeable: " + (s.before ? "before: " + s.before + "; " : "") + "after: " + s.after + ".");
+    if ((l.replies || []).length){ L.push("", "## Earlier on this step"); l.replies.forEach(r => L.push("- " + (r.src === "ai" ? "You" : "Grower") + ": " + str(r.text, 600))); }
+    L.push("", "## Planned steps (id · due · title)");
+    (d.tasks || []).slice(0, 12).forEach(t => L.push("- " + t.id + " · " + (t.due || "open") + " · " + t.title));
+    L.push("", photos.length ? "## Photos\n" + photos.length + " photo(s) of this step attached, in the order taken." : "## Photos\nNo photos with this log. If you need one to judge the step, say which.");
+    L.push("", "App " + (d.app || "") + " · answer format version 1.");
+    return {text: L.join("\n"), photos};
+  }
+  /* the plain-text part of an answer (shown under the log): everything outside the update block */
+  function reply(text){
+    return String(text || "").replace(/```\s*flowerphile-update[\s\S]*?```/gi, "").replace(/```(?:json)?\s*\{[\s\S]*?\}\s*```/gi, "").replace(/\n{3,}/g, "\n\n").trim().slice(0, 2400);
+  }
+
+  window.AI = {MANUAL, packet, stepPacket, reply, extract, check, KEY_RE, VERSION: 1};
 })();
