@@ -153,7 +153,8 @@ function moon(P, x, y, R){
 }
 function birds(P, x, y, n){ for (let i = 0; i < n; i++){ const bx = x + P.j(40), by = y + P.j(12), s = 3 + P.r() * 3; P.stroke([[bx - s, by - s * 0.4], [bx - s * 0.4, by - s * 0.6], [bx, by]], {w: 0.5, over: 0}); P.stroke([[bx, by], [bx + s * 0.4, by - s * 0.7], [bx + s, by - s * 0.3]], {w: 0.5, over: 0}); } }
 
-function lampScene(P, W, warm){
+function lampScene(P, W, warm, lit){
+  // lit === false: lights off, so no warm wash and no rays (the fixture and fan stay)
   // grow fridge interior: side walls in perspective, an LED bar on hangers, a clip fan, light falling
   const t = 4, inset = W * 0.07;
   P.line(2, 0, inset, 210, {w: 0.7, twice: 0.6}); P.line(W - 2, 0, W - inset, 210, {w: 0.7, twice: 0.6});
@@ -161,7 +162,7 @@ function lampScene(P, W, warm){
   P.hatch([0, 0, inset, 210], wl, {ang: 1.45, gap: 3, w: 0.3, op: 0.6}); P.hatch([W - inset, 0, W, 210], wr, {ang: 1.7, gap: 3, w: 0.3, op: 0.6});
   // hangers: rope, ratchet, hook
   const bx0 = W * 0.17, bx1 = W * 0.83, by = 30;
-  P.wash(blobPath(P, [[bx0, by + 8], [bx1, by + 8], [W - inset + 4, 240], [inset - 4, 240]], 3), "#e3b84a", 20);
+  const w0 = P.out.length; P.wash(blobPath(P, [[bx0, by + 8], [bx1, by + 8], [W - inset + 4, 240], [inset - 4, 240]], 3), "#e3b84a", 20); const w1 = P.out.length;
   for (const hx of [bx0 + 14, bx1 - 14]){
     P.stroke([[hx + P.j(3), 0], [hx + P.j(1.5), 8], [hx, 14]], {w: 0.45});
     P.ellipse(hx, 16, 2.6, 3.6, {w: 0.55});
@@ -177,6 +178,7 @@ function lampScene(P, W, warm){
   for (let x = bx0 + 5; x < bx1 - 4; x += 5.5){ P.ellipse(x, by + 2.4, 0.9, 0.7, {w: 0.35, jit: 0.05}); P.ellipse(x + 2.7, by + 5, 0.9, 0.7, {w: 0.35, jit: 0.05}); }
   P.stroke([[bx1, by + 3], [bx1 + 10, by + 6], [bx1 + 16, by + 2], [bx1 + 20, -2]], {w: 0.45});  // power cord
   // light: fanned rays, broken and uneven, some running long
+  const r0 = P.out.length;
   for (let i = 0; i < 70; i++){
     const u = P.r(), x0 = bx0 + 4 + u * (bx1 - bx0 - 8), spread = (x0 - W / 2) * (0.35 + P.r() * 0.2), L = 70 + P.r() * 120 + (P.r() < 0.12 ? 60 : 0);
     let y = by + 9, segs = 2 + Math.floor(P.r() * 4);
@@ -184,6 +186,7 @@ function lampScene(P, W, warm){
       const k0 = (y - by - 9) / 200, k1 = (y1 - by - 9) / 200;
       P.line(x0 + spread * k0, y, x0 + spread * k1, y1, {w: 0.32 + P.r() * 0.18, op: 0.75 - s * 0.12, over: 0.5, jit: 0.25}); y = y1 + 3 + P.r() * 8; }
   }
+  if (lit === false){ P.out.splice(r0, P.out.length - r0); P.out.splice(w0, w1 - w0); }
   // clip fan, right side: cage rings and spokes
   const fx = W - inset - 22, fy = 92, fr = 15;
   for (const k of [1, 0.72, 0.45, 0.2]) P.ellipse(fx, fy, fr * k, fr * k * 0.95, {w: k === 1 ? 0.8 : 0.4, twice: k === 1 ? 0.6 : 0});
@@ -352,7 +355,7 @@ function dryLine(P, W){ // drying line with clothespins across the top
 function draw(o){
   const W = o.W, H = o.H, P = new Pen(o.seed || 11);
   const top = new Pen((o.seed || 11) + 1), bot = new Pen((o.seed || 11) + 2);
-  if (o.scene === "indoor") lampScene(top, W, o.warm);
+  if (o.scene === "indoor") lampScene(top, W, o.warm, o.lit);
   else if (o.scene === "outdoor") skyScene(top, W, o.weather || {}, o.night);
   if (o.phase === "dry") dryLine(top, W);
   const by = H - 175;

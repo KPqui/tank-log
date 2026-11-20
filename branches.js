@@ -80,7 +80,7 @@
     if (b.medium === "soil" && !canEc(pr)){
       const last = ctx.logs.find(l => l.run === p.id && (l.actions || []).some(a => FED.includes(a)));
       const base = last ? last.date : sprout ? add(sprout, 21) : null;   // most bagged soils carry the first ~3 weeks
-      if (base) want("soil-feed-" + add(base, 7), add(base, 7) < T ? T : add(base, 7), "Feed with the watering", "Mix your nutrients at ¼–½ of the bottle chart (more only if lower leaves pale). Feed one watering, plain water the next.", "About weekly from veg day ~21");
+      if (base) want("soil-feed-" + add(base, 7), add(base, 7) < T ? T : add(base, 7), "Feed with the watering", "Mix your nutrients at ¼–½ of the bottle chart (more only if lower leaves pale). Feed one watering, plain water the next.", "About every 7 days from veg day ~21");
     }
     return out;
   }
@@ -112,7 +112,7 @@
       {id: "sun", type: "one", title: "Direct sun per day?", why: "In midsummer. Cannabis wants as much as it can get; under ~5 h it stays small and airy.", show: x => out(x) && x.spot !== "greenhouse", opts: [["low", "Under 4 h"], ["mid", "4–6 h"], ["high", "6 h or more"]]},
       {id: "roof", type: "one", title: "Rain on it?", why: "Rain on ripe buds is the main cause of mould outside.", show: x => out(x) && x.spot !== "greenhouse", opts: [["open", "Open sky"], ["cover", "Under a roof or overhang"], ["movable", "I can move it under cover"]]},
       {id: "feed", type: "one", title: "What do you feed?", why: "Decides the feeding steps in the plan.", show: x => ["soil", "coco"].includes(med(x)), opts: [["bottle", "Bottled nutrients", "from a grow shop"], ["organic", "Organic liquid or dry fertiliser"], ["none", "Nothing yet", "the soil is pre-fertilised"]]},
-      {id: "soilsrc", type: "one", title: "Which living soil?", why: "Bagged soils carry food for the first weeks; a reused bed needs a top-dress early.", show: x => med(x) === "living-soil", opts: [["bag", "Ready-made bag", "organic / living soil"], ["mix", "My own mix"], ["reused", "A reused (no-till) bed"]]}
+      {id: "soilsrc", type: "one", title: "Which living soil?", why: "Bagged soils carry food for the first 20–30 days; a reused bed needs a top-dress early.", show: x => med(x) === "living-soil", opts: [["bag", "Ready-made bag", "organic / living soil"], ["mix", "My own mix"], ["reused", "A reused (no-till) bed"]]}
     ];
   }
 
@@ -132,7 +132,7 @@
     const loc = a.loc || {}, de = inGermany(loc.lat, loc.lon);
     if (outdoor){
       // timing: autos ~10–12 weeks seed to harvest; a July start still finishes mid-Sep/early Oct (Dutch Passion); photos flower as days shorten
-      if (a.seed === "auto") f("info", "out-timing", "Autoflower outside: put it out once nights stay above ~10 °C" + (de ? " (in Germany usually after mid-May)" : "") + ". It needs about 10–12 weeks from seed, so a start up to early July still finishes by early October.");
+      if (a.seed === "auto") f("info", "out-timing", "Autoflower outside: put it out once nights stay above ~10 °C" + (de ? " (in Germany usually after mid-May)" : "") + ". It needs about 70–85 days from seed, so a start up to early July still finishes by early October.");
       else if (a.seed === "photo") f("info", "out-timing", "Photoperiod outside: it grows until the days shorten, starts flowering on its own" + (de ? " around late July to August" : " in late summer") + " and is ready late September to mid-October. Wet autumn weather is the main risk, so a fast, mould-resistant strain helps.");
       if (de) f("info", "law-de", "At home in Germany (KCanG): up to 3 plants per adult, kept out of reach of children and visitors. A privacy screen isn't required but helps; late-bloom smell can bother neighbours.");
       if (a.roof === "open") f("warn", "rain", "Open to the rain: in late bloom, shake the buds off after rain and look inside the densest ones for grey mould. A movable spot or a small roof saves a harvest in a wet September.");
@@ -149,7 +149,7 @@
       if (a.soilsrc === "reused") f("info", "ls-reused", "Reused bed: top-dress before planting (castings + a balanced amendment) and keep the mulch or cover crop on.");
     }
     if ((medium === "soil" || medium === "coco") && a.feed === "bottle") f("info", "feed-dose", "Bottle charts are written for big plants under strong light. Start at ¼–½ of the chart and go up only when the lower leaves turn pale.");
-    if (medium === "soil" && a.feed === "none") f("info", "feed-none", "Pre-fertilised soil usually feeds for 3–4 weeks. When the lower leaves turn pale yellow after that, it's hungry.");
+    if (medium === "soil" && a.feed === "none") f("info", "feed-none", "Pre-fertilised soil usually feeds for 21–28 days. When the lower leaves turn pale yellow after that, it's hungry.");
     if (medium === "coco") f("info", "coco", "Coco holds almost no food: feed with nearly every watering and let 10–20 % run out so salts don't build up.");
     if (medium === "hydro" && pr && !canEc(pr)) f("warn", "hydro-meters", "Hydro needs a pH pen and an EC meter (about €30–60 together). Without them the water values are guesswork.");
     if (pr && pr.exp === "new") f("info", "new", "New to this? Every step in the plan has a short how-to where one exists. Log whenever you look at the plant; the plan adjusts to what you log.");

@@ -32,6 +32,7 @@ You are helping a home grower through **Flowerphile**, a grow journal app on the
 
 ## What you may change
 Tasks (add, move, mark done, drop), target ranges, watch-out flags, the three main tiles on Today, the log fields and quick-tap chips for this plant, new custom log fields (e.g. pot weight), tips, and learnings when a run closes.
+- If the check-in lists **day notes** from the grower ("away Saturday"), plan around them: nothing due on a day they are away.
 - Be conservative: one stressful step (topping, training, defoliation, transplant, water change, light change) per day at most; big jobs on days the grower has time.
 - Every change carries a short, plain reason (\`why\`). Changes without a reason are shown unticked.
 - Use days, never weeks ("bloom day 21", "in 3 days").
@@ -119,6 +120,8 @@ First your short assessment in normal text. Then exactly one fenced block like t
       const ph = (l.photos || []).map(x => { photos.push(x); return "photo " + photos.length; });
       L.push("- " + (l.at || l.date || "").slice(0, 16).replace("T", " ") + ": " + [vals.join(", "), (l.actions || []).join(", "), s, l.note && "note: \"" + str(l.note, 400) + "\"", ph.join(", "), l.ask && "asked \"" + l.ask + "\" → " + l.answer].filter(Boolean).join(" · "));
     });
+    const dn = Object.entries(p.dayNotes || {}).filter(([k]) => k >= d.today).sort();
+    if (dn.length){ L.push("", "## Day notes from the grower (plan around these)"); dn.forEach(([k, v]) => L.push("- " + k + ": " + str(v, 160))); }
     L.push("", "## Planned steps (id · due · title)");
     if (!(d.tasks || []).length) L.push("None open.");
     (d.tasks || []).forEach(t => L.push("- " + t.id + " · " + (t.due || "open") + " · " + t.title + (t.urgent ? " (urgent)" : "") + (t.src === "app" ? " (app routine)" : "") + (t.detail ? " — " + str(t.detail, 160) : "")));

@@ -149,6 +149,13 @@ const today = () => ymd(new Date());
 const addDays = (d, n) => { const x = new Date(d + "T12:00:00"); x.setDate(x.getDate() + n); return ymd(x); };
 const short = s => parseYmd(s).toLocaleDateString("en-GB",{day:"numeric",month:"short"});
 const hm = iso => { const d = new Date(iso); return pad(d.getHours())+":"+pad(d.getMinutes()); };
+/* A2: durations in days only; "9–10 weeks (~67 days)" → "63–70 days (~67)" */
+function daysOnly(v){
+  if (typeof v !== "string") return v;
+  let t = v.replace(/(\d+)\s*[–-]\s*(\d+)\s*weeks?/gi, (m, a, b) => (a * 7) + "–" + (b * 7) + " days").replace(/(\d+)\s*weeks?/gi, (m, a) => (a * 7) + " days");
+  return t.replace(/ days \(~(\d+) days\)/, " days (~$1)");
+}
+function flowerDays(v){ if (typeof v === "number") return v; const t = daysOnly(String(v)), m = t.match(/~(\d+)/) || t.match(/(\d+)\s*[–-]\s*(\d+)/) || t.match(/(\d+)/); return m ? (m[2] ? Math.round((+m[1] + +m[2]) / 2) : +m[1]) : null; }
 function fmtDay(s){
   if (!s) return "";
   const diff = daysBetween(today(), s);
@@ -173,7 +180,7 @@ const colorOf = p => (MEDIA[p.medium] || MEDIA.hydro).c;
 /* ---------- botanical look: theme, frames, washes, background ---------- */
 const GLYPHS = {"0": "<ellipse cx=\"15\" cy=\"24\" rx=\"5\" ry=\"6.5\" stroke-width=\"0.9\"/><path d=\"M15 18 v12\" stroke-width=\"0.4\"/>", "1": "<path d=\"M15 32 V18\" stroke-width=\"1\"/><path d=\"M15 19 c -5 -3, -9 -1, -9 1 c 3 2, 6 2, 9 -1 Z M15 19 c 5 -3, 9 -1, 9 1 c -3 2, -6 2, -9 -1 Z\" stroke-width=\"0.8\"/>", "2": "<path d=\"M15 32 V10\" stroke-width=\"1\"/><path d=\"M15 24 l -8 -4 M15 24 l 8 -4 M15 16 l -9 -5 M15 16 l 9 -5 M15 16 l -6 -9 M15 16 l 6 -9\" stroke-width=\"0.9\"/>", "3": "<path d=\"M15 32 V4\" stroke-width=\"1.1\"/><path d=\"M15 27 l -11 -3 M15 27 l 11 -3 M15 19 l -11 -4 M15 19 l 11 -4 M15 19 l -8 -9 M15 19 l 8 -9 M15 11 l -7 -3 M15 11 l 7 -3\" stroke-width=\"0.9\"/>", "4": "<path d=\"M15 32 V6\" stroke-width=\"1.1\"/><path d=\"M15 27 l -10 -3 M15 27 l 10 -3 M15 19 l -9 -4 M15 19 l 9 -4\" stroke-width=\"0.8\"/><circle cx=\"15\" cy=\"8\" r=\"3.5\" stroke-width=\"0.9\"/><circle cx=\"10\" cy=\"14\" r=\"2.4\" stroke-width=\"0.8\"/><circle cx=\"20\" cy=\"14\" r=\"2.4\" stroke-width=\"0.8\"/>", "5": "<path d=\"M6 6 h18\" stroke-width=\"0.9\"/><path d=\"M11 6 v18 M19 6 v14\" stroke-width=\"0.8\"/><circle cx=\"11\" cy=\"26\" r=\"3\" stroke-width=\"0.8\"/><circle cx=\"19\" cy=\"22\" r=\"3\" stroke-width=\"0.8\"/>"};
 const THEME_KEY = "ff-theme";
-function themePref(){ try { return localStorage.getItem(THEME_KEY) || "auto"; } catch(e){ return "auto"; } }
+function themePref(){ try { return localStorage.getItem(THEME_KEY) || "plant"; } catch(e){ return "auto"; } }
 const darkMQ = window.matchMedia ? matchMedia("(prefers-color-scheme: dark)") : null;
 function applyTheme(){
   const pref = themePref();
@@ -339,9 +346,10 @@ function drawBackground(p){
   if (outdoor && placeOf(p)){ const pl = placeOf(p), w = S.weather[pl.lat+","+pl.lon], c = w && w.j.current || {}, d = w && w.j.daily || {};
     wx = {cloud: c.cloud_cover, rain: (d.precipitation_sum && d.precipitation_sum[0]) || 0, gust: (d.wind_gusts_10m_max && d.wind_gusts_10m_max[0]) || 0}; }
   const warm = indoorGrow && (latestSensor() || {}).temp > ((targetsOf(p).air || [0, 99])[1]);
-  const key = [W, H, p && p.id, ph, p && p.medium, indoorGrow, outdoor, JSON.stringify(wx), warm, document.documentElement.dataset.theme].join("|");
+  const pn = indoorGrow ? plantNight(p) : null, lit = indoorGrow ? (pn ? !pn.night : document.documentElement.dataset.theme !== "night") : true;   // A1: no glow while the lamp is off
+  const key = [W, H, p && p.id, ph, p && p.medium, indoorGrow, outdoor, JSON.stringify(wx), warm, lit, document.documentElement.dataset.theme].join("|");
   if (bg._k === key) return; bg._k = key;
-  const art = window.BgArt ? BgArt.draw({W, H, scene: indoorGrow ? "indoor" : outdoor ? "outdoor" : "none", medium: p ? (p.medium || "hydro") : "hydro", phase: ph, warm, weather: wx, night: document.documentElement.dataset.theme === "night", seed: p ? seedOf(p) : 11}) : {defs:"", top:"", bottom:"", by: H - 175};
+  const art = window.BgArt ? BgArt.draw({W, H, scene: indoorGrow ? "indoor" : outdoor ? "outdoor" : "none", medium: p ? (p.medium || "hydro") : "hydro", phase: ph, warm, lit, weather: wx, night: document.documentElement.dataset.theme === "night", seed: p ? seedOf(p) : 11}) : {defs:"", top:"", bottom:"", by: H - 175};
   const by = art.by;
   bg.setAttribute("viewBox", `0 0 ${W} ${H}`); bg.setAttribute("width", W); bg.setAttribute("height", H);
   bg.innerHTML = `<defs>${art.defs}<linearGradient id="zone" x1="0" y1="0" x2="0" y2="1"><stop offset="0.6" style="stop-color:var(--tint);stop-opacity:0"/><stop offset="1" style="stop-color:var(--tint);stop-opacity:0.55"/></linearGradient>`+
@@ -448,15 +456,16 @@ async function shrink(file){
     return await new Promise(res => c.toBlob(b => res(b || file), "image/jpeg", 0.8));
   } catch(e){ return file; }
 }
-const isCsv = f => /\.(csv|txt)$/i.test(f.name || "") || /csv|text\/plain/.test(f.type || "");
+const isCsv = f => /\.csv$/i.test(f.name || "") || /csv/.test(f.type || "");
 async function uploadFiles(list, kind){
   const out = []; let n = 0;
   for (const f of list){
     n++;
-    const stamp = new Date().toISOString(), csv = isCsv(f);
-    const blob = csv ? f : await shrink(f);
-    const base = csv && f.name ? f.name.replace(/[^\w.-]+/g,"_").replace(/\.(csv|txt)$/i,"") : kind;
-    const path = "media/" + stamp.slice(0,10) + "/" + stamp.replace(/[:.]/g,"-") + "-" + n + "-" + base + "." + (csv ? "csv" : "jpg");
+    const stamp = new Date().toISOString(), csv = isCsv(f), img = !csv && /^image\//.test(f.type || "");
+    const ext = csv ? "csv" : img ? "jpg" : ((f.name || "").match(/\.([a-z0-9]{1,5})$/i) || [, "txt"])[1].toLowerCase();   // A3: other data keeps its own format
+    const blob = csv || !img ? f : await shrink(f);
+    const base = !img && f.name ? f.name.replace(/[^\w.-]+/g,"_").replace(/\.[a-z0-9]{1,5}$/i,"") : kind;
+    const path = "media/" + stamp.slice(0,10) + "/" + stamp.replace(/[:.]/g,"-") + "-" + n + "-" + base + "." + ext;
     if (blob.size > 20e6) throw new StoreError("too_large");
     if (isLocal()){ await lput(path, blob); out.push(path); continue; }
     const r = await putB64(path, await blobToB64(blob), null, "media " + path);
@@ -698,10 +707,10 @@ function loadCache(){
 
 /* ---------- routing ---------- */
 const VIEWS = ["today","log","plan","setup","plant","quiz","strain","library"];
-const APP_V = "v52";
+const APP_V = "v53";
 /* Android: Share → Flowerphile lands here as ?title=…&text=… (manifest share_target); taken once the data is loaded */
 let SHARED = (() => { try { const q = new URLSearchParams(location.search); if (!["share","text","title","url"].some(k => q.has(k))) return null;
-  const t = [q.get("title"), q.get("text"), q.get("url")].filter(Boolean).join("\n").trim(); history.replaceState(null, "", location.pathname + "#plan"); return t || null; } catch(e){ return null; } })();
+  const t = [q.get("title"), q.get("text"), q.get("url")].filter(Boolean).join("\n").trim(); history.replaceState(null, "", location.pathname + "#today"); return t || null; } catch(e){ return null; } })();
 const GEAR_SVG = '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="3.2"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1"/></svg>';
 function route(){
   let v = location.hash.slice(1);
@@ -797,7 +806,7 @@ function libEntries(){
       effects: e.effects || (sh && sh.effects) || [],
       taste: e.taste || (sh && sh.taste) || [],
       thcMax: e.thcMax || (sh && sh.thc && +(String(sh.thc).match(/\d+(\.\d+)?/) || [])[0]) || null,
-      flower: e.flower || (sh && sh.flowering && +(String(sh.flowering).match(/~(\d+) days\)/) || [])[1]) || null,
+      flower: e.flower || (sh && sh.flowering && flowerDays(sh.flowering)) || null,
       grown, sh});
   });
 }
@@ -1088,12 +1097,15 @@ async function applyRules(byPlant, label){
   if (!add.length && !mv.length && !cl.length) return 0;
   S.tasks = await mutate("tasks.json", list => { const L = (list || []).map(t => { const m = mv.find(x => x.id === t.id); const c = cl.find(x => x.id === t.id);
       if (c && t.status !== "done") return Object.assign({}, t, {status:"done", doneAt:c.at || new Date().toISOString(), auto: c.skipped ? "skipped" : "log"});
-      return m && t.status !== "done" ? Object.assign({}, t, {due:m.due, moved:T}) : t; });
+      return m && t.status !== "done" ? Object.assign({}, t, {due:m.due, moved:T, was: t.was || t.due, whyMoved: shortWhy(m.why)}) : t; });
     const ids = new Set(L.map(t => t.id)), gens = new Set(L.filter(t => t.gen).map(t => t.run + "|" + t.gen));
     return L.concat(add.filter(t => !ids.has(t.id) && !gens.has(t.run + "|" + t.gen))); }, label === "plan" ? "app: keep plans going" : "app: react to log");
   try { S.changes = (await mutate("changes.json", list => (list || []).concat(ch), "app: why things moved")).slice().sort((a,b) => (b.date||"").localeCompare(a.date||"")); } catch(e){}
   cache(); return add.length + mv.length + cl.length;
 }
+/* B3: one short reason line for a moved date ("was 5 Dec → now 6 Dec · topping was a day late") */
+function shortWhy(w){ if (!w) return ""; let t = String(w).replace(/^"[^"]*"\s*/, "").replace(/^Your AI:\s*/, "").split(/(?<=[.;])\s/)[0].replace(/[.;]$/, ""); return t.length > 90 ? t.slice(0, 88) + "…" : t; }
+function shiftTint(was, now){ if (!was || !now || was === now) return ""; const d = daysBetween(was, now); return d < 0 ? " sh-early" : d <= 2 ? " sh-late" : " sh-later"; }
 function groupSteps(tasks){
   const g = new Map(); for (const t of tasks.slice().sort((a, b) => a.due.localeCompare(b.due))){ const k = t.title; if (!g.has(k)) g.set(k, []); g.get(k).push(t.due); }
   return [...g].map(([k, ds]) => k.toLowerCase() + " " + (ds.length > 1 ? short(ds[0]) + "–" + short(ds[ds.length - 1]) + " (" + ds.length + "×)" : short(ds[0]))).join(", ");
@@ -1235,7 +1247,7 @@ function resultPic(p){
 }
 async function stylized(p, ph){
   if (ph.plate) return mediaUrl(ph.path);                     // harvest plates are already made
-  const key = "flowerphile-styl2-" + p.id;
+  const key = "flowerphile-styl3-" + p.id;   // v53: new mask check, old cut-outs are redrawn
   if (S.styl[ph.path]) return S.styl[ph.path];
   try { const c = JSON.parse(localStorage.getItem(key) || "null"); if (c && c.path === ph.path) return S.styl[ph.path] = c.url; } catch(e){}
   const u = await mediaUrl(ph.path); if (!u) return null;
@@ -1308,7 +1320,7 @@ function coreTiles(p){
     const w = lastAction(Branch.WATERED), fd = lastAction(Branch.FED), ht = latest("height"), wn = since(w), fn = since(fd);
     const vol = (p.setup || {}).volume, ls = p.medium === "living-soil";
     return [["Watered", dtxt(wn), wn != null && wn >= ((p.where === "outdoor") ? 3 : 5) ? {cls:"high", word:"lift it", txt:"pot light? water"} : {cls:"none", word:"", txt: w && w.water_l ? w.water_l + " L" : "lift the pot"}],
-      [ls ? "Top-dressed" : "Fed", dtxt(fn), {cls:"none", word:"", txt: ls ? "every ~3–4 weeks" : vol ? "¼–½ bottle dose" : "with a watering"}],
+      [ls ? "Top-dressed" : "Fed", dtxt(fn), {cls:"none", word:"", txt: ls ? "every ~21–28 days" : vol ? "¼–½ bottle dose" : "with a watering"}],
       ["Height", ht ? fmtv("height", ht.v) : "–", {cls:"none", word:"", txt: ht ? ago(ht.at) : "log it now and then"}, "height"]];
   }
   if (ph === "done"){
@@ -1324,7 +1336,7 @@ function coreTiles(p){
 /* ---------- charts: tap a tile → its values over a chosen time frame ----------
    Logged values (pH, EC, water, height, weight, jar RH …) come from the logs; air, humidity and VPD from the
    sensor CSVs attached to logs (fetched once, merged, cached), falling back to the 24 h summaries. */
-const RANGES = [["3 d", 3], ["7 d", 7], ["14 d", 14], ["30 d", 30], ["Run", 0]];
+const RANGES = [["1 d", 1], ["3 d", 3], ["7 d", 7], ["14 d", 14], ["30 d", 30], ["Run", 0]];
 const EVENT_MARK = {"Fed":"F", "Water change":"W", "Topped off":"T", "pH adjusted":"pH", "Light changed":"L", "Trained":"Tr", "Trimmed":"Tm", "Burped":"B", "Humidity pack in":"HP", "Sensor moved":"S"};
 const EVENTS_FOR = {ph:["Fed","Water change","Topped off","pH adjusted"], ec:["Fed","Water change","Topped off"], water:["Water change","Topped off"], height:["Trained","Trimmed","Light changed"],
   air:["Light changed","Sensor moved"], rh:["Sensor moved","Humidity pack in"], vpd:["Light changed","Sensor moved"], jar_rh:["Burped","Humidity pack in"], weight:[], lost:[]};
@@ -1421,7 +1433,8 @@ function pickTip(p){
   const ps = p && p.strain ? p.strain.toLowerCase() : null;
   // tips can be tagged for a stage (phase: ["grow","bloom"]) and/or a medium (medium: ["hydro"]); untagged ones fit everyone
   const ph = p ? phaseOf(p) : null, fits = t => (!t.phase || (ph && [].concat(t.phase).includes(ph))) && (!t.medium || (p && [].concat(t.medium).includes(p.medium)));
-  const all = allTips().filter(t => (t.strain ? ps && t.strain.toLowerCase() === ps : t.kind !== "strain") && (!t.plant || (p && t.plant === p.id)) && fits(t));
+  // A6: Today = one short, mixed "good to know"; strain lessons live on the Info tab (no duplicates)
+  const all = allTips().filter(t => !t.strain && t.kind !== "strain" && String(t.text || "").length <= 240 && (!t.plant || (p && t.plant === p.id)) && fits(t));
   if (!all.length) return null;
   // any tip not seen yet on this phone; tips tagged for the plant's stage get extra weight so the pool feels current,
   // and each kind (fact, lore, strain) is drawn in proportion to how many fresh ones it has, so small pools don't repeat
@@ -1438,12 +1451,11 @@ function pickTip(p){
 function renderTip(p){
   const box = $("#t-tip"); if (!box) return; box.replaceChildren(); box._fk = null;
   const t = tipFor(p); box.hidden = !t; if (!t) return;
-  const label = t.kind === "lore" ? "Forum lore · unverified" : t.kind === "strain" ? "About this strain" : t.topic === "Botany" ? "Botany lesson" : (t.topic || "Fact");
-  const parts = [h("div",{class:"head",style:"align-items:baseline"}, h("h2",null,label),
+  const parts = [h("div",{class:"head",style:"align-items:baseline"}, h("h2",null,"Good to know", h("span",{class:"sub", style:"margin-left:6px;font-weight:400"}, t.kind === "lore" ? "forum lore · unverified" : (t.topic && t.topic !== "Good to know" ? t.topic.toLowerCase() : ""))),
     h("button",{type:"button", class:"btn ghost sm", "aria-label":"Another one", onclick:() => { S.tipShift++; renderTip(sel()); decorateSoon(); }}, "Another")),
     h("p",{class:"tiptext"}, t.text),
     t.src ? h("a",{class:"small muted", href:t.src.u, target:"_blank", rel:"noopener"}, "Source: " + t.src.t) : null,
-    t.kind === "strain" && strainOf(p) ? h("a",{class:"small", href:"#strain"}, "More about " + strainOf(p).name + " →") : null];
+    null];
   box.append(...parts.filter(Boolean));
 }
 
@@ -1469,43 +1481,38 @@ function renderStrain(T){
   T = T || {};
   const p = sel(), other = T.sheet || null, x = other || strainOf(p), box = T.box || $("#st-body"), nameEl = T.name || $("#st-name"), byEl = T.by || $("#st-by"); box.replaceChildren();
   if (!x){ nameEl.textContent = p && p.strain ? p.strain : "Strain"; byEl.textContent = "";
-    box.append(h("p",{class:"empty"}, p && p.strain ? "No strain sheet yet. The nightly review will research one." : "Set the strain under the gear → Edit, and a strain sheet appears here."), similarPanel(p)); decorateSoon(); return; }
+    box.append(h("p",{class:"empty"}, p && p.strain ? "No strain sheet yet. The nightly review will research one." : "Set the strain under the gear → Edit, and a strain sheet appears here."), similarPanel(p)); if (!T.box) renderGuides(); decorateSoon(); return; }
   nameEl.textContent = x.name; byEl.textContent = [x.breeder, x.country].filter(Boolean).join(" · ");
-  const facts = [["Type", x.type], ["Genetics", x.genetics], ["THC", x.thc], ["CBD", x.cbd], ["Bloom", x.flowering], ["Height", x.height], ["Yield", x.yield]].filter(f => f[1]);
+  const facts = [["Type", x.type], ["Genetics", x.genetics], ["THC", x.thc], ["CBD", x.cbd], ["Bloom", daysOnly(x.flowering)], ["Height", x.height], ["Yield", x.yield], ["Climate", x.climate]].filter(f => f[1]);
   box.append(h("dl",{class:"facts"}, facts.flatMap(f => [h("dt",null,f[0]), h("dd",{class:"num"},f[1])])));
-  if (x.special && x.special.length) box.append(h("div",{class:"chips", style:"gap:6px"}, x.special.map(t => h("span",{class:"tag"}, t))));
-  if (x.spectra && x.spectra.length){
-    const sp = h("div",{class:"panel fr","data-soak":"0.12"}, h("h2",null,"Character"));
-    for (const v of x.spectra) sp.append(h("div",{class:"spec-row"},
+  // A5 order: Character (open) → terpenes, taste and how sure we are → lineage, story, growing, lessons (collapsed)
+  const fold = (title, kids, open) => h("div",{class:"panel fr","data-soak":"0.12"}, h("details",{class:"fold", open: open ? "" : null}, h("summary",null, h("h2",{style:"display:inline"}, title)), ...kids));
+  const ch = [];
+  if (x.special && x.special.length) ch.push(h("div",{class:"chips", style:"gap:6px"}, x.special.map(t => h("span",{class:"tag"}, t))));
+  for (const v of x.spectra || []) ch.push(h("div",{class:"spec-row"},
       raw('<svg aria-hidden="true" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round">' + (SPEC_ICONS[v.i] || "") + '</svg>'),
       h("span",{class:"sl"}, v.l),
       h("span",{class:"track", role:"img", "aria-label": v.l + " to " + v.r + ": " + Math.round(v.v * 10) + " of 10"}, h("span",{class:"dot", style:"left:calc(" + (v.v * 100) + "% - 6px)"})),
       h("span",{class:"sr"}, v.r)));
-    if (x.spectraNote) sp.append(h("p",{class:"sub", style:"margin:0"}, x.spectraNote));
-    box.append(sp);
-  }
-  if (x.lineage){
-    const lp = h("div",{class:"panel fr","data-soak":"0.12"}, h("h2",null,"Lineage"), h("ul",{class:"tree"}, lineageNode(x.lineage, 0)));
-    if (x.story) lp.append(h("details",null, h("summary",null,"The story"), h("p",{class:"prose"}, x.story)));
-    box.append(lp);
-  }
+  if (x.spectraNote) ch.push(h("p",{class:"note-line"}, x.spectraNote));
+  if (ch.length) box.append(h("div",{class:"panel fr","data-soak":"0.12"}, h("h2",null,"Character"), ...ch));
   const tp = h("div",{class:"panel fr","data-soak":"0.12"}, h("h2",null,"Terpenes, taste, effect"));
-  for (const t of x.terpenes || []) tp.append(h("div",{class:"terp"}, h("b",null,t.name), h("span",null," · " + t.note), t.basis ? h("div",{class:"lnote"}, t.basis) : null));
-  if (x.terpNote) tp.append(h("p",{class:"sub", style:"margin:0"}, x.terpNote));
-  if (x.taste) tp.append(h("p",{style:"margin:0"}, h("span",{class:"muted"},"Taste "), x.taste.join(", ")));
-  if (x.effects) tp.append(h("p",{style:"margin:0"}, h("span",{class:"muted"},"Effect "), x.effects.join(", ")));
+  if (x.terpNote) tp.append(h("p",{class:"note-line"}, x.terpNote));
+  for (const t of x.terpenes || []) tp.append(h("div",{class:"terp"}, h("b",null,t.name), t.note ? h("span",null," · " + t.note) : null, t.basis ? h("div",{class:"lnote"}, t.basis) : null));
+  if (x.taste && x.taste.length) tp.append(h("p",{style:"margin:0"}, h("span",{class:"muted"},"Taste "), x.taste.join(", ")));
+  if (x.effects && x.effects.length) tp.append(h("p",{style:"margin:0"}, h("span",{class:"muted"},"Effect "), x.effects.join(", ")));
   box.append(tp);
-  if (x.growNotes && x.growNotes.length) box.append(h("div",{class:"panel fr","data-soak":"0.12"}, h("h2",null,"Growing her"), h("ul",{class:"notes"}, x.growNotes.map(t => h("li",null,t)))));
-  if (x.bio && x.bio.length){
-    const d = h("details",{class:"bio"}, h("summary",null, h("h2",{style:"display:inline"},"Botany lesson")));
-    x.bio.forEach(t => d.append(h("p",{class:"prose"}, t)));
-    box.append(h("div",{class:"panel fr","data-soak":"0.12"}, d));
-  }
+  if (x.lineage) box.append(fold("Lineage", [h("ul",{class:"tree"}, lineageNode(x.lineage, 0))]));
+  if (x.story) box.append(fold("Story", [h("p",{class:"prose"}, x.story)]));
+  if (x.growNotes && x.growNotes.length) box.append(fold("Growing her", [h("ul",{class:"notes"}, x.growNotes.map(t => h("li",null, daysOnly(t))))]));
+  // A6: the longer, plant-specific lessons live here (collapsed); Today keeps one short mixed "good to know"
   const triv = (S.tips || []).filter(t => t.strain && t.strain.toLowerCase() === x.name.toLowerCase());
-  if (triv.length) box.append(h("div",{class:"panel fr","data-soak":"0.12"}, h("h2",null,"Did you know"),
-    h("ul",{class:"notes"}, triv.map(t => h("li",null, t.text, t.src ? h("a",{class:"small muted", href:t.src.u, target:"_blank", rel:"noopener", style:"display:block"}, "Source: " + t.src.t) : null)))));
+  const les = [...(x.bio || []).map(t => h("p",{class:"prose"}, t)),
+    ...(triv.length ? [h("ul",{class:"notes"}, triv.map(t => h("li",null, t.text, t.src ? h("a",{class:"small muted", href:t.src.u, target:"_blank", rel:"noopener", style:"display:block"}, "Source: " + t.src.t) : null)))] : [])];
+  if (les.length) box.append(fold("Lessons", les));
   if (x.sources && x.sources.length) box.append(h("details",null, h("summary",{class:"small muted"},"Sources"), h("ul",{class:"notes small"}, x.sources.map(s => h("li",null, h("a",{href:s.u, target:"_blank", rel:"noopener"}, s.t))))));
   if (!other) box.append(similarPanel(p));
+  if (!other) renderGuides();
   decorateSoon();
 }
 
@@ -1604,6 +1611,8 @@ function renderToday(){
   }
   for (const t of next) nb.append(h("div",{class:"row"}, h("span",null,t.title), h("span",{class:"lead"}), h("span",{class:"when"}, t.due ? fmtDay(t.due) : (t.trigger || "when ready"))));
   const old = $("#t-ask"); if (old) old.remove();
+  const oa = $("#p-ai"); if (oa) oa.remove();
+  const apn = aiPanel(p); if (apn) $("#t-tasks").closest(".panel").after(apn);
   const ask = askCard(p); if (ask) sb.after(ask);
   decorateSoon();
 }
@@ -1682,7 +1691,7 @@ function howtoCard(hw){
     h("ol",{class:"hsteps"}, hw.steps.map((st, i) => h("li",null, raw(HowTo.fig(st.fig)), h("div",null, h("b",null, (i + 1) + ". "), st.text)))),
     hw.watch && hw.watch.length ? h("div",null, h("h2",null,"Watch out"), h("ul",{class:"notes"}, hw.watch.map(w => h("li",null,w)))) : null,
     hw.vs ? h("p",{class:"sub", style:"margin:0"}, h("b",{style:"font-style:normal"}, "Not the same as: "), hw.vs) : null,
-    ...(S.kn.pages || []).filter(pg => pg.howto === hw.id).map(pg => h("button",{type:"button", class:"btn ghost sm howbtn", onclick:e => { e.stopPropagation(); S.openHow.add("k-" + pg.id); location.hash = "#plan"; setTimeout(() => { const g = $("#p-guides"); if (g){ g.open = true; renderGuides(); g.scrollIntoView({block:"start"}); } }, 60); }}, "Read more: " + pg.title)));
+    ...(S.kn.pages || []).filter(pg => pg.howto === hw.id).map(pg => h("button",{type:"button", class:"btn ghost sm howbtn", onclick:e => { e.stopPropagation(); S.openHow.add("k-" + pg.id); location.hash = "#strain"; setTimeout(() => { const g = $("#p-guides"); if (g){ g.open = true; renderGuides(); g.scrollIntoView({block:"start"}); } }, 60); }}, "Read more: " + pg.title)));
 }
 function howtoToggle(key, hw, rerender){
   const open = S.openHow.has(key);
@@ -1894,10 +1903,38 @@ function setupPanel(p){
   if (!p || p.status !== "active" || !["germ","grow","bloom"].includes(phaseOf(p))) return null;
   const box = h("div",{class:"panel fr", "data-soak":"0.15", id:"p-setup"});
   if (!p.setup){ box.append(h("h2",null,"Confirm the setup"), h("p",{style:"margin:0"}, "About 8 taps: seed, where and in what, pot, light or spot, water, goal. Sets targets, first steps and early warnings."), h("a",{class:"btn primary", href:"#plant-setup"}, "Answer the setup questions")); return box; }
-  const fl = p.flags || [];
-  box.append(h("div",{class:"head",style:"align-items:baseline"}, h("h2",null,"Watch out for"), h("a",{href:"#plant-setup", class:"small"}, "Setup questions")),
-    fl.length ? h("ul",{class:"flags"}, fl.map(f => h("li",{class:f.lvl}, f.text))) : h("p",{class:"empty"}, "Nothing flagged for this setup."));
+  // B4: the setup's base watch-outs were shown once in the setup questions; here they stay folded.
+  // Only plant-specific ones (from an observation, a review or your AI) stand out.
+  const fl = p.flags || [], own = fl.filter(f => f.src && f.src !== "setup" || /^ai-|^obs-|^rev-/.test(f.k || "")), base = fl.filter(f => !own.includes(f));
+  if (own.length) box.append(h("h2",null,"Watch out for"), h("ul",{class:"flags"}, own.map(f => h("li",{class:f.lvl}, f.text))));
+  box.append(h("details",{class:"fold"}, h("summary",null, h("span",null, own.length ? "From the setup (" + base.length + ")" : "Watch out for · from the setup (" + base.length + ")")),
+    base.length ? h("ul",{class:"flags"}, base.map(f => h("li",{class:f.lvl}, f.text))) : h("p",{class:"empty"}, "Nothing flagged for this setup."),
+    h("a",{href:"#plant-setup", class:"small"}, "Setup questions")));
   return box;
+}
+
+/* B5: day notes. Tap a day this week, write a short note ("away Saturday"); the app moves steps off a day marked away
+   or busy (rules.js maintain), and the note travels to the nightly review and your AI. plant.dayNotes = {date: text}. */
+function renderDays(p){
+  const box = $("#p-days"); if (!box) return; box.replaceChildren(); const old = $("#p-daynote"); if (old) old.remove();
+  if (!p || !["germ","grow","bloom","dry","cure"].includes(phaseOf(p))){ box.hidden = true; return; } box.hidden = false;
+  const T = today(), notes = p.dayNotes || {}, open = openTasks();
+  for (let i = 0; i < 7; i++){ const d = addDays(T, i), dd = new Date(d + "T12:00:00"), n = open.filter(t => t.due === d).length;
+    box.append(h("button",{type:"button", class: d === T ? "today" : "", "aria-pressed": S.dayPick === d ? "true" : "false", "aria-label": fmtDay(d) + (notes[d] ? ", note: " + notes[d] : "") + (n ? ", " + n + " step" + (n > 1 ? "s" : "") : ""),
+      onclick:() => { S.dayPick = S.dayPick === d ? null : d; renderDays(p); decorateSoon(); }},
+      dd.toLocaleDateString("en-GB",{weekday:"short"}), h("b",null, String(dd.getDate())), notes[d] ? h("span",{class:"dot","aria-hidden":"true"}) : null, n ? h("span",{class:"nt","aria-hidden":"true"}, n + "×") : null)); }
+  const d = S.dayPick; if (!d || d < T || d > addDays(T, 6)) return;
+  const inp = h("input",{type:"text", maxlength:"120", autocomplete:"off", placeholder:"e.g. away, move the water change", value: notes[d] || ""}), msg = h("span",{class:"sub"});
+  const save = async txt => { msg.textContent = "Saving…";
+    try { S.plants = await mutate("plants.json", list => (list || []).map(x => { if (x.id !== p.id) return x; const dn = Object.assign({}, x.dayNotes || {});
+        for (const k of Object.keys(dn)) if (k < addDays(T, -14)) delete dn[k];
+        if (txt) dn[d] = txt; else delete dn[d]; return Object.assign({}, x, {dayNotes: Object.keys(dn).length ? dn : undefined}); }), "day note " + d);
+      cache(); const q = S.plants.find(x => x.id === p.id), m = window.Rules ? Rules.maintain(q, ruleCtx(q)) : null;
+      if (m && (m.moves.length || m.tasks.length || m.close.length)) await applyRules([[q.id, Object.assign(m, {why: [], kind: "upkeep"})]], "plan");
+      S.dayPick = null; renderAll(); } catch(e){ msg.textContent = "Couldn't save."; } };
+  box.after(h("form",{class:"daynote", id:"p-daynote", onsubmit:e => { e.preventDefault(); save(inp.value.trim()); }}, h("span",{class:"small"}, fmtDay(d)), inp,
+    h("button",{class:"btn sm", type:"submit"}, "Save"), notes[d] ? h("button",{class:"btn ghost sm", type:"button", onclick:() => save("")}, "Clear") : null, msg));
+  setTimeout(() => inp.focus(), 30);
 }
 
 /* ---------- weekly focus and open questions ----------
@@ -1934,13 +1971,44 @@ function runRows(p){
   if (run.verdict) rows.push(["Verdict", run.verdict]);
   return rows;
 }
+/* B2: one timeline. Solid = done, dashed = expected; the line = today; "~" dates are predictions in the muted colour,
+   a struck-through date = the first estimate this phone saw (or plant.est0 from a review) when it has moved since. */
+function est0(p){
+  if (p.est0) return p.est0;
+  let m = {}; try { m = JSON.parse(localStorage.getItem("ff-est0") || "{}"); } catch(e){}
+  if (!m[p.id] && (p.flipEst || p.endEst)){ m[p.id] = {flip: p.flipEst || null, end: p.endEst || null}; try { localStorage.setItem("ff-est0", JSON.stringify(m)); } catch(e){} }
+  return m[p.id] || {};
+}
+function timeline(p){
+  const T = today(), ph = phaseOf(p), ps = k => phaseStart(p, k), o = est0(p);
+  const germ = ps("germ") || p.start, grow = ps("grow") || p.sprout, flip = flipOf(p), dry = ps("dry"), cure = ps("cure"), done = ps("done");
+  const pts = [  // [key, label, actual, expected, original]
+    ["germ", "Germ", germ, null, null],
+    ["grow", "Veg", grow, germ ? addDays(germ, 5) : null, null],
+    ["bloom", "Bloom", flip && flip <= T ? flip : null, p.flipEst || (p.kind === "auto" && grow ? addDays(grow, 28) : null), o.flip],
+    ["dry", "Dry", dry, p.endEst || null, o.end],
+    ["cure", "Cure", cure, (dry || p.endEst) ? addDays(dry || p.endEst, 10) : null, null]];
+  const dt = x => x[2] || x[3];
+  const a0 = dt(pts[0]) || T, endD = done || (cure ? addDays(cure, 30) : dt(pts[4]) ? addDays(dt(pts[4]), 30) : addDays(T, 60));
+  const span = Math.max(1, daysBetween(a0, endD)), pc = d => Math.max(0, Math.min(100, 100 * daysBetween(a0, d) / span));
+  const bar = h("div",{class:"tl", role:"img", "aria-label":"Run timeline, today in " + PHASES[ph]});
+  pts.forEach((x, i) => { const s0 = dt(x); if (!s0) return; const nx = pts.slice(i + 1).find(dt), e0 = nx ? dt(nx) : endD;
+    const L = pc(s0), W = Math.max(0.5, pc(e0) - L), started = !!x[2] && x[2] <= T, over = nx && nx[2] && nx[2] <= T;
+    const cls = over || (ph === "done") ? "past" : started ? "cur" : "fut";
+    const k = cls === "cur" ? Math.max(0, Math.min(100, 100 * (pc(T) - L) / W)) : 0;
+    bar.append(h("div",{class:"seg " + cls, style:"left:" + L + "%;width:" + W + "%" + (cls === "cur" ? ";--k:" + k + "%" : "")})); });
+  pts.forEach(x => { if (x[4] && x[3] && x[4] !== x[3] && !x[2]) bar.append(h("div",{class:"ghost", style:"left:" + pc(x[4]) + "%", title:"First estimate " + short(x[4])})); });
+  if (ph !== "done") bar.append(h("div",{class:"now", style:"left:calc(" + pc(T) + "% - 1px)", title:"Today"}));
+  const lab = h("div",{class:"tlab"}, pts.map(x => { const act = x[2] && x[2] <= T, d = act ? x[2] : x[3], moved = !act && x[4] && x[3] && x[4] !== x[3];
+    return h("span",{class: x[0] === ph ? "on" : ""}, h("b",null, x[1]),
+      d ? h("small",{class: (act ? "" : "est") + (moved ? shiftTint(x[4], x[3]) : "")}, (act ? "" : "~") + short(d)) : h("small",{class:"est"}, "·"),
+      moved ? h("small",{class:"was", title:"First estimate"}, short(x[4])) : null); }));
+  return h("div",null, bar, lab);
+}
 function renderPhase(p){
   const box = $("#p-phase"); box.replaceChildren(); box._fk = null; box.hidden = !p; if (!p) return;
   const ph = phaseOf(p), T = today();
-  const rail = h("div",{class:"rail"});
-  const SHORT = {germ:"Germ", grow:"Veg", bloom:"Bloom", dry:"Dry", cure:"Cure", done:"Done"};
-  PHASE_ORDER.forEach(k => { const d = phaseStart(p, k); rail.append(h("span",{class:"st" + (k === ph ? " on" : "") + (PHASE_ORDER.indexOf(k) < PHASE_ORDER.indexOf(ph) ? " past" : ""), title: PHASES[k]}, h("b",null, SHORT[k]), h("small",null, d ? short(d) : "·"))); });
-  box.append(h("div",{class:"head",style:"align-items:center"}, h("h2",null,"The run"), h("span",{class:"muted small"}, PHASES[ph])), rail);
+  box.append(h("div",{class:"head",style:"align-items:center"}, h("h2",null,"The run"), h("span",{class:"muted small"}, PHASES[ph])), timeline(p));
   const rows = runRows(p);
   if (p.summary && p.summary.length) box.append(h("details",null, h("summary",{class:"small"},"Story of this run"), h("ul",{class:"notes", style:"margin-top:8px"}, p.summary.map(t => h("li",null,t)))));
   if (rows.length) box.append(h("div",{class:"runrows"}, rows.map(r => h("div",{class:"row"}, h("span",null,r[0]), h("span",{class:"lead"}), h("span",{class:"when num"}, r[1])))));
@@ -1983,39 +2051,35 @@ function renderPhase(p){
 function renderPlan(){
   const p = sel(), T = today();
   renderPhase(p);
-  for (const x of ["#p-focus", "#p-setup", "#p-ai"]){ const o = $(x); if (o) o.remove(); }
-  const fp = p && focusPanel(p); if (fp) $("#p-phase").after(fp);
-  const ap = aiPanel(p); if (ap) $("#p-phase").after(ap);
-  const sp = setupPanel(p); if (sp) $("#p-phase").after(sp);
-  const bar = $("#p-bar"), lg = $("#p-legend"); bar.replaceChildren(); lg.replaceChildren(); $("#p-upd").textContent = "";
-  if (p && p.start && !["dry","cure","done"].includes(phaseOf(p))){
-    const total = daysBetween(p.start, p.endEst || T) || 1;
-    const g = p.flipEst ? daysBetween(p.start, p.flipEst) : total;
-    bar.append(h("div",{class:"g", style:"width:"+(100*g/total)+"%"}), h("div",{class:"b", style:"width:"+(100*(total-g)/total)+"%"}));
-    const nowPct = Math.max(0, Math.min(100, 100*daysBetween(p.start, T)/total));
-    bar.append(h("div",{class:"now", style:"left:calc("+nowPct+"% - 1px)", title:"Today"}));
-    lg.append(...[h("span",null,"Start " + short(p.start)), h("span",null,"Growth"),
-      p.flipEst ? h("span",null,"Bloom ~" + short(p.flipEst)) : null, p.endEst ? h("span",null,"End ~" + short(p.endEst)) : null].filter(Boolean));
-    if (p.updated) $("#p-upd").textContent = "Updated " + short(ymd(new Date(p.updated)));
-  }
-  const list = $("#p-list"); list.replaceChildren();
-  const open = openTasks().sort(sortTasks);
-  if (!open.length) list.append(h("li",null,h("span",{class:"empty"},"No open steps.")));
-  for (const t of open){
-    const isDue = t.due && t.due <= T;
-    const open = S.openTask.has("p-" + t.id), more = t.trigger || t.detail;
-    list.append(h("li",{class:"fr","data-soak":"0.12", onclick: more ? () => { S.openTask.has("p-" + t.id) ? S.openTask.delete("p-" + t.id) : S.openTask.add("p-" + t.id); renderPlan(); decorateSoon(); } : null, style: more ? "cursor:pointer" : null},
+  for (const x of ["#p-focus", "#p-setup"]){ const o = $(x); if (o) o.remove(); }
+  // B1: run tile → this week / coming up → the rest
+  const fp = p && focusPanel(p); if (fp) $("#p-steps").after(fp);
+  const sp = setupPanel(p); if (sp) $("#p-steps").after(sp);
+  $("#p-upd").textContent = p && p.updated ? "updated " + short(ymd(new Date(p.updated))) : "";
+  renderDays(p);
+  const list = $("#p-list"), list2 = $("#p-list2"); list.replaceChildren(); list2.replaceChildren();
+  const open = openTasks().sort(sortTasks), wk = addDays(T, 6);
+  const soon = open.filter(t => !t.due || t.due <= wk), later = open.filter(t => t.due && t.due > wk);
+  if (!soon.length) list.append(h("li",null,h("span",{class:"empty"}, open.length ? "Nothing in the next 7 days." : "No open steps.")));
+  $("#p-latehead").hidden = !later.length;
+  const row = t => {
+    const isDue = t.due && t.due <= T, note = p && p.dayNotes && t.due && p.dayNotes[t.due];
+    const open = S.openTask.has("p-" + t.id), more = t.trigger || t.detail || howtoFor(t), moved = t.was && t.due && t.was !== t.due;
+    return h("li",{class:"fr","data-soak":"0.12", onclick: more ? e => { if (e.target.closest("a,button")) return; S.openTask.has("p-" + t.id) ? S.openTask.delete("p-" + t.id) : S.openTask.add("p-" + t.id); renderPlan(); decorateSoon(); } : null, style: more ? "cursor:pointer" : null},
       h("div",{style:"display:flex;flex-direction:column;gap:2px;min-width:0"}, h("span",{style:"font-weight:600"},t.title, more ? h("span",{class:"chev","aria-hidden":"true"}, open ? " –" : " +") : null),
+        moved && t.whyMoved ? h("span",{class:"why-moved"}, t.whyMoved) : null,
+        note ? h("span",{class:"why-moved"}, "Your note: " + note) : null,
         open ? h("span",{class:"muted small"}, [t.detail, t.trigger ? "Trigger: " + t.trigger : ""].filter(Boolean).join(" · ")) : null,
         open && howtoFor(t) ? howtoToggle("p-" + t.id, howtoFor(t), renderPlan) : null),
-      h("span",{class:"when num"+(isDue?" due":"")}, t.due ? (isDue ? fmtDay(t.due) : "~" + fmtDay(t.due)) : "open"),
-      open && howtoFor(t) && S.openHow.has("p-" + t.id) ? howtoCard(howtoFor(t)) : null));
-  }
+      h("span",{class:"when num"+(isDue?" due":"")}, moved ? h("span",{class:"was"}, "was " + short(t.was)) : null,
+        h("span",{class: moved ? shiftTint(t.was, t.due).trim() : null}, t.due ? (isDue ? fmtDay(t.due) : "~" + fmtDay(t.due)) : "open")),
+      open && howtoFor(t) && S.openHow.has("p-" + t.id) ? howtoCard(howtoFor(t)) : null);
+  };
+  soon.forEach(t => list.append(row(t))); later.forEach(t => list2.append(row(t)));
   const dl = $("#p-donelist"); dl.replaceChildren();
   const done = mine(S.tasks).filter(t => t.status === "done" && t.auto !== "skipped" && !t.dropped).sort((a,b) => (b.doneAt||"").localeCompare(a.doneAt||""));
   $("#p-done").hidden = !done.length;
   for (const t of done) dl.append(h("li",null, h("span",{class:"muted"},t.title), h("span",{class:"when"}, t.doneAt ? fmtDay(ymd(new Date(t.doneAt))) : "done")));
-  renderGuides();
   const ch = $("#p-changes"); ch.replaceChildren();
   const mc = mine(S.changes);
   if (!mc.length) ch.append(h("p",{class:"empty"},"No changes yet. When a review moves a date, the reason shows here."));
@@ -2050,7 +2114,7 @@ function renderHistory(){
       (l.photos && l.photos.length) ? h("div",{class:"thumbs"}, l.photos.map(thumb)) : null,
       (l.replies || []).length ? h("div",{class:"thread"}, l.replies.map(r => h("div",{class:"reply"}, h("span",{class:"kicker"}, (r.src === "ai" ? "Your AI" : "You") + " · " + short(r.at.slice(0, 10))), h("p",{style:"margin:2px 0 0;white-space:pre-wrap"}, r.text)))) : null,
       askBox(p, l),
-      files.length ? h("div",{class:"thumbs"}, files.map(f => /\.(jpe?g|png|webp)$/i.test(f) ? thumb(f) : h("span",{class:"tag"}, "Sensor file"))) : null,
+      files.length ? h("div",{class:"thumbs"}, files.map(f => /\.(jpe?g|png|webp)$/i.test(f) ? thumb(f) : h("span",{class:"tag"}, /\.csv$/i.test(f) ? "Sensor file" : "File"))) : null,
       h("div",{style:"display:flex;gap:8px"},
         h("button",{type:"button", class:"btn ghost sm", onclick:() => startEdit(l)}, "Edit"),
         h("button",{type:"button", class:"btn ghost sm", style:S.armDel===l.id ? "color:var(--bad);border-color:var(--bad)" : null, onclick:() => delLog(l)}, S.armDel===l.id ? "Tap again to delete" : "Delete"))));
@@ -2080,7 +2144,7 @@ function renderLogForm(){
     }}, a));
   }
   // a sensor file fits any phase: outdoor plants still dry and cure indoors, and jars get sensors too
-  $("#l-sensordrop").hidden = !!(S.profile && S.profile.meters && S.profile.meters !== "sensors");   // only for growers who said they have sensors
+  $("#l-sensordrop").hidden = false;   // A3: generic "Other data" for everyone (sensor CSV, notes, text…)
   renderMoveBox(p);
   if (!S.edit) $("#l-title").textContent = p.name;
 }
@@ -2116,7 +2180,7 @@ async function saveMoves(p, at){
 }
 const countLabel = (n, none) => n ? n + " selected" : none;
 $("#f-photo").addEventListener("change", e => { $("#f-photo-n").textContent = countLabel(e.target.files.length, "camera or gallery"); });
-$("#f-file").addEventListener("change", e => { $("#f-file-n").textContent = countLabel(e.target.files.length, "CSV export"); });
+$("#f-file").addEventListener("change", e => { $("#f-file-n").textContent = countLabel(e.target.files.length, "file"); });
 function lnow(){ const d = new Date(); $("#l-now").textContent = d.toLocaleDateString("en-GB",{weekday:"short",day:"numeric",month:"short"}) + ", " + hm(d.toISOString()); }
 function startEdit(l){
   S.edit = l; S.armDel = null; S.actions = new Set(l.actions || []);
@@ -2132,7 +2196,7 @@ function endEdit(){
   document.querySelectorAll("#chips .chip").forEach(c => c.setAttribute("aria-pressed","false"));
   const p = sel(); $("#l-title").textContent = p ? p.name : "Quick log"; lnow();
   $("#f-save").textContent = "Save"; $("#f-cancel").hidden = true;
-  $("#f-photo-n").textContent = "camera or gallery"; $("#f-file-n").textContent = "the CSV export from your climate sensor's app";
+  $("#f-photo-n").textContent = "camera or gallery"; $("#f-file-n").textContent = "sensor CSV, notes, text…";
 }
 $("#f-cancel").addEventListener("click", () => { endEdit(); S.planSeg = "book"; location.hash = "#plan"; });
 async function delLog(l){
@@ -2309,7 +2373,7 @@ async function sensorDiag(){
 /* ---------- setup ---------- */
 function renderSetup(){
   const c = S.cfg;
-  const tb = $("#s-theme"); tb.replaceChildren(); for (const [v,l] of [["auto","Follow phone"],["day","Day"],["night","Night"],["plant","Follow plant"]]) tb.append(h("button",{type:"button",class:"chip","aria-pressed": themePref()===v ? "true":"false", onclick:() => { try { localStorage.setItem(THEME_KEY, v); } catch(e){} applyTheme(); renderSetup(); }}, l));
+  const tb = $("#s-theme"); tb.replaceChildren(); for (const [v,l] of [["auto","Follow phone"],["day","Day"],["night","Night"],["plant","Follow the lamp"]]) tb.append(h("button",{type:"button",class:"chip","aria-pressed": themePref()===v ? "true":"false", onclick:() => { try { localStorage.setItem(THEME_KEY, v); } catch(e){} applyTheme(); renderSetup(); }}, l));
   renderThemeNote();
   // first visit: a welcome with two ways in; the GitHub form only shows when asked for
   const local = isLocal(), fresh = !c;
@@ -2389,6 +2453,17 @@ $("#sync").addEventListener("click", loadAll);
 document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && (!S.synced || Date.now() - S.synced > 60000)) loadAll(); });
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
 applyTheme();
+/* round 3 (v53): moving to the new address. On the new host, a link from the old one carries this phone's connection
+   (access key and repo) in the #fragment, which browsers never send to a server; it is saved once and the fragment
+   cleared at once. On the old host, moved.json {url} shows a banner with that link. Try-mode data moves via Backup. */
+try { const m = location.hash.match(/^#move=([A-Za-z0-9+/=_-]+)$/);
+  if (m){ const c = JSON.parse(b64dec(m[1].replace(/-/g, "+").replace(/_/g, "/"))); if (c && typeof c === "object" && !loadCfg()) saveCfg(c); history.replaceState(null, "", location.pathname + "#today"); } } catch(e){ history.replaceState(null, "", location.pathname + "#today"); }
+if (/\.github\.io$/.test(location.hostname)) fetch("moved.json", {cache: "no-store"}).then(r => r.ok ? r.json() : null).then(j => {
+  if (!j || !/^https:\/\//.test(j.url || "")) return; const c = loadCfg();
+  const href = j.url.replace(/\/?$/, "/") + (c && !isLocal() ? "#move=" + b64enc(JSON.stringify(c)).replace(/\+/g, "-").replace(/\//g, "_") : "");
+  document.body.append(h("div",{class:"pastebar paper", id:"moved", style:"flex-wrap:wrap"}, h("a",{class:"btn primary", href}, "Flowerphile has moved: open the new address"),
+    h("span",{class:"sub", style:"flex-basis:100%"}, isLocal() ? "Try mode: Settings → Backup here, then Restore there." : "Your connection comes along. Then add the new one to your home screen and remove this one.")));
+}).catch(() => {});
 S.cfg = loadCfg();
 try { S.sel = localStorage.getItem(SEL_KEY); } catch(e){}
 if (S.cfg) loadCache();
@@ -2401,7 +2476,7 @@ if (S.cfg) loadAll();
    with a ```flowerphile-update``` block; pasted back, it is checked (ai.js), every change is listed with its reason,
    and only the ticked ones are applied (tasks, targets, flags, plant.ui, tips, learnings; each with a changes entry). */
 function aiData(p){
-  const T = today(), ph = phaseOf(p), since = p.aiAt || null;
+  const T = today(), ph = phaseOf(p), since = lastCheck(p);
   const logs = mine(S.logs).filter(l => !since || (l.at || "") > since);
   const pages = (S.kn.pages || []).filter(pg => !pg.phase || [].concat(pg.phase).includes(ph)).slice(0, 3);
   const tl = uiTiles(p) || coreTiles(p);
@@ -2412,6 +2487,8 @@ function aiData(p){
     knowledge: pages, howtos: window.HowTo ? HowTo.all.map(x => ({id: x.id, title: x.title})) : [], app: APP_V,
     history: p.aiHistory || "", historyAt: p.aiHistoryAt || null, replies: stepReplies(p)};
 }
+/* A4: a check-in = the newest of: applied AI check-in, the nightly review, a step answer */
+function lastCheck(p){ const r = S.logs.filter(l => l.run === p.id).flatMap(l => (l.replies || []).map(x => x.at || "")); return [p.aiAt, p.lastReview, ...r].filter(Boolean).sort().pop() || null; }
 function stepReplies(p){ return S.logs.filter(l => l.run === p.id && (l.replies || []).length).flatMap(l => l.replies.filter(r => r.src === "ai").map(r => ({date: l.date, step: (l.step && l.step.name) || "log", text: r.text}))).slice(0, 3); }
 async function aiPhotoFiles(paths){
   const out = [];
@@ -2464,7 +2541,7 @@ async function aiApply(p){
       list = list || [];
       for (const x of of("task-add")) list.push(Object.assign({id: "ai-" + T.replace(/-/g, "") + "-" + rid(), run: p.id, title: x.data.title, detail: x.data.detail || "", trigger: "From your AI: " + x.why, due: x.data.due, status: "open", src: "ai"}, x.data.big ? {size: "big"} : {}, x.data.howto ? {howto: x.data.howto} : {}));
       for (const x of its) if (["task-move","task-done","task-drop"].includes(x.type)){ const t = list.find(y => y.id === x.data.id); if (!t) continue;
-        if (x.type === "task-move"){ t.due = x.data.due; t.moved = T; } else { t.status = "done"; t.doneAt = now; t.auto = "ai"; if (x.type === "task-drop") t.dropped = true; } }
+        if (x.type === "task-move"){ t.was = t.was || t.due; t.due = x.data.due; t.moved = T; t.whyMoved = shortWhy(x.why); } else { t.status = "done"; t.doneAt = now; t.auto = "ai"; if (x.type === "task-drop") t.dropped = true; } }
       return list; }, "ai: check-in steps");
     S.plants = await mutate("plants.json", list => (list || []).map(x => {
       if (x.id !== p.id) return x;
@@ -2495,10 +2572,15 @@ function renderAiPanel(){ const o = $("#p-ai"), p = sel(); if (!o || !p) return;
 function aiPanel(p){
   if (!p || !window.AI || phaseOf(p) === "done") return null;
   try { aiPrepare(p); } catch(e){}
-  const st = S.ai || {}, first = !p.aiAt, box = h("div",{class:"panel fr", "data-soak":"0.15", id:"p-ai"});
-  box.append(h("h2",null,"Ask your AI"),
+  const st = S.ai || {}, first = !lastCheck(p), box = h("div",{class:"panel fr", "data-soak":"0.15", id:"p-ai"});
+  const lc = lastCheck(p), doneToday = lc && ymd(new Date(lc)) === today();
+  if (doneToday && !st.res && !st.draft && !st.msg && !st.err && !S.aiOpen){
+    box.append(h("div",{class:"aidone"}, h("span",null, h("b",null,"Check-in with your AI"), h("span",{class:"sub"}, " · done today ✓")),
+      h("button",{type:"button", class:"btn ghost sm", onclick:() => { S.aiOpen = true; renderAiPanel(); }}, "Send another")));
+    return box; }
+  box.append(h("h2",null,"Check-in with your AI"),
     h("p",{style:"margin:0"}, first ? "Your AI (Claude, ChatGPT, Gemini…) can tailor this plan to how you grow. Send it a check-in, then paste its answer here. You see every change before anything happens."
-      : "Last check-in " + short(p.aiAt.slice(0, 10)) + (p.aiNote ? ": " + p.aiNote : ".") + " Send what happened since."));
+      : "Last check-in " + short(lastCheck(p).slice(0, 10)) + (p.aiAt && p.aiNote ? ": " + p.aiNote : ".") + " Send what happened since."));
   box.append(h("div",{class:"chips", style:"gap:8px"},
     h("button",{type:"button", class:"btn primary", onclick:() => aiSend(p, "share")}, first ? "Send the first check-in" : "Send a check-in"),
     h("button",{type:"button", class:"btn ghost sm", onclick:() => aiSend(p, "copy")}, "Copy"),
@@ -2507,7 +2589,8 @@ function aiPanel(p){
   if (st.photos && st.photos.length){ const row = h("div",{class:"chips", style:"gap:6px"});
     st.photos.forEach((path, i) => { const a = h("a",{class:"btn ghost sm", download:"photo-" + (i + 1) + ".jpg", href:"#"}, "Photo " + (i + 1)); mediaUrl(path).then(u => { if (u) a.href = u; }); row.append(a); });
     box.append(row); }
-  if (!st.res){
+  if (!st.res && !(st.sent || st.draft || st.paste || st.err)) box.append(h("button",{type:"button", class:"btn ghost sm", style:"align-self:flex-start", onclick:() => { (S.ai || (S.ai = {})).paste = true; renderAiPanel(); }}, "Paste an answer"));   // Today stays short until a check-in is under way
+  else if (!st.res){
     const ta = h("textarea",{rows:"4", placeholder:"Paste your AI's whole answer", "aria-label":"Your AI's answer", oninput:e => { (S.ai || (S.ai = {})).draft = e.target.value; }});
     if (st.draft) ta.value = st.draft;
     box.append(ta, h("button",{type:"button", class:"btn ghost", onclick:() => { if (ta.value.trim()) aiCheck(p, ta.value); }}, "Check the answer"));
@@ -2593,7 +2676,7 @@ async function stepAnswer(p, l, text){
       if (res.history) S.plants = await mutate("plants.json", list => (list || []).map(x => x.id === p.id ? Object.assign({}, x, {aiHistory: res.history, aiHistoryAt: now, updated: now}) : x), "ai: story so far"); }
     askClear(); cache();
     if (res && res.items.length){ res.history = ""; S.ai = {res, step: l.id, pick: new Set(res.items.map((x, i) => x.ok ? i : -1).filter(i => i >= 0)), msg: "Your AI's answer on the " + short(l.date) + " log also suggests plan changes:"};
-      S.planSeg = "ahead"; location.hash = "#plan"; renderAll(); setTimeout(planSeg, 0); setTimeout(() => { const o = $("#p-ai"); if (o) o.scrollIntoView({block:"start"}); }, 80); }
+      location.hash = "#today"; renderAll(); setTimeout(() => { const o = $("#p-ai"); if (o) o.scrollIntoView({block:"start"}); }, 80); }
     else { renderAll(); setSync("Answer added under the log"); }
   } catch(e){ console.error("stepAnswer", e); if (S.ask) S.ask.err = "Couldn't save (" + (e.code || e.message) + "). Tap Add again."; renderHistory(); }
 }
@@ -2603,7 +2686,7 @@ function takeAnswer(text){
   const a = askPending(), lg = a && S.logs.find(l => l.id === a.log), p = lg && S.plants.find(x => x.id === a.plant);
   if (lg && p){ S.sel = p.id; S.planSeg = "book"; location.hash = "#plan"; stepAnswer(p, lg, text); return; }
   const q = sel(); if (!q) return;
-  S.ai = Object.assign(S.ai || {}, {draft: text}); S.planSeg = "ahead"; location.hash = "#plan"; renderAll(); aiCheck(q, text); setTimeout(planSeg, 0);
+  S.ai = Object.assign(S.ai || {}, {draft: text}); location.hash = "#today"; renderAll(); aiCheck(q, text);
   setTimeout(() => { const o = $("#p-ai"); if (o) o.scrollIntoView({block:"start"}); }, 80);
 }
 /* coming back from the AI app: one big "Paste your AI's answer" button (iPhones can't share into a home-screen web app) */
@@ -2613,7 +2696,7 @@ function pasteBar(){
   if (!bar){ bar = h("div",{id:"ai-paste", class:"pastebar paper"},
       h("button",{type:"button", class:"btn primary", onclick:async () => {
         try { const t = await navigator.clipboard.readText(); if (t && t.trim()){ bar.remove(); takeAnswer(t); return; } } catch(e){}
-        const a = askPending(); S.planSeg = a ? "book" : "ahead"; location.hash = "#plan"; renderAll();
+        const a = askPending(); if (a){ S.planSeg = "book"; location.hash = "#plan"; } else location.hash = "#today"; renderAll();
         setTimeout(() => { const ta = document.querySelector(a ? "#h-list textarea" : "#p-ai textarea"); if (ta){ ta.scrollIntoView({block:"center"}); ta.focus(); } }, 120); }}, "Paste your AI's answer"),
       h("button",{type:"button", class:"btn ghost sm", "aria-label":"Not now", onclick:() => { askClear(); if (S.ai) S.ai.sent = false; }}, "✕"));
     document.body.append(bar); }

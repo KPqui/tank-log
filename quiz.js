@@ -16,7 +16,7 @@
     ["soil|autopot", "Soil · Autopot", "self-watering pots"], ["living-soil|autopot", "Living soil · Autopot"], ["coco|drip", "Coco · drip"],
     ["hydro|dwc", "Hydro · DWC", "roots in a bucket of water with an air stone"]
   ];
-  const AGO = [[3, "A few days ago"], [7, "About a week"], [14, "About 2 weeks"], [21, "About 3 weeks"], [30, "About a month"], [45, "About 6 weeks"], [60, "2 months or more"]];
+  const AGO = [[3, "A few days ago"], [7, "About 7 days"], [14, "About 14 days"], [21, "About 21 days"], [30, "About 30 days"], [45, "About 45 days"], [60, "60 days or more"]];
   /* already growing? the stage answers become sprout / flip dates, so the plan picks up mid-run */
   function midGrow(a, T){
     if (!a.stage || a.stage === "seed") return null;

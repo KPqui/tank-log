@@ -4,6 +4,7 @@
    2. even out brightness, so every photo reads alike
    3. ink lines from a difference-of-Gaussians (XDoG), as in the harvest plates
    4. mix photo and engraving tone 50/50, draw the lines on top, feather the edges, fade the bottom
+   v53: a cut-out that looks messy (see `messy`) becomes a soft oval vignette of the photo instead.
    Limits: needs a green plant on a non-green background. Purple leaves, buds late in bloom, or coloured
    (blurple) light will cut out poorly; then the function returns null and the app keeps the drawing. */
 (function(){
@@ -141,6 +142,14 @@
       for (let y = 0; y < h; y++){ edge.add(cc.lab[y * w]); edge.add(cc.lab[y * w + w - 1]); }
       for (let i = 0; i < N; i++) if (inv[i] && !edge.has(cc.lab[i]) && cc.sizes[cc.lab[i]] < sizes[big] * 0.05) m[i] = 1; }
 
+    // A7 (v53): is the cut-out trustworthy? Messy masks (green walls, scattered pieces, a plant cut by the frame,
+    //    a sparse net of leaf bits) fall back to a soft vignette of the photo instead of a cut-out.
+    let area = 0, kept = 0; for (let i = 0; i < N; i++) area += m[i]; for (let i = 1; i < keep.length; i++) kept += keep[i];
+    const boxA = Math.max(1, (x1 - x0 + 1) * (y1 - y0 + 1)), edges = (x0 <= 1) + (y0 <= 1) + (x1 >= w - 2) + (y1 >= h - 2);
+    let perim = 0; for (let y = 1; y < h - 1; y++) for (let x = 1; x < w - 1; x++){ const i = y * w + x; if (m[i] && (!m[i - 1] || !m[i + 1] || !m[i - w] || !m[i + w])) perim++; }
+    const rag = perim / Math.sqrt(area);                     // ~3.5 for a disc; leafy plants 15–40; noise far above
+    const messy = opts.mode === "vignette" || (opts.mode !== "cut" && (area > N * 0.5 || area / boxA < 0.16 || kept > 8 || edges >= 2 || rag > 60));
+
     // 2. tone: grey levels of the plant pulled to a fixed mean/contrast
     const gray = new Float32Array(N); let sum = 0, sum2 = 0, n = 0;
     for (let i = 0; i < N; i++){ const v = (0.3 * px[i * 4] + 0.59 * px[i * 4 + 1] + 0.11 * px[i * 4 + 2]) / 255; gray[i] = v; if (m[i]){ sum += v; sum2 += v * v; n++; } }
@@ -166,8 +175,12 @@
     { const yc = Math.round(sy1 + RM * 0.5);                // under the leaves only the stem itself (no pot, no stones)
       for (let i = yc * w; i < N; i++) soft[i] = m[i] && Math.abs(i % w - cx) <= half * 2 ? 1 : 0; }
     soft = thr(blur(Float32Array.from(soft), w, h, RM / 2), 0.02);                                    // margin
-    const halo = blur(Float32Array.from(soft), w, h, RM * 0.9), crisp = blur(Float32Array.from(m), w, h, 2);
-    const mf = new Float32Array(N); for (let i = 0; i < N; i++){ const q = Math.min(1, halo[i] * 1.6); mf[i] = Math.max(crisp[i], q * q * (3 - 2 * q)); }
+    const halo = blur(Float32Array.from(soft), w, h, RM * 0.75), crisp = blur(Float32Array.from(m), w, h, 1.5);
+    const mf = new Float32Array(N); for (let i = 0; i < N; i++){ const q = Math.min(1, halo[i] * 1.35); mf[i] = Math.max(crisp[i], q * q * (3 - 2 * q)); }
+    if (messy){                                              // soft oval vignette around the plant's box, no cut-out
+      const ex = (x0 + x1) / 2, ey = (y0 + y1) / 2, rx = Math.max(20, (x1 - x0) * 0.62 + RM * 2), ry = Math.max(20, (y1 - y0) * 0.62 + RM * 2);
+      for (let i = 0; i < N; i++){ const x = i % w, y = (i / w) | 0, d = Math.hypot((x - ex) / rx, (y - ey) / ry), q = Math.min(1, Math.max(0, (1.12 - d) / 0.42)); mf[i] = q * q * (3 - 2 * q); crisp[i] = 1; }
+    }
 
     const pad = Math.round(RM * 3.5), cx0 = Math.max(0, x0 - pad), cy0 = Math.max(0, y0 - pad), cx1 = Math.min(w - 1, x1 + pad), cy1 = Math.min(h - 1, y1 + pad);
     const ow = cx1 - cx0 + 1, oh = cy1 - cy0 + 1;
@@ -175,7 +188,7 @@
     const og = out.getContext("2d"), od = og.createImageData(ow, oh), o = od.data;
     for (let y = cy0; y <= cy1; y++) for (let x = cx0; x <= cx1; x++){
       const i = y * w + x, j = ((y - cy0) * ow + (x - cx0)) * 4;
-      const fade = Math.min(1, Math.max(0, (y1 + RM - y) / (0.12 * H)));
+      const fade = messy ? 1 : Math.min(1, Math.max(0, (y1 + RM - y) / (0.12 * H)));
       const a = Math.min(1, mf[i]) * fade;
       if (a <= 0.01){ o[j + 3] = 0; continue; }
       const t = tone(gray[i]), sat = 0.78;
@@ -195,6 +208,7 @@
       o[j + 3] = Math.min(255, Math.max(a, ia * fade) * 255);
     }
     og.putImageData(od, 0, 0);
+    out._mode = messy ? "vignette" : "cut"; out._q = {area: +(area / N).toFixed(3), solid: +(area / boxA).toFixed(2), kept, edges, rag: Math.round(rag)};
     return out;
   }
   window.Stylize = {plant: stylize};

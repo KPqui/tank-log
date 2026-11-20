@@ -237,6 +237,13 @@
     }
     // overdue big tasks roll to the next suitable day
     for (const t of open.filter(t => t.size === "big" && t.due && t.due < T)){ const d = nextSuitable(p, T); if (d !== t.due) moves.push({id: t.id, due: d, why: "\"" + t.title + "\" was overdue; moved to the next weekend/off day (" + d.slice(5) + ")."}); }
+    // B5 day notes: a day the grower marked as away/busy gets no steps; each moves to the nearest free day (the day before first)
+    const AWAY = /\b(away|not home|out of town|travel|trip|busy|no time|can'?t|cannot|off grid|weg|unterwegs)\b/i, notes = p.dayNotes || {};
+    const blocked = s => !!(notes[s] && AWAY.test(notes[s]));
+    for (const t of open.filter(t => t.due && t.due >= T && blocked(t.due) && !moves.some(m => m.id === t.id))){
+      let nd = null; for (let i = 1; i < 8 && !nd; i++){ const b = add(t.due, -i), a = add(t.due, i); if (b >= T && !blocked(b)) nd = b; else if (!blocked(a)) nd = a; }
+      if (nd) moves.push({id: t.id, due: nd, why: "\"" + t.title + "\" moved to " + nd.slice(5) + ": your note for " + t.due.slice(5) + " says \"" + String(notes[t.due]).slice(0, 40) + "\"."});
+    }
     // one stressor per day
     const due = id => (moves.find(m => m.id === id) || {}).due || (open.find(t => t.id === id) || {}).due;
     const stress = open.filter(t => t.due && (t.size === "big" || STRESS.test(t.title))).sort((a, b) => a.due.localeCompare(b.due) || (a.order || 99) - (b.order || 99));

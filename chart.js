@@ -36,10 +36,18 @@
       s += '<line x1="' + L + '" x2="' + (W - R) + '" y1="' + y + '" y2="' + y + '" stroke="currentColor" stroke-width=".4" stroke-dasharray="1 3" opacity=".6"/>';
       s += '<text x="' + (L - 5) + '" y="' + (y + 4) + '" text-anchor="end">' + (+v.toFixed(o.digits != null ? o.digits : 1)) + '</text>';
     }
-    // x: day labels, at most 5
+    // x: hourly ticks for a 1-day view (C1, v53): a small tick every hour, a label every 3 h (midnight shows the date)
     const days = (o.to - o.from) / 864e5, every = days <= 4 ? 1 : days <= 8 ? 2 : days <= 16 ? 4 : Math.ceil(days / 5);
+    if (days <= 1.6){
+      const h0 = new Date(o.from); h0.setMinutes(0, 0, 0);
+      for (let d = new Date(+h0 + 36e5); d <= o.to; d = new Date(+d + 36e5)){
+        const x = f1(X(+d)), hr = d.getHours(), lab = hr % 3 === 0;
+        s += '<line x1="' + x + '" x2="' + x + '" y1="' + (H - B) + '" y2="' + (H - B + (lab ? 5 : 2.5)) + '" stroke="currentColor" stroke-width="' + (lab ? .8 : .5) + '"/>';
+        if (lab) s += '<text x="' + x + '" y="' + (H - B + 16) + '" text-anchor="middle">' + (hr === 0 ? d.toLocaleDateString("en-GB", {day: "numeric", month: "short"}) : String(hr).padStart(2, "0") + ":00") + '</text>';
+      }
+    }
     const d0 = new Date(o.from); d0.setHours(0, 0, 0, 0);
-    for (let d = new Date(d0), i = 0; d <= o.to; d.setDate(d.getDate() + 1), i++){
+    for (let d = new Date(d0), i = 0; days > 1.6 && d <= o.to; d.setDate(d.getDate() + 1), i++){
       if (d < o.from || i % every) continue;
       const x = f1(X(+d));
       s += '<line x1="' + x + '" x2="' + x + '" y1="' + (H - B) + '" y2="' + (H - B + 4) + '" stroke="currentColor" stroke-width=".8"/>';
