@@ -42,5 +42,64 @@
   ],
   "status": "unreviewed",
   "updated": "2026-11-18"
+ },
+ {
+  "id": "stretch-after-flip",
+  "title": "Stretch after the flip",
+  "area": "technique",
+  "phase": [
+   "grow",
+   "bloom"
+  ],
+  "summary": "After the switch to 12 hours of light, photoperiod plants keep growing taller for a few weeks before the height levels off. How much they stretch depends mostly on the cultivar, so plan the flip with headroom to spare.",
+  "sections": [
+   {
+    "h": "What stretch is",
+    "text": "'Stretch' is growers' shorthand for the burst of stem growth after the flip (the switch to a long, uninterrupted night that starts flowering). The plant lengthens its stems and the spaces between leaf pairs (internodes) while it builds its first flower sites. Autoflowers stretch too when they start to flower, but there is no flip to time it around."
+   },
+   {
+    "h": "How long it lasts",
+    "text": "In a Dutch study on a medicinal cultivar under 12 hours of light, height and stem thickness typically stopped increasing about 21 days after the switch. In an Australian trial, plants under 10 or 12 hours of light had levelled off in height earlier than plants under 14 hours, which kept growing for about 6 days longer. So most of the stretch falls in the first 3 weeks of bloom, and longer days stretch it out."
+   },
+   {
+    "h": "How much",
+    "text": "Good published numbers on the size of the stretch are scarce, and they vary widely between cultivars. In a US hemp trial, essential-oil (CBD/flower) cultivars grew taller as the day got longer, while fibre and grain cultivars barely changed. A common grower rule of thumb is that plants end up 1.5 to 2 times their height at the flip, with sativa-leaning plants at the top of that range and many indica-leaning ones at the bottom. That rule is grower practice, not a measured value; check the breeder's height and other growers' reports for your strain."
+   },
+   {
+    "h": "What drives it",
+    "text": "Genetics come first. Day length matters: more than about 12 hours of light in bloom means taller plants and later flowering, and long days well into flowering can even push a plant back into leafy growth. Temperature matters in many crops: greenhouse research shows that days warmer than nights make stems longer, and a cool spell of 2 to 3 hours at dawn shortens them. This effect is well established in ornamentals; it has not been tested much in cannabis."
+   },
+   {
+    "h": "Planning the flip",
+    "text": "Measure the free height you have: from the pot rim to the lamp at its highest position, minus a safe gap between lamp and canopy. Divide that by the expected stretch factor (for example 2 for a sativa-leaning hybrid) to get the height to flip at. Topping and low-stress training before the flip keep the canopy flat, so the stretch spreads sideways rather than up. Bending tops in the first days of bloom still works while stems are soft."
+   }
+  ],
+  "related": [
+   "water-activity-cure"
+  ],
+  "sources": [
+   {
+    "t": "Sae-Tang et al. 2025, Long-days during the last two weeks before harvest applied to short-day medicinal cannabis (Industrial Crops & Products)",
+    "u": "https://edepot.wur.nl/698002",
+    "d": "2026-11-22"
+   },
+   {
+    "t": "Purdy et al. 2023, Moving away from 12:12: photoperiods, biomass yield and cannabinoids in medicinal cannabis (Plants)",
+    "u": "https://pmc.ncbi.nlm.nih.gov/articles/PMC10004775/",
+    "d": "2026-11-22"
+   },
+   {
+    "t": "Zhang et al. 2021, Photoperiodic flowering response of essential oil, grain and fiber hemp cultivars (Frontiers in Plant Science)",
+    "u": "https://www.frontiersin.org/journals/plant-science/articles/10.3389/fpls.2021.694153/full",
+    "d": "2026-11-22"
+   },
+   {
+    "t": "UMass Extension: Controlling plant height without chemicals",
+    "u": "https://www.umass.edu/agriculture-food-environment/greenhouse-floriculture/fact-sheets/controlling-plant-height-without-chemicals",
+    "d": "2026-11-22"
+   }
+  ],
+  "status": "unreviewed",
+  "updated": "2026-11-22"
  }
 ]

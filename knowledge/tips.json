@@ -753,5 +753,52 @@
    "done"
   ],
   "status": "reviewed"
+ },
+ {
+  "id": "k-20261122-1",
+  "kind": "fact",
+  "topic": "Botany",
+  "text": "Put a flowering cannabis plant back on long days early enough and it can revert: in a 2025 Dutch trial, 4–6 weeks of long days after the flip made new leaves sprout out of the tops of the buds.",
+  "src": {
+   "t": "Sae-Tang et al. 2025, Long-days during the last two weeks before harvest applied to short-day medicinal cannabis (Industrial Crops & Products)",
+   "u": "https://edepot.wur.nl/698002"
+  },
+  "phase": [
+   "bloom"
+  ],
+  "status": "unreviewed",
+  "updated": "2026-11-22"
+ },
+ {
+  "id": "k-20261122-2",
+  "kind": "fact",
+  "topic": "Botany",
+  "text": "In many greenhouse crops, stems grow longer when days are warmer than nights. Growers shorten plants with a 2–3 hour cool spell at dawn instead of chemicals. It's barely tested in cannabis.",
+  "src": {
+   "t": "UMass Extension: Controlling plant height without chemicals",
+   "u": "https://www.umass.edu/agriculture-food-environment/greenhouse-floriculture/fact-sheets/controlling-plant-height-without-chemicals"
+  },
+  "phase": [
+   "grow",
+   "bloom"
+  ],
+  "status": "unreviewed",
+  "updated": "2026-11-22"
+ },
+ {
+  "id": "k-20261122-3",
+  "kind": "fact",
+  "topic": "Good to know",
+  "text": "12/12 isn't a magic number: in a 2023 Canadian trial, 14 hours of light instead of 12 delayed the start of flowering by anywhere from 0 to about 4 days, depending on the cultivar.",
+  "src": {
+   "t": "Ahrens, Llewellyn & Zheng 2023, Is twelve hours really the optimum photoperiod for promoting flowering in indoor-grown cannabis? (Plants)",
+   "u": "https://pmc.ncbi.nlm.nih.gov/articles/PMC10386198/"
+  },
+  "phase": [
+   "grow",
+   "bloom"
+  ],
+  "status": "unreviewed",
+  "updated": "2026-11-22"
  }
 ]

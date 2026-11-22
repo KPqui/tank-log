@@ -1591,5 +1591,79 @@
   "level": 1,
   "status": "unreviewed",
   "updated": "2026-11-20"
+ },
+ {
+  "id": "blueberry-bubblegum-automatic-sensi-seeds",
+  "name": "Blueberry Bubblegum Automatic",
+  "breeder": "Sensi Seeds",
+  "kind": "auto",
+  "type": "Autoflower · feminized (Sensi Research line)",
+  "genetics": "Indica-dominant hybrid, about 80 % indica / 20 % sativa (breeder)",
+  "flowering": "55–65 days of bloom (breeder)",
+  "height": "Indoor 70–100 cm, outdoor over 100 cm (breeder)",
+  "yield": "Indoor 250–300 g/m², outdoor up to 200 g per plant (breeder claim; Seedfinder also lists up to 200 g/m² indoors)",
+  "thc": "not published (breeder rates it medium)",
+  "cbd": "not published",
+  "climate": "Indoors, or outdoors in temperate summers thanks to the short cycle",
+  "terpenes": [
+   {
+    "name": "Limonene",
+    "basis": "breeder description"
+   },
+   {
+    "name": "β-Caryophyllene",
+    "basis": "breeder description"
+   },
+   {
+    "name": "Myrcene",
+    "basis": "breeder description"
+   }
+  ],
+  "taste": [
+   "bubblegum",
+   "blueberry",
+   "citrus",
+   "pepper"
+  ],
+  "effects": [
+   "relaxing body",
+   "uplifting",
+   "clear-headed"
+  ],
+  "lineage": {
+   "name": "Blueberry Bubblegum Automatic",
+   "by": "Sensi Seeds",
+   "parents": [
+    {
+     "name": "Gelato #420"
+    },
+    {
+     "name": "Sunset Sherbet"
+    },
+    {
+     "name": "Ruderalis (autoflower trait)"
+    }
+   ]
+  },
+  "story": "Part of Sensi Seeds' newer Research line, which crosses modern American dessert strains into compact autoflowers. Both named parents come from the Gelato and Sherbet family credited to the breeder Sherbinski. A ruderalis line, not named by the breeder, supplies the autoflowering trait. Not to be confused with Sweet Seeds, which sells other Bubblegum-style autos.",
+  "growNotes": [
+   "Short, indica-shaped plant: suits low spaces and small tents.",
+   "As with most autos, avoid heavy training late; light LST in the first days works best."
+  ],
+  "sources": [
+   {
+    "t": "Sensi Seeds: Blueberry Bubblegum Automatic",
+    "u": "https://sensiseeds.com/en/research/blueberry-bubblegum-automatic",
+    "d": "2026-11-22"
+   },
+   {
+    "t": "Seedfinder: Blueberry Bubblegum Auto (Sensi Seeds)",
+    "u": "https://seedfinder.eu/en/strain-info/blueberry-bubblegum-auto/sensi-seeds",
+    "d": "2026-11-22"
+   }
+  ],
+  "level": 1,
+  "status": "unreviewed",
+  "updated": "2026-11-22"
  }
 ]
