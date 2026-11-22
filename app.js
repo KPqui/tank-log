@@ -707,7 +707,7 @@ function loadCache(){
 
 /* ---------- routing ---------- */
 const VIEWS = ["today","log","plan","setup","plant","quiz","strain","library"];
-const APP_V = "v53";
+const APP_V = "v54";
 /* Android: Share → Flowerphile lands here as ?title=…&text=… (manifest share_target); taken once the data is loaded */
 let SHARED = (() => { try { const q = new URLSearchParams(location.search); if (!["share","text","title","url"].some(k => q.has(k))) return null;
   const t = [q.get("title"), q.get("text"), q.get("url")].filter(Boolean).join("\n").trim(); history.replaceState(null, "", location.pathname + "#today"); return t || null; } catch(e){ return null; } })();
@@ -742,7 +742,7 @@ addEventListener("hashchange", route);
 addEventListener("scroll", () => { const t = document.querySelector(".top"); if (t) t.classList.toggle("scrolled", scrollY > 8); }, {passive:true});
 function selectPlant(id){
   if (S.edit) endEdit();
-  S.sel = id; try { localStorage.setItem(SEL_KEY, id); } catch(e){}
+  S.sel = id; S.dayPick = null; try { localStorage.setItem(SEL_KEY, id); } catch(e){}   // v54: a picked day never follows you to another plant
   renderAll(); if (!$("#v-log").hidden) renderLogForm();
 }
 
@@ -1079,7 +1079,9 @@ function askCard(p){
 }
 
 /* ---------- the app's own plan keeping (rules.js) ---------- */
-function ruleCtx(p){ const ph = phaseOf(p); return {today: today(), phase: ph, phaseStart: phaseStart(p, ph === "done" ? "cure" : ph), tasks: S.tasks, logs: S.logs, profile: S.profile, check: window.Branch ? Branch.check(p, S.profile) : null, jar: liveJarFor(p)}; }
+function ruleCtx(p){ const ph = phaseOf(p), ls = latestSensor(), ta = (targetsOf(p).air || [0, 99])[1];
+  const dose = window.Feed ? (from, to) => { const r = Feed.suggest(p, S.logs, {from, to}); return r ? r.text : null; } : null;
+  return {dose, hot: !!(ls && ls.temp != null && ls.temp > ta), today: today(), phase: ph, phaseStart: phaseStart(p, ph === "done" ? "cure" : ph), tasks: S.tasks, logs: S.logs, profile: S.profile, check: window.Branch ? Branch.check(p, S.profile) : null, jar: liveJarFor(p)}; }
 async function applyRules(byPlant, label){
   const add = [], mv = [], ch = [], T = today();
   const cl = [];
@@ -1234,8 +1236,10 @@ function drawSpecimen(p){
    half photo, half ink specimen (stylize.js); the result is kept per plant so it's instant next time */
 S.photoOn = {}; S.styl = {};
 function latestPhoto(p){
-  const card = resultPic(p), l = mine(S.logs).find(x => x.photos && x.photos.length && !(card && x.photos.includes(card.path)));
-  if (l) return {path: l.photos[l.photos.length - 1], at: l.at};
+  // v54: side shots only (log.view "top"/"close" or a photo marked in log.notSide are skipped); the newest one wins
+  const card = resultPic(p), ok = (x, ph) => !(card && x.photos.includes(card.path)) && !x.view && !(x.notSide || []).includes(ph);
+  for (const x of mine(S.logs)){ if (!x.photos || !x.photos.length) continue;
+    for (let i = x.photos.length - 1; i >= 0; i--) if (ok(x, x.photos[i])) return {path: x.photos[i], at: x.at, log: x.id}; }
   return p && p.plate && !card ? {path: p.plate, at: phaseStart(p, "dry"), plate: true} : null;
 }
 /* the run's result picture (shown once, in the run card on Today): the harvest plate, else the newest "Result photo" log */
@@ -1266,9 +1270,16 @@ function heroPhoto(p){
   btn.setAttribute("aria-pressed", on ? "true" : "false");
   spec.toggleAttribute("hidden", on); img.hidden = !on;
   hint.textContent = !ph ? "" : on ? (ph.plate ? "harvest" : "photo") + (ph.at ? " · " + short(ph.at.slice(0, 10)) : "") : "tap for the real one";
+  const ns = $("#t-notside"); if (ns) ns.remove();
+  if (on && ph && ph.log) btn.after(h("button",{type:"button", id:"t-notside", class:"btn ghost sm", style:"display:block;margin:4px 0 0 auto;font-size:12px;padding:2px 8px;min-height:32px", onclick:e => { e.stopPropagation(); notSide(p, ph); }}, "Not a side shot"));
   if (on && img._p !== ph.path){ img._p = ph.path; img.removeAttribute("src"); img.alt = "The plant from its latest photo, half photo, half ink";
     hint.textContent = "drawing it…";
     stylized(p, ph).then(u => { if (img._p === ph.path && u){ img.src = u; hint.textContent = (ph.plate ? "harvest" : "photo") + (ph.at ? " · " + short(ph.at.slice(0, 10)) : ""); } }); }
+}
+async function notSide(p, ph){
+  if (!ph || !ph.log) return;
+  try { S.logs = sortLogs(await mutate("logs.json", list => (list || []).map(x => x.id === ph.log ? Object.assign({}, x, {notSide: [...new Set([...(x.notSide || []), ph.path])]}) : x), "photo not a side shot"));
+    cache(); heroPhoto(p); } catch(e){ setSync("Couldn't save · tap to retry", true); }
 }
 $("#t-specbtn").addEventListener("click", () => { const p = sel(); if (!p || !latestPhoto(p)) return; S.photoOn[p.id] = !S.photoOn[p.id]; heroPhoto(p); });
 function lampInfo(p){
@@ -1483,7 +1494,7 @@ function renderStrain(T){
   if (!x){ nameEl.textContent = p && p.strain ? p.strain : "Strain"; byEl.textContent = "";
     box.append(h("p",{class:"empty"}, p && p.strain ? "No strain sheet yet. The nightly review will research one." : "Set the strain under the gear → Edit, and a strain sheet appears here."), similarPanel(p)); if (!T.box) renderGuides(); decorateSoon(); return; }
   nameEl.textContent = x.name; byEl.textContent = [x.breeder, x.country].filter(Boolean).join(" · ");
-  const facts = [["Type", x.type], ["Genetics", x.genetics], ["THC", x.thc], ["CBD", x.cbd], ["Bloom", daysOnly(x.flowering)], ["Height", x.height], ["Yield", x.yield], ["Climate", x.climate]].filter(f => f[1]);
+  const facts = [["Type", x.type], ["Genetics", x.genetics], ["THC", x.thc], ["CBD", x.cbd], ["Bloom", daysOnly(x.flowering)], ["Height", x.height], ["Yield", x.yield], ["Climate", x.climate], ["How sure", x.confidence ? x.confidence + (x.status === "unreviewed" ? " · not reviewed" : "") : null]].filter(f => f[1]);
   box.append(h("dl",{class:"facts"}, facts.flatMap(f => [h("dt",null,f[0]), h("dd",{class:"num"},f[1])])));
   // A5 order: Character (open) → terpenes, taste and how sure we are → lineage, story, growing, lessons (collapsed)
   const fold = (title, kids, open) => h("div",{class:"panel fr","data-soak":"0.12"}, h("details",{class:"fold", open: open ? "" : null}, h("summary",null, h("h2",{style:"display:inline"}, title)), ...kids));
@@ -1720,6 +1731,7 @@ function taskRow(t){
     : h("label",{for:id, class:"tt"}, h("b",null,t.title));
   const ask = !done && /check in with claude/i.test(t.title);
   return h("div",{class:"task"+(done?" done":"")+(t.urgent && !done ? " urgent" : "")}, cb, h("div",{class:"tb"}, title,
+    !done && doseFor(t, sel()) ? h("span",{class:"dose"}, doseFor(t, sel())) : null,
     open ? h("span",{class:"d"}, t.detail || "", t.trigger ? (t.detail ? " · " : "") + "Trigger: " + t.trigger : "") : null,
     open && howtoFor(t) ? howtoToggle("t-" + t.id, howtoFor(t), renderToday) : null,
     open && howtoFor(t) && S.openHow.has("t-" + t.id) ? howtoCard(howtoFor(t)) : null,
@@ -1934,7 +1946,7 @@ function renderDays(p){
       S.dayPick = null; renderAll(); } catch(e){ msg.textContent = "Couldn't save."; } };
   box.after(h("form",{class:"daynote", id:"p-daynote", onsubmit:e => { e.preventDefault(); save(inp.value.trim()); }}, h("span",{class:"small"}, fmtDay(d)), inp,
     h("button",{class:"btn sm", type:"submit"}, "Save"), notes[d] ? h("button",{class:"btn ghost sm", type:"button", onclick:() => save("")}, "Clear") : null, msg));
-  setTimeout(() => inp.focus(), 30);
+  // v54: no autofocus: the page keeps its place; the keyboard opens only when the field is tapped
 }
 
 /* ---------- weekly focus and open questions ----------
@@ -1996,12 +2008,18 @@ function timeline(p){
     const L = pc(s0), W = Math.max(0.5, pc(e0) - L), started = !!x[2] && x[2] <= T, over = nx && nx[2] && nx[2] <= T;
     const cls = over || (ph === "done") ? "past" : started ? "cur" : "fut";
     const k = cls === "cur" ? Math.max(0, Math.min(100, 100 * (pc(T) - L) / W)) : 0;
-    bar.append(h("div",{class:"seg " + cls, style:"left:" + L + "%;width:" + W + "%" + (cls === "cur" ? ";--k:" + k + "%" : "")})); });
+    bar.append(h("div",{class:"seg " + cls + " ph-" + x[0], style:"left:" + L + "%;width:" + W + "%" + (cls === "cur" ? ";--k:" + k + "%" : "")})); });
   pts.forEach(x => { if (x[4] && x[3] && x[4] !== x[3] && !x[2]) bar.append(h("div",{class:"ghost", style:"left:" + pc(x[4]) + "%", title:"First estimate " + short(x[4])})); });
   if (ph !== "done") bar.append(h("div",{class:"now", style:"left:calc(" + pc(T) + "% - 1px)", title:"Today"}));
-  const lab = h("div",{class:"tlab"}, pts.map(x => { const act = x[2] && x[2] <= T, d = act ? x[2] : x[3], moved = !act && x[4] && x[3] && x[4] !== x[3];
+  // v54: a finished run shows how long each phase really took, next to what was expected (muted)
+  const sh = strainOf(p), expD = {bloom: sh && flowerDays(sh.flowering) && p.kind !== "auto" ? flowerDays(sh.flowering) : null, dry: 12, cure: 28};
+  const lenOf = i => { const a = pts[i][2], nx = pts.slice(i + 1).find(y => y[2]); const b = nx ? nx[2] : done; return a && b ? daysBetween(a, b) : null; };
+  const lab = h("div",{class:"tlab"}, pts.map((x, i) => { const act = x[2] && x[2] <= T, d = act ? x[2] : x[3], moved = !act && x[4] && x[3] && x[4] !== x[3];
+    const len = ph === "done" ? lenOf(i) : null, ex = len != null ? expD[x[0]] : null;
     return h("span",{class: x[0] === ph ? "on" : ""}, h("b",null, x[1]),
-      d ? h("small",{class: (act ? "" : "est") + (moved ? shiftTint(x[4], x[3]) : "")}, (act ? "" : "~") + short(d)) : h("small",{class:"est"}, "·"),
+      len != null ? h("small",{class: ex ? shiftTint(addDays(T, ex), addDays(T, len)).trim() : null}, len + " d") : null,
+      ex ? h("small",{class:"est"}, "exp " + ex) : null,
+      len != null ? null : d ? h("small",{class: (act ? "" : "est") + (moved ? shiftTint(x[4], x[3]) : "")}, (act ? "" : "~") + short(d)) : h("small",{class:"est"}, "·"),
       moved ? h("small",{class:"was", title:"First estimate"}, short(x[4])) : null); }));
   return h("div",null, bar, lab);
 }
@@ -2069,6 +2087,7 @@ function renderPlan(){
       h("div",{style:"display:flex;flex-direction:column;gap:2px;min-width:0"}, h("span",{style:"font-weight:600"},t.title, more ? h("span",{class:"chev","aria-hidden":"true"}, open ? " –" : " +") : null),
         moved && t.whyMoved ? h("span",{class:"why-moved"}, t.whyMoved) : null,
         note ? h("span",{class:"why-moved"}, "Your note: " + note) : null,
+        doseFor(t, p) ? h("span",{class:"dose"}, doseFor(t, p)) : null,
         open ? h("span",{class:"muted small"}, [t.detail, t.trigger ? "Trigger: " + t.trigger : ""].filter(Boolean).join(" · ")) : null,
         open && howtoFor(t) ? howtoToggle("p-" + t.id, howtoFor(t), renderPlan) : null),
       h("span",{class:"when num"+(isDue?" due":"")}, moved ? h("span",{class:"was"}, "was " + short(t.was)) : null,
@@ -2140,13 +2159,58 @@ function renderLogForm(){
     chips.append(h("button",{type:"button", class:"chip", "aria-pressed": S.actions.has(a) ? "true" : "false", onclick:e => {
       const on = !S.actions.has(a); on ? S.actions.add(a) : S.actions.delete(a);
       e.currentTarget.setAttribute("aria-pressed", on ? "true" : "false");
-      if (a === "Light changed" || a === "Sensor moved") renderLogForm();
+      if (a === "Light changed" || a === "Sensor moved") renderLogForm(); else renderFeedBox(p);
     }}, a));
   }
   // a sensor file fits any phase: outdoor plants still dry and cure indoors, and jars get sensors too
   $("#l-sensordrop").hidden = false;   // A3: generic "Other data" for everyone (sensor CSV, notes, text…)
-  renderMoveBox(p);
+  renderMoveBox(p); renderFeedBox(p); renderViewBox(p);
   if (!S.edit) $("#l-title").textContent = p.name;
+}
+
+/* v54: what went in. Water change / Fed / Topped off open a small box: litres now, ml per product, EC before (optional),
+   litres topped off. Saved as log.feed {vol, ml, ecBefore} and log.top_l; feed.js learns the dose and the drinking from them. */
+function feedProducts(p){
+  const f = S.logs.filter(l => l.run === p.id && l.feed && l.feed.ml).sort((a, b) => a.at < b.at ? 1 : -1)[0];
+  if (f) return Object.keys(f.feed.ml);
+  if (p.feed && p.feed.products) return p.feed.products;
+  return p.doseRef && p.doseRef.parts ? String(p.doseRef.parts).split(/,| and /).map(x => x.trim()).filter(Boolean) : ["CalMag", "Part A", "Part B"];
+}
+function renderFeedBox(p){
+  const old = $("#l-feed"), keep = {}; if (old){ old.querySelectorAll("input").forEach(i => keep[i.dataset.k] = i.value); old.remove(); }
+  const fed = S.actions.has("Fed") || S.actions.has("Water change") || S.actions.has("Top-dressed"), top = S.actions.has("Topped off");
+  if (!fed && !top || !["grow","bloom"].includes(phaseOf(p))) return;
+  const inp = (k, label, ph) => h("label",{class:"f"}, label, h("input",{type:"text", inputmode:"decimal", autocomplete:"off", "data-k":k, placeholder: ph || "–", value: keep[k] || null}));
+  const box = h("fieldset",{id:"l-feed", class:"panel fr", "data-soak":"0.1"}, h("legend",null, fed ? "What went in" : "Top-off"));
+  const grid = h("div",{class:"fields"});
+  if (top){ const ex = window.Feed ? Feed.expectTop(S.logs, p, d => phaseOn(p, d), phaseOf(p), new Date().toISOString()) : null;
+    grid.append(inp("top_l", "Topped off L", ex ? String(ex.l) : null)); if (ex) box.append(h("p",{class:"sub", style:"margin:0"}, ex.text)); }
+  if (fed){ const vol = (S.logs.filter(l => l.run === p.id && l.feed && l.feed.vol).sort((a, b) => a.at < b.at ? 1 : -1)[0] || {feed:{}}).feed.vol || (p.setup && p.setup.volume);
+    grid.append(inp("vol", "Litres now", vol ? String(vol) : null), inp("ecBefore", "EC before", S.actions.has("Water change") ? String((p.setup && p.setup.waterEc) || 0) : null));
+    for (const n of feedProducts(p)) grid.append(inp("ml:" + n, n + " ml"));
+    box.append(grid, h("p",{class:"sub", style:"margin:0"}, "Measure the EC ~15–30 min after mixing (in this log or the next one): the app learns how much your nutrients move it."));
+    const add = h("input",{type:"text", autocomplete:"off", placeholder:"another product", "aria-label":"Add a product"});
+    box.append(h("div",{class:"daynote"}, add, h("button",{type:"button", class:"btn ghost sm", onclick:() => { const n = add.value.trim(); if (!n) return; S.extraProducts = (S.extraProducts || []).concat(n); renderFeedBox(p); }}, "Add")));
+    for (const n of S.extraProducts || []) if (!feedProducts(p).includes(n)) grid.append(inp("ml:" + n, n + " ml"));
+  } else box.append(grid);
+  $("#chips").closest("fieldset").after(box); decorateSoon();
+}
+function readFeedBox(){
+  const b = $("#l-feed"); if (!b) return {};
+  const v = {}; b.querySelectorAll("input[data-k]").forEach(i => { const n = num(i.value); if (n != null) v[i.dataset.k] = n; });
+  const ml = {}; for (const k of Object.keys(v)) if (k.startsWith("ml:")) ml[k.slice(3)] = v[k];
+  const out = {}; if (v.top_l != null) out.top_l = v.top_l;
+  if (Object.keys(ml).length || v.vol != null) out.feed = Object.assign({ml}, v.vol != null ? {vol: v.vol} : {}, v.ecBefore != null ? {ecBefore: v.ecBefore} : {});
+  return out;
+}
+/* v54: photos are Side (default), Top or Close-up; only side shots become the "real one" behind the drawing */
+function renderViewBox(p){
+  const old = $("#l-view"); if (old) old.remove();
+  if (!["germ","grow","bloom"].includes(phaseOf(p))) return;
+  S.view = S.view || "side";
+  const box = h("div",{id:"l-view", class:"chips", role:"group", "aria-label":"The photos show"}, h("span",{class:"sub", style:"align-self:center"}, "Photos:"),
+    ...[["side","Side"],["top","Top-down"],["close","Close-up"]].map(([k, l]) => h("button",{type:"button", class:"chip", "aria-pressed": S.view === k ? "true" : "false", onclick:() => { S.view = k; renderViewBox(p); }}, l)));
+  $(".drops").after(box);
 }
 
 /* "Sensor moved": pick the sensor(s) by the number on the case, then where they are now. Saved with the log as
@@ -2240,7 +2304,10 @@ $("#logform").addEventListener("submit", async e => {
         return y;
       }), "edit log " + id));
     } else {
-      const entry = Object.assign({id:"l-" + Date.now(), run:p.id, at, date:today(), source:"app", actions, note, photos:newPhotos, files:newFiles}, vals);
+      const fb = readFeedBox();
+      const entry = Object.assign({id:"l-" + Date.now(), run:p.id, at, date:today(), source:"app", actions, note, photos:newPhotos, files:newFiles}, vals, fb);
+      if (newPhotos.length && S.view && S.view !== "side") entry.view = S.view;
+      const dr = window.Feed ? Feed.odd(S.logs, p, entry, d => phaseOn(p, d)) : null;
       if (sensor) entry.sensor = sensor;
       if (moved.length) entry.moved = moved;
       if (ljar && ljar.rh != null && ["cure","done"].includes(phaseOf(p)) && entry.jar_rh == null) entry.jar_rh = ljar.rh;
@@ -2257,7 +2324,9 @@ $("#logform").addEventListener("submit", async e => {
           if (f && !openTasks().some(t => t.gen === f.gen)){ r.tasks = r.tasks.concat(f); r.why = (r.why || []).concat(s.name.toLowerCase() + " follow-up"); }
           entry.ack = [Steps.ack(s, entry) + (f ? " · + " + f.title.toLowerCase() + " " + wdShort(f.due) : ""), (entry.ack || "").replace(/^Noted · /, "").replace(/ · plan unchanged( · next: .*)?$|^plan unchanged( · next: .*)?$/, "")].filter(Boolean).join(" · "); }
         if (Steps.question(entry.note)){ entry.asks = true; entry.ack = (entry.ack || "Noted") + " · question noted: ask your AI on this log"; } }
+      if (dr) entry.ack = (entry.ack || "Noted") + " · " + dr;
       S.logs = sortLogs(await mutate("logs.json", list => [...(list||[]), entry], "log " + entry.date));
+      S.extraProducts = []; S.view = "side";
       S.lastAck = {id: entry.id, text: entry.ack};
       reactToLog(p, entry, r);
     }
@@ -2488,6 +2557,20 @@ function aiData(p){
     history: p.aiHistory || "", historyAt: p.aiHistoryAt || null, replies: stepReplies(p)};
 }
 /* A4: a check-in = the newest of: applied AI check-in, the nightly review, a step answer */
+function phaseOn(p, d){ let cur = null; for (const k of ["germ","grow","bloom","dry","cure","done"]){ const st = phaseStart(p, k); if (st && st <= d) cur = k; } return cur || phaseOf(p); }
+/* v54: the dose line under a water change / feed / top-off step: refill to X L, feed to the target EC, about N ml each
+   (learned from the grower's own measured feeds, else the dose note), or the expected top-off from past top-offs. */
+function doseFor(t, p){
+  if (!p || !window.Feed || !["grow","bloom"].includes(phaseOf(p)) || !["hydro","coco"].includes(p.medium || "hydro") && !/feed/i.test(t.title)) return null;
+  const lf = S.logs.filter(l => l.run === p.id && l.feed && l.feed.vol).sort((a, b) => a.at < b.at ? 1 : -1)[0];
+  const tg = t.aim || targetsOf(p).ec, vol = (lf && lf.feed.vol) || (p.setup && p.setup.volume) || (p.doseRef && p.doseRef.l);
+  if (/^(check|look|measure)\b|\bafter\b/i.test(t.title)) return null;   // follow-up checks get no recipe
+  if (/water change|fresh (mix|water)|new (mix|res)/i.test(t.title) && tg){
+    const aim = Math.round((tg[0] + tg[1]) / 2 * 100) / 100, r = Feed.suggest(p, S.logs, {from: +((p.setup && p.setup.waterEc) || 0), to: aim, vol, water: true});
+    return (vol ? "Refill to " + vol + " L, then feed to EC " + tg[0] + "–" + tg[1] + ". " : "") + (r ? r.text : ""); }
+  if (/top.?off/i.test(t.title)){ const ex = Feed.expectTop(S.logs, p, d => phaseOn(p, d), phaseOf(p), new Date().toISOString()); return ex ? ex.text : null; }
+  return null;
+}
 function lastCheck(p){ const r = S.logs.filter(l => l.run === p.id).flatMap(l => (l.replies || []).map(x => x.at || "")); return [p.aiAt, p.lastReview, ...r].filter(Boolean).sort().pop() || null; }
 function stepReplies(p){ return S.logs.filter(l => l.run === p.id && (l.replies || []).length).flatMap(l => l.replies.filter(r => r.src === "ai").map(r => ({date: l.date, step: (l.step && l.step.name) || "log", text: r.text}))).slice(0, 3); }
 async function aiPhotoFiles(paths){

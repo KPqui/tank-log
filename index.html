@@ -207,6 +207,13 @@ ol.plan>li{flex-wrap:wrap}ol.plan>li>.howto,ol.plan>li>.howbtn{flex-basis:100%}
 .tl .seg.past{background:color-mix(in srgb, var(--ink) 70%, transparent)}
 .tl .seg.fut{background:transparent;border-style:dashed;opacity:.7}
 .tl .seg.cur{background:linear-gradient(90deg, color-mix(in srgb, var(--ink) 70%, transparent) var(--k), transparent var(--k))}
+.tl .ph-germ{--pc:#b39b62}.tl .ph-grow{--pc:#6f9a4e}.tl .ph-bloom{--pc:#cf9f3e}.tl .ph-dry{--pc:#a9825a}.tl .ph-cure{--pc:#8b6b4c}
+.tl .seg{border-color:color-mix(in srgb, var(--pc, var(--ink)) 70%, var(--ink))}
+.tl .seg.past{background:color-mix(in srgb, var(--pc, var(--ink)) 55%, transparent)}
+.tl .seg.fut{background:color-mix(in srgb, var(--pc, var(--ink)) 16%, transparent);opacity:1}
+.tl .seg.cur{background:linear-gradient(90deg, color-mix(in srgb, var(--pc, var(--ink)) 60%, transparent) var(--k), color-mix(in srgb, var(--pc, var(--ink)) 16%, transparent) var(--k))}
+.dose{display:block;font-size:13px;line-height:1.35;margin-top:2px;padding-left:8px;border-left:2px solid color-mix(in srgb, #6f9a4e 60%, transparent)}
+#l-view{margin-top:-4px}
 .tl .now{position:absolute;top:2px;width:2px;height:24px;background:var(--ink)}
 .tl .ghost{position:absolute;top:5px;width:0;height:18px;border-left:1.5px dotted var(--muted)}
 .tlab{display:flex;justify-content:space-between;gap:4px;font-size:12px;line-height:1.25}
@@ -390,9 +397,10 @@ ol.plan>li{flex-wrap:wrap}ol.plan>li>.howto,ol.plan>li>.howbtn{flex-basis:100%}
 <a href="#library" data-v="library"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.5c3.6 2.6 5.5 6.2 5.5 9.6a5.5 5.5 0 0 1-11 0c0-3.4 1.9-7 5.5-9.6z"/><path d="M12 6.5c-1.3 3-1.3 8.6 0 12"/></svg>Strains</a>
 
 </nav>
-<script src="specimen.js?v=53"></script>
-<script src="bgart.js?v=53"></script><script src="stylize.js?v=53"></script><script src="rules.js?v=53"></script><script src="bridge.js?v=53"></script><script src="howto.js?v=53"></script><script src="chart.js?v=53"></script><script src="quiz.js?v=53"></script><script src="branches.js?v=53"></script>
-<script src="ai.js?v=53"></script><script src="steps.js?v=53"></script>
-<script src="app.js?v=53"></script>
+<script src="specimen.js?v=54"></script>
+<script src="bgart.js?v=54"></script><script src="stylize.js?v=54"></script><script src="rules.js?v=54"></script>
+<script src="feed.js?v=54"></script><script src="bridge.js?v=54"></script><script src="howto.js?v=54"></script><script src="chart.js?v=54"></script><script src="quiz.js?v=54"></script><script src="branches.js?v=54"></script>
+<script src="ai.js?v=54"></script><script src="steps.js?v=54"></script>
+<script src="app.js?v=54"></script>
 </body>
 </html>

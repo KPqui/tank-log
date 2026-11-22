@@ -52,6 +52,21 @@
         if (!ctx.tasks.some(t => t.run === p.id && t.status === "open" && /^check\b/i.test(t.title) && t.due && Math.abs(diff(d, t.due)) <= 1))
           want("check-" + d, d, (ctx.check || {}).title || "Check: values, photo, sensor file", (ctx.check || {}).detail || "Log pH, EC and water temperature, take a photo, add the sensor file.", "Every 3 days" + (ph === "bloom" ? " (daily on bloom days 15–49)" : "")); }
     }
+    // v54 light ramp: small, early steps towards the stage's light goal instead of one jump (indoor only)
+    if ((ph === "grow" || ph === "bloom") && (p.where || "indoor") === "indoor" && !ctx.noLight){
+      const L = (ctx.logs || []).filter(l => l.run === p.id && l.ppfd != null).sort((a, b) => a.at < b.at ? 1 : -1);
+      const openL = ctx.tasks.filter(t => t.run === p.id && t.status === "open" && t.kind === "light");
+      if (L.length && !openL.length){
+        const cur = +L[0].ppfd, lastAt = L[0].date, g = d => lightGoal(p, ctx, d);
+        let d = add(lastAt, 3); if (d <= T) d = add(T, 1);
+        if (diff(T, d) <= HORIZON){ const goal = g(d), aim = Math.min(goal, cur + 50);
+          if (goal - cur >= 30 && !ctx.hot){
+            const end = lightGoalDay(p, ctx);
+            want("light-" + d, d, "Light up to ~" + Math.round(aim / 10) * 10 + " PPFD",
+              "A small step (+" + Math.round(aim - cur) + "): dim up or lower the lamp a little, then log the PPFD. Next day look at the top leaves: praying up is fine; tacoing, pale tips or bleaching = go back one step. Heading for ~" + goal + (end ? " by " + end.slice(5) : "") + ".",
+              "Air within target; every ~3 days", {kind: "light", aim: Math.round(aim)}); } }
+      }
+    }
     if (ph === "dry" && start){
       for (let k = 0; k <= HORIZON; k++){ const d = add(T, k), day = diff(start, d);
         want("dry-check-" + d, d, "Check the drying", "Note the drying space's RH and temperature, weigh the same sample, bend a small stem.", "Daily while drying (day " + day + ")"); }
@@ -73,7 +88,25 @@
 
 
 
-  function doseText(p, from, to){
+  /* light goals (PPFD at the canopy) by stage. Photo: veg 250 → 350 → 450, then up to 600 by the flip; bloom 650 → 750 → 800,
+     no more raises in the last 14 days. Auto: 250 → 400 → 550 in veg, 650–700 in bloom. targets.ppfd hi (if higher) wins. */
+  function lightGoal(p, ctx, d){
+    const auto = p.kind === "auto", sp = p.sprout || p.start, flip = p.flip || p.flipEst, ph = ctx.phase;
+    let g;
+    if (ph === "grow" || (flip && d < flip)){
+      const age = sp ? diff(sp, d) : 30; g = age < 14 ? 250 : age < 28 ? 350 : auto ? 550 : 450;
+      if (!auto && flip){ const left = diff(d, flip); if (left <= 14) g = Math.max(g, Math.round(600 - left * 10)); }
+    } else {
+      const bd = flip ? diff(flip, d) : 0; g = auto ? (bd < 14 ? 650 : 700) : bd < 7 ? 650 : bd < 14 ? 750 : 800;
+      if (p.endEst && diff(d, p.endEst) <= 14) g = 0;
+    }
+    const t = (p.targets || {}).ppfd; if (t && t[1] > g && g) g = t[1];
+    return g;
+  }
+  function lightGoalDay(p, ctx){ return ctx.phase === "grow" && p.kind !== "auto" ? (p.flip || p.flipEst || null) : null; }
+
+  function doseText(p, from, to, ctx){
+    if (ctx && ctx.dose){ const t = ctx.dose(from, to); if (t) return t; }
     const r = p.doseRef, vol = (p.setup && p.setup.volume) || (r && r.l);
     if (!r || !vol) return "Add a small amount of your nutrients (CalMag first if you use it, then the other parts one by one, stirring in between), aiming for about +" + Math.max(0.1, Math.round((to - from) * 10) / 10) + " EC.";
     const per = r.ec * r.l / vol, ml = Math.max(0.5, Math.round((to - from) / per * 2) / 2);
@@ -103,7 +136,7 @@
     const T = ctx.today, tomorrow = add(T, 1), ec = log.ec, lo = rng[0], hi = rng[1];
     // a dose in ml only when the plant has its own reference (p.doseRef {ml, ec, l, parts}: "ml of each part raise EC by ec in l litres");
     // without one the step stays generic, because nutrient lines differ a lot
-    const dose = (from, to) => doseText(p, from, to);
+    const dose = (from, to) => doseText(p, from, to, ctx);
     const prev = ctx.logs.filter(l => l.run === p.id && l.id !== log.id && l.ec != null && (l.at || "") < (log.at || "~")).sort((a, b) => (b.at || "").localeCompare(a.at || ""))[0];
     const feed = ctx.tasks.filter(t => t.run === p.id && t.status === "open" && FEED.test(t.title) && !/plain water/i.test(t.title)).sort((a, b) => (a.due || "9").localeCompare(b.due || "9"))[0];
     const warm = log.water != null && log.water > 23.5;
@@ -262,7 +295,7 @@
       const ceil = ctx.phase === "bloom" ? 1.6 : 1.2;
       if (lastEc && diff(lastEc.date, T) <= 2 && lastEc.ec >= tg[0] && lastEc.ec <= tg[1] && (!lastW || lastW.water <= 23) && !burnt && since >= 4 && tg[1] < ceil){
         const aim = [Math.round((tg[0] + 0.2) * 10) / 10, Math.round(Math.min(ceil, tg[1] + 0.2) * 10) / 10];
-        tasks.push(task(p, "ramp-" + T, add(T, 1), "Feed step to EC " + aim[0] + "–" + aim[1], "EC has held in " + tg[0] + "–" + tg[1] + " and the last step was " + since + " days ago. " + doseText(p, lastEc.ec, aim[1]) + " Measure after 15 minutes. Ticking it done moves the EC target to " + aim[0] + "–" + aim[1] + ".", "Leaf tips clean, water ≤ 23 °C", {aim}));
+        tasks.push(task(p, "ramp-" + T, add(T, 1), "Feed step to EC " + aim[0] + "–" + aim[1], "EC has held in " + tg[0] + "–" + tg[1] + " and the last step was " + since + " days ago. " + doseText(p, lastEc.ec, aim[1], ctx) + " Measure after 15 minutes. Ticking it done moves the EC target to " + aim[0] + "–" + aim[1] + ".", "Leaf tips clean, water ≤ 23 °C", {aim}));
       }
     }
     // burps the jars don't need: steady (58–63 %) after cure day 5 → every 3 days; running dry → none

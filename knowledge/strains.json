@@ -67,7 +67,36 @@
   ],
   "level": 1,
   "status": "unreviewed",
-  "updated": "2026-11-20"
+  "updated": "2026-11-20",
+  "spectra": [
+   {
+    "l": "Calm",
+    "r": "Energetic",
+    "v": 0.34,
+    "i": "moon"
+   },
+   {
+    "l": "Body",
+    "r": "Head",
+    "v": 0.42,
+    "i": "body"
+   },
+   {
+    "l": "Fruity",
+    "r": "Gassy",
+    "v": 0.9,
+    "i": "drop"
+   },
+   {
+    "l": "Gentle",
+    "r": "Potent",
+    "v": 0.72,
+    "i": "spark"
+   }
+  ],
+  "spectraNote": "Placed from breeder and vendor listings (indica/sativa share, listed effects, taste, THC claim), not lab data or your own grow.",
+  "terpNote": "Terpenes as listed by vendors; no lab profile, so treat them as expectations.",
+  "confidence": "medium"
  },
  {
   "id": "purple-lemonade-auto-fast-buds",
@@ -132,7 +161,36 @@
   ],
   "level": 1,
   "status": "unreviewed",
-  "updated": "2026-11-20"
+  "updated": "2026-11-20",
+  "spectra": [
+   {
+    "l": "Calm",
+    "r": "Energetic",
+    "v": 0.14,
+    "i": "moon"
+   },
+   {
+    "l": "Body",
+    "r": "Head",
+    "v": 0.28,
+    "i": "body"
+   },
+   {
+    "l": "Fruity",
+    "r": "Gassy",
+    "v": 0.1,
+    "i": "drop"
+   },
+   {
+    "l": "Gentle",
+    "r": "Potent",
+    "v": 0.72,
+    "i": "spark"
+   }
+  ],
+  "spectraNote": "Placed from breeder and vendor listings (indica/sativa share, listed effects, taste, THC claim), not lab data or your own grow.",
+  "terpNote": "Terpenes as listed by vendors; no lab profile, so treat them as expectations.",
+  "confidence": "medium"
  },
  {
   "id": "bruce-banner-auto-fast-buds",
@@ -201,7 +259,36 @@
   ],
   "level": 1,
   "status": "unreviewed",
-  "updated": "2026-11-20"
+  "updated": "2026-11-20",
+  "spectra": [
+   {
+    "l": "Calm",
+    "r": "Energetic",
+    "v": 0.81,
+    "i": "moon"
+   },
+   {
+    "l": "Body",
+    "r": "Head",
+    "v": 0.61,
+    "i": "body"
+   },
+   {
+    "l": "Fruity",
+    "r": "Gassy",
+    "v": 0.37,
+    "i": "drop"
+   },
+   {
+    "l": "Gentle",
+    "r": "Potent",
+    "v": 0.86,
+    "i": "spark"
+   }
+  ],
+  "spectraNote": "Placed from breeder and vendor listings (indica/sativa share, listed effects, taste, THC claim), not lab data or your own grow.",
+  "terpNote": "Terpenes as listed by vendors; no lab profile, so treat them as expectations.",
+  "confidence": "medium"
  },
  {
   "id": "northern-light-auto-royal-queen-seeds",
@@ -257,7 +344,36 @@
   ],
   "level": 1,
   "status": "unreviewed",
-  "updated": "2026-11-20"
+  "updated": "2026-11-20",
+  "spectra": [
+   {
+    "l": "Calm",
+    "r": "Energetic",
+    "v": 0.24,
+    "i": "moon"
+   },
+   {
+    "l": "Body",
+    "r": "Head",
+    "v": 0.37,
+    "i": "body"
+   },
+   {
+    "l": "Fruity",
+    "r": "Gassy",
+    "v": 0.5,
+    "i": "drop"
+   },
+   {
+    "l": "Gentle",
+    "r": "Potent",
+    "v": 0.35,
+    "i": "spark"
+   }
+  ],
+  "spectraNote": "Placed from breeder and vendor listings (indica/sativa share, listed effects, taste, THC claim), not lab data or your own grow.",
+  "terpNote": "No published terpene profile found yet.",
+  "confidence": "medium"
  },
  {
   "id": "royal-gorilla-auto-royal-queen-seeds",
@@ -326,7 +442,36 @@
   ],
   "level": 1,
   "status": "unreviewed",
-  "updated": "2026-11-20"
+  "updated": "2026-11-20",
+  "spectra": [
+   {
+    "l": "Calm",
+    "r": "Energetic",
+    "v": 0.32,
+    "i": "moon"
+   },
+   {
+    "l": "Body",
+    "r": "Head",
+    "v": 0.37,
+    "i": "body"
+   },
+   {
+    "l": "Fruity",
+    "r": "Gassy",
+    "v": 0.5,
+    "i": "drop"
+   },
+   {
+    "l": "Gentle",
+    "r": "Potent",
+    "v": 0.72,
+    "i": "spark"
+   }
+  ],
+  "spectraNote": "Placed from breeder and vendor listings (indica/sativa share, listed effects, taste, THC claim), not lab data or your own grow.",
+  "terpNote": "Terpenes as listed by vendors; no lab profile, so treat them as expectations.",
+  "confidence": "medium"
  },
  {
   "id": "amnesia-haze-auto-royal-queen-seeds",
@@ -391,7 +536,36 @@
   ],
   "level": 1,
   "status": "unreviewed",
-  "updated": "2026-11-20"
+  "updated": "2026-11-20",
+  "spectra": [
+   {
+    "l": "Calm",
+    "r": "Energetic",
+    "v": 0.84,
+    "i": "moon"
+   },
+   {
+    "l": "Body",
+    "r": "Head",
+    "v": 0.71,
+    "i": "body"
+   },
+   {
+    "l": "Fruity",
+    "r": "Gassy",
+    "v": 0.63,
+    "i": "drop"
+   },
+   {
+    "l": "Gentle",
+    "r": "Potent",
+    "v": 0.55,
+    "i": "spark"
+   }
+  ],
+  "spectraNote": "Placed from breeder and vendor listings (indica/sativa share, listed effects, taste, THC claim), not lab data or your own grow.",
+  "terpNote": "Terpenes as listed by vendors; no lab profile, so treat them as expectations.",
+  "confidence": "medium"
  },
  {
   "id": "blue-cheese-auto-barney-s-farm",
@@ -446,7 +620,36 @@
   ],
   "level": 1,
   "status": "unreviewed",
-  "updated": "2026-11-20"
+  "updated": "2026-11-20",
+  "spectra": [
+   {
+    "l": "Calm",
+    "r": "Energetic",
+    "v": 0.12,
+    "i": "moon"
+   },
+   {
+    "l": "Body",
+    "r": "Head",
+    "v": 0.29,
+    "i": "body"
+   },
+   {
+    "l": "Fruity",
+    "r": "Gassy",
+    "v": 0.63,
+    "i": "drop"
+   },
+   {
+    "l": "Gentle",
+    "r": "Potent",
+    "v": 0.55,
+    "i": "spark"
+   }
+  ],
+  "spectraNote": "Placed from breeder and vendor listings (indica/sativa share, listed effects, taste, THC claim), not lab data or your own grow.",
+  "terpNote": "No published terpene profile found yet.",
+  "confidence": "medium"
  },
  {
   "id": "tangerine-dream-auto-barney-s-farm",
@@ -511,7 +714,30 @@
   ],
   "level": 1,
   "status": "unreviewed",
-  "updated": "2026-11-20"
+  "updated": "2026-11-20",
+  "spectra": [
+   {
+    "l": "Calm",
+    "r": "Energetic",
+    "v": 0.68,
+    "i": "moon"
+   },
+   {
+    "l": "Body",
+    "r": "Head",
+    "v": 0.57,
+    "i": "body"
+   },
+   {
+    "l": "Fruity",
+    "r": "Gassy",
+    "v": 0.1,
+    "i": "drop"
+   }
+  ],
+  "spectraNote": "Placed from breeder and vendor listings (indica/sativa share, listed effects, taste, THC claim), not lab data or your own grow.",
+  "terpNote": "Terpenes as listed by vendors; no lab profile, so treat them as expectations.",
+  "confidence": "medium"
  },
  {
   "id": "auto-ultimate-dutch-passion",
@@ -576,7 +802,36 @@
   ],
   "level": 1,
   "status": "unreviewed",
-  "updated": "2026-11-20"
+  "updated": "2026-11-20",
+  "spectra": [
+   {
+    "l": "Calm",
+    "r": "Energetic",
+    "v": 0.5,
+    "i": "moon"
+   },
+   {
+    "l": "Body",
+    "r": "Head",
+    "v": 0.5,
+    "i": "body"
+   },
+   {
+    "l": "Fruity",
+    "r": "Gassy",
+    "v": 0.1,
+    "i": "drop"
+   },
+   {
+    "l": "Gentle",
+    "r": "Potent",
+    "v": 0.72,
+    "i": "spark"
+   }
+  ],
+  "spectraNote": "Placed from breeder and vendor listings (indica/sativa share, listed effects, taste, THC claim), not lab data or your own grow.",
+  "terpNote": "Terpenes as listed by vendors; no lab profile, so treat them as expectations.",
+  "confidence": "medium"
  },
  {
   "id": "black-cream-auto-sweet-seeds",
@@ -636,7 +891,36 @@
   ],
   "level": 1,
   "status": "unreviewed",
-  "updated": "2026-11-20"
+  "updated": "2026-11-20",
+  "spectra": [
+   {
+    "l": "Calm",
+    "r": "Energetic",
+    "v": 0.24,
+    "i": "moon"
+   },
+   {
+    "l": "Body",
+    "r": "Head",
+    "v": 0.37,
+    "i": "body"
+   },
+   {
+    "l": "Fruity",
+    "r": "Gassy",
+    "v": 0.37,
+    "i": "drop"
+   },
+   {
+    "l": "Gentle",
+    "r": "Potent",
+    "v": 0.55,
+    "i": "spark"
+   }
+  ],
+  "spectraNote": "Placed from breeder and vendor listings (indica/sativa share, listed effects, taste, THC claim), not lab data or your own grow.",
+  "terpNote": "Terpenes as listed by vendors; no lab profile, so treat them as expectations.",
+  "confidence": "medium"
  },
  {
   "id": "fantasmo-express-mephisto-genetics",
@@ -691,7 +975,30 @@
   ],
   "level": 1,
   "status": "unreviewed",
-  "updated": "2026-11-20"
+  "updated": "2026-11-20",
+  "spectra": [
+   {
+    "l": "Calm",
+    "r": "Energetic",
+    "v": 0.84,
+    "i": "moon"
+   },
+   {
+    "l": "Body",
+    "r": "Head",
+    "v": 0.71,
+    "i": "body"
+   },
+   {
+    "l": "Fruity",
+    "r": "Gassy",
+    "v": 0.5,
+    "i": "drop"
+   }
+  ],
+  "spectraNote": "Placed from breeder and vendor listings (indica/sativa share, listed effects, taste, THC claim), not lab data or your own grow.",
+  "terpNote": "No published terpene profile found yet.",
+  "confidence": "medium"
  },
  {
   "id": "ripley-s-og-mephisto-genetics",
@@ -742,7 +1049,30 @@
   ],
   "level": 1,
   "status": "unreviewed",
-  "updated": "2026-11-20"
+  "updated": "2026-11-20",
+  "spectra": [
+   {
+    "l": "Calm",
+    "r": "Energetic",
+    "v": 0.24,
+    "i": "moon"
+   },
+   {
+    "l": "Body",
+    "r": "Head",
+    "v": 0.37,
+    "i": "body"
+   },
+   {
+    "l": "Fruity",
+    "r": "Gassy",
+    "v": 0.9,
+    "i": "drop"
+   }
+  ],
+  "spectraNote": "Placed from breeder and vendor listings (indica/sativa share, listed effects, taste, THC claim), not lab data or your own grow.",
+  "terpNote": "No published terpene profile found yet.",
+  "confidence": "medium"
  },
  {
   "id": "double-grape-mephisto-genetics",
@@ -802,7 +1132,36 @@
   ],
   "level": 1,
   "status": "unreviewed",
-  "updated": "2026-11-20"
+  "updated": "2026-11-20",
+  "spectra": [
+   {
+    "l": "Calm",
+    "r": "Energetic",
+    "v": 0.4,
+    "i": "moon"
+   },
+   {
+    "l": "Body",
+    "r": "Head",
+    "v": 0.43,
+    "i": "body"
+   },
+   {
+    "l": "Fruity",
+    "r": "Gassy",
+    "v": 0.1,
+    "i": "drop"
+   },
+   {
+    "l": "Gentle",
+    "r": "Potent",
+    "v": 0.86,
+    "i": "spark"
+   }
+  ],
+  "spectraNote": "Placed from breeder and vendor listings (indica/sativa share, listed effects, taste, THC claim), not lab data or your own grow.",
+  "terpNote": "Terpenes as listed by vendors; no lab profile, so treat them as expectations.",
+  "confidence": "medium"
  },
  {
   "id": "durban-poison-auto-humboldt-seed-company",
@@ -873,7 +1232,36 @@
   ],
   "level": 1,
   "status": "unreviewed",
-  "updated": "2026-11-20"
+  "updated": "2026-11-20",
+  "spectra": [
+   {
+    "l": "Calm",
+    "r": "Energetic",
+    "v": 0.95,
+    "i": "moon"
+   },
+   {
+    "l": "Body",
+    "r": "Head",
+    "v": 0.78,
+    "i": "body"
+   },
+   {
+    "l": "Fruity",
+    "r": "Gassy",
+    "v": 0.63,
+    "i": "drop"
+   },
+   {
+    "l": "Gentle",
+    "r": "Potent",
+    "v": 0.86,
+    "i": "spark"
+   }
+  ],
+  "spectraNote": "Placed from breeder and vendor listings (indica/sativa share, listed effects, taste, THC claim), not lab data or your own grow.",
+  "terpNote": "Terpenes as listed by vendors; no lab profile, so treat them as expectations.",
+  "confidence": "medium"
  },
  {
   "id": "vanilla-latte-auto-humboldt-seed-company",
@@ -941,7 +1329,36 @@
   ],
   "level": 1,
   "status": "unreviewed",
-  "updated": "2026-11-20"
+  "updated": "2026-11-20",
+  "spectra": [
+   {
+    "l": "Calm",
+    "r": "Energetic",
+    "v": 0.24,
+    "i": "moon"
+   },
+   {
+    "l": "Body",
+    "r": "Head",
+    "v": 0.37,
+    "i": "body"
+   },
+   {
+    "l": "Fruity",
+    "r": "Gassy",
+    "v": 0.1,
+    "i": "drop"
+   },
+   {
+    "l": "Gentle",
+    "r": "Potent",
+    "v": 0.86,
+    "i": "spark"
+   }
+  ],
+  "spectraNote": "Placed from breeder and vendor listings (indica/sativa share, listed effects, taste, THC claim), not lab data or your own grow.",
+  "terpNote": "Terpenes as listed by vendors; no lab profile, so treat them as expectations.",
+  "confidence": "medium"
  },
  {
   "id": "california-cream-humboldt-seed-company",
@@ -999,7 +1416,36 @@
   ],
   "level": 1,
   "status": "unreviewed",
-  "updated": "2026-11-20"
+  "updated": "2026-11-20",
+  "spectra": [
+   {
+    "l": "Calm",
+    "r": "Energetic",
+    "v": 0.24,
+    "i": "moon"
+   },
+   {
+    "l": "Body",
+    "r": "Head",
+    "v": 0.37,
+    "i": "body"
+   },
+   {
+    "l": "Fruity",
+    "r": "Gassy",
+    "v": 0.37,
+    "i": "drop"
+   },
+   {
+    "l": "Gentle",
+    "r": "Potent",
+    "v": 0.86,
+    "i": "spark"
+   }
+  ],
+  "spectraNote": "Placed from breeder and vendor listings (indica/sativa share, listed effects, taste, THC claim), not lab data or your own grow.",
+  "terpNote": "No published terpene profile found yet.",
+  "confidence": "low–medium"
  },
  {
   "id": "humboldt-dream-humboldt-seed-company",
@@ -1060,7 +1506,36 @@
   ],
   "level": 1,
   "status": "unreviewed",
-  "updated": "2026-11-20"
+  "updated": "2026-11-20",
+  "spectra": [
+   {
+    "l": "Calm",
+    "r": "Energetic",
+    "v": 0.3,
+    "i": "moon"
+   },
+   {
+    "l": "Body",
+    "r": "Head",
+    "v": 0.44,
+    "i": "body"
+   },
+   {
+    "l": "Fruity",
+    "r": "Gassy",
+    "v": 0.37,
+    "i": "drop"
+   },
+   {
+    "l": "Gentle",
+    "r": "Potent",
+    "v": 0.72,
+    "i": "spark"
+   }
+  ],
+  "spectraNote": "Placed from breeder and vendor listings (indica/sativa share, listed effects, taste, THC claim), not lab data or your own grow.",
+  "terpNote": "Terpenes as listed by vendors; no lab profile, so treat them as expectations.",
+  "confidence": "medium"
  },
  {
   "id": "gorilla-zkittlez-barney-s-farm",
@@ -1116,7 +1591,36 @@
   ],
   "level": 1,
   "status": "unreviewed",
-  "updated": "2026-11-20"
+  "updated": "2026-11-20",
+  "spectra": [
+   {
+    "l": "Calm",
+    "r": "Energetic",
+    "v": 0.32,
+    "i": "moon"
+   },
+   {
+    "l": "Body",
+    "r": "Head",
+    "v": 0.43,
+    "i": "body"
+   },
+   {
+    "l": "Fruity",
+    "r": "Gassy",
+    "v": 0.3,
+    "i": "drop"
+   },
+   {
+    "l": "Gentle",
+    "r": "Potent",
+    "v": 0.72,
+    "i": "spark"
+   }
+  ],
+  "spectraNote": "Placed from breeder and vendor listings (indica/sativa share, listed effects, taste, THC claim), not lab data or your own grow.",
+  "terpNote": "No published terpene profile found yet.",
+  "confidence": "medium"
  },
  {
   "id": "northern-lights-sensi-seeds",
@@ -1171,7 +1675,36 @@
   ],
   "level": 1,
   "status": "unreviewed",
-  "updated": "2026-11-20"
+  "updated": "2026-11-20",
+  "spectra": [
+   {
+    "l": "Calm",
+    "r": "Energetic",
+    "v": 0.1,
+    "i": "moon"
+   },
+   {
+    "l": "Body",
+    "r": "Head",
+    "v": 0.28,
+    "i": "body"
+   },
+   {
+    "l": "Fruity",
+    "r": "Gassy",
+    "v": 0.5,
+    "i": "drop"
+   },
+   {
+    "l": "Gentle",
+    "r": "Potent",
+    "v": 0.72,
+    "i": "spark"
+   }
+  ],
+  "spectraNote": "Placed from breeder and vendor listings (indica/sativa share, listed effects, taste, THC claim), not lab data or your own grow.",
+  "terpNote": "No published terpene profile found yet.",
+  "confidence": "medium"
  },
  {
   "id": "white-widow-green-house-seeds",
@@ -1231,7 +1764,36 @@
   ],
   "level": 1,
   "status": "unreviewed",
-  "updated": "2026-11-20"
+  "updated": "2026-11-20",
+  "spectra": [
+   {
+    "l": "Calm",
+    "r": "Energetic",
+    "v": 0.32,
+    "i": "moon"
+   },
+   {
+    "l": "Body",
+    "r": "Head",
+    "v": 0.37,
+    "i": "body"
+   },
+   {
+    "l": "Fruity",
+    "r": "Gassy",
+    "v": 0.9,
+    "i": "drop"
+   },
+   {
+    "l": "Gentle",
+    "r": "Potent",
+    "v": 0.55,
+    "i": "spark"
+   }
+  ],
+  "spectraNote": "Placed from breeder and vendor listings (indica/sativa share, listed effects, taste, THC claim), not lab data or your own grow.",
+  "terpNote": "Terpenes as listed by vendors; no lab profile, so treat them as expectations.",
+  "confidence": "medium"
  },
  {
   "id": "amnesia-haze-royal-queen-seeds",
@@ -1284,7 +1846,36 @@
   ],
   "level": 1,
   "status": "unreviewed",
-  "updated": "2026-11-20"
+  "updated": "2026-11-20",
+  "spectra": [
+   {
+    "l": "Calm",
+    "r": "Energetic",
+    "v": 0.78,
+    "i": "moon"
+   },
+   {
+    "l": "Body",
+    "r": "Head",
+    "v": 0.72,
+    "i": "body"
+   },
+   {
+    "l": "Fruity",
+    "r": "Gassy",
+    "v": 0.63,
+    "i": "drop"
+   },
+   {
+    "l": "Gentle",
+    "r": "Potent",
+    "v": 0.72,
+    "i": "spark"
+   }
+  ],
+  "spectraNote": "Placed from breeder and vendor listings (indica/sativa share, listed effects, taste, THC claim), not lab data or your own grow.",
+  "terpNote": "No published terpene profile found yet.",
+  "confidence": "medium"
  },
  {
   "id": "skunk-1-sensi-seeds",
@@ -1342,7 +1933,36 @@
   ],
   "level": 1,
   "status": "unreviewed",
-  "updated": "2026-11-20"
+  "updated": "2026-11-20",
+  "spectra": [
+   {
+    "l": "Calm",
+    "r": "Energetic",
+    "v": 0.35,
+    "i": "moon"
+   },
+   {
+    "l": "Body",
+    "r": "Head",
+    "v": 0.39,
+    "i": "body"
+   },
+   {
+    "l": "Fruity",
+    "r": "Gassy",
+    "v": 0.5,
+    "i": "drop"
+   },
+   {
+    "l": "Gentle",
+    "r": "Potent",
+    "v": 0.55,
+    "i": "spark"
+   }
+  ],
+  "spectraNote": "Placed from breeder and vendor listings (indica/sativa share, listed effects, taste, THC claim), not lab data or your own grow.",
+  "terpNote": "No published terpene profile found yet.",
+  "confidence": "medium"
  },
  {
   "id": "mimosa-evo-barney-s-farm",
@@ -1407,7 +2027,36 @@
   ],
   "level": 1,
   "status": "unreviewed",
-  "updated": "2026-11-20"
+  "updated": "2026-11-20",
+  "spectra": [
+   {
+    "l": "Calm",
+    "r": "Energetic",
+    "v": 0.84,
+    "i": "moon"
+   },
+   {
+    "l": "Body",
+    "r": "Head",
+    "v": 0.71,
+    "i": "body"
+   },
+   {
+    "l": "Fruity",
+    "r": "Gassy",
+    "v": 0.1,
+    "i": "drop"
+   },
+   {
+    "l": "Gentle",
+    "r": "Potent",
+    "v": 0.86,
+    "i": "spark"
+   }
+  ],
+  "spectraNote": "Placed from breeder and vendor listings (indica/sativa share, listed effects, taste, THC claim), not lab data or your own grow.",
+  "terpNote": "Terpenes as listed by vendors; no lab profile, so treat them as expectations.",
+  "confidence": "low–medium"
  },
  {
   "id": "blackberry-moonrocks-anesia-seeds",
@@ -1475,7 +2124,30 @@
   ],
   "level": 1,
   "status": "unreviewed",
-  "updated": "2026-11-20"
+  "updated": "2026-11-20",
+  "spectra": [
+   {
+    "l": "Calm",
+    "r": "Energetic",
+    "v": 0.16,
+    "i": "moon"
+   },
+   {
+    "l": "Body",
+    "r": "Head",
+    "v": 0.37,
+    "i": "body"
+   },
+   {
+    "l": "Fruity",
+    "r": "Gassy",
+    "v": 0.1,
+    "i": "drop"
+   }
+  ],
+  "spectraNote": "Placed from breeder and vendor listings (indica/sativa share, listed effects, taste, THC claim), not lab data or your own grow.",
+  "terpNote": "Terpenes as listed by vendors; no lab profile, so treat them as expectations.",
+  "confidence": "medium"
  },
  {
   "name": "Purple Lobster",
@@ -1590,7 +2262,35 @@
   ],
   "level": 1,
   "status": "unreviewed",
-  "updated": "2026-11-20"
+  "updated": "2026-11-20",
+  "spectra": [
+   {
+    "l": "Calm",
+    "r": "Energetic",
+    "v": 0.42,
+    "i": "moon"
+   },
+   {
+    "l": "Body",
+    "r": "Head",
+    "v": 0.5,
+    "i": "body"
+   },
+   {
+    "l": "Fruity",
+    "r": "Gassy",
+    "v": 0.1,
+    "i": "drop"
+   },
+   {
+    "l": "Gentle",
+    "r": "Potent",
+    "v": 0.86,
+    "i": "spark"
+   }
+  ],
+  "spectraNote": "Placed from breeder and vendor listings (indica/sativa share, listed effects, taste, THC claim), not lab data or your own grow.",
+  "confidence": "medium"
  },
  {
   "id": "blueberry-bubblegum-automatic-sensi-seeds",
@@ -1664,6 +2364,29 @@
   ],
   "level": 1,
   "status": "unreviewed",
-  "updated": "2026-11-22"
+  "updated": "2026-11-22",
+  "spectra": [
+   {
+    "l": "Calm",
+    "r": "Energetic",
+    "v": 0.2,
+    "i": "moon"
+   },
+   {
+    "l": "Body",
+    "r": "Head",
+    "v": 0.29,
+    "i": "body"
+   },
+   {
+    "l": "Fruity",
+    "r": "Gassy",
+    "v": 0.37,
+    "i": "drop"
+   }
+  ],
+  "spectraNote": "Placed from breeder and vendor listings (indica/sativa share, listed effects, taste, THC claim), not lab data or your own grow.",
+  "terpNote": "Terpenes as listed by vendors; no lab profile, so treat them as expectations.",
+  "confidence": "medium"
  }
 ]

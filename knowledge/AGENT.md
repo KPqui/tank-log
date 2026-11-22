@@ -76,4 +76,9 @@ EU/US breeders about 50/50, ranked by seed availability: breeder/seedbank bestse
 Its queue is PRIVATE: KPqui/tank-log-data/strain-queue.json. Budget per run: up to 40 sheets, about 1 web lookup per strain
 (one search that shows the breeder or a big vendor's data sheet; a second only when the first has no flowering time).
 Work in batches of 10: search all 10 in parallel, write those 10 sheets to the file, then the next batch.
+After writing, run `node tools/derive-spectra.js`: it fills the Character sliders (spectra), spectraNote, terpNote and a
+confidence label from what each sheet says; a sheet with no basis for a slider gets none. Give it something to work with:
+genetics with the indica/sativa share when the breeder states it, 2–4 effect words, 3–4 taste words, the THC claim.
+Characteristics and notes are always general (what the strain does for growers in general), never compared with or drawn
+from the owner's own plants; personal observations belong only in the private data repo (plant learnings).
 The weekly topic run above keeps its own limits and does not write strain sheets for the database.

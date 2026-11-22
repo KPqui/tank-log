@@ -118,7 +118,7 @@ First your short assessment in normal text. Then exactly one fenced block like t
       const vals = (d.keys || []).filter(k => l[k] != null && l[k] !== "").map(k => k + " " + l[k]);
       const s = l.sensor && (l.sensor.tavg != null || l.sensor.temp != null) ? "air " + (l.sensor.tavg ?? l.sensor.temp) + " °C / " + (l.sensor.havg ?? l.sensor.rh) + " % (24 h)" : "";
       const ph = (l.photos || []).map(x => { photos.push(x); return "photo " + photos.length; });
-      L.push("- " + (l.at || l.date || "").slice(0, 16).replace("T", " ") + ": " + [vals.join(", "), (l.actions || []).join(", "), s, l.note && "note: \"" + str(l.note, 400) + "\"", ph.join(", "), l.ask && "asked \"" + l.ask + "\" → " + l.answer].filter(Boolean).join(" · "));
+      L.push("- " + (l.at || l.date || "").slice(0, 16).replace("T", " ") + ": " + [vals.join(", "), (l.actions || []).join(", "), l.feed && "fed: " + Object.entries(l.feed.ml || {}).map(([n, v]) => v + " ml " + n).join(", ") + (l.feed.vol ? " in " + l.feed.vol + " L" : "") + (l.feed.ecBefore != null ? " (EC before " + l.feed.ecBefore + ")" : ""), l.top_l != null && "topped off " + l.top_l + " L", s, l.note && "note: \"" + str(l.note, 400) + "\"", ph.join(", "), l.ask && "asked \"" + l.ask + "\" → " + l.answer].filter(Boolean).join(" · "));
     });
     const dn = Object.entries(p.dayNotes || {}).filter(([k]) => k >= d.today).sort();
     if (dn.length){ L.push("", "## Day notes from the grower (plan around these)"); dn.forEach(([k, v]) => L.push("- " + k + ": " + str(v, 160))); }
