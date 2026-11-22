@@ -707,7 +707,7 @@ function loadCache(){
 
 /* ---------- routing ---------- */
 const VIEWS = ["today","log","plan","setup","plant","quiz","strain","library"];
-const APP_V = "v54";
+const APP_V = "v55";
 /* Android: Share → Flowerphile lands here as ?title=…&text=… (manifest share_target); taken once the data is loaded */
 let SHARED = (() => { try { const q = new URLSearchParams(location.search); if (!["share","text","title","url"].some(k => q.has(k))) return null;
   const t = [q.get("title"), q.get("text"), q.get("url")].filter(Boolean).join("\n").trim(); history.replaceState(null, "", location.pathname + "#today"); return t || null; } catch(e){ return null; } })();
@@ -938,6 +938,11 @@ function libRow(tb, e, F){
     h("td",{class:"n"}, F.scope === "stash" ? String(e.seeds || "–") : "")));
   if (open){
     const d = h("div",{class:"libdet"});
+    if (e.sh){ const fx = [["Bloom", daysOnly(e.sh.flowering)], ["THC", e.sh.thc], ["Height", e.sh.height], ["Yield", e.sh.yield], ["Climate", e.sh.climate]].filter(f => f[1]);
+      if (fx.length) d.append(h("dl",{class:"facts", style:"margin:0 0 6px"}, fx.flatMap(f => [h("dt",null,f[0]), h("dd",{class:"num"},f[1])])));
+      if (e.sh.spectra && e.sh.spectra.length) d.append(h("div",{style:"display:flex;flex-direction:column;gap:4px;margin:4px 0 8px"}, ...specRows(e.sh.spectra)));
+      if (e.sh.story) d.append(h("p",{class:"prose", style:"margin:0 0 6px"}, e.sh.story.split(/(?<=\.)\s/)[0])); }
+    else d.append(h("p",{class:"sub", style:"margin:0 0 6px"}, "No researched sheet yet: the weekly strain run fills these in (or tap Research now)."));
     if (e.effects.length) d.append(h("p",null, h("span",{class:"muted"},"Effect "), e.effects.join(", ")));
     if (e.taste.length) d.append(h("p",null, h("span",{class:"muted"},"Taste "), e.taste.join(", ")));
     if (e.terps.length) d.append(h("p",null, h("span",{class:"muted"},"Terpenes "), e.terps.join(", ")));
@@ -1488,6 +1493,30 @@ function lineageNode(n, depth){
     n.note ? h("div",{class:"lnote"}, n.note) : null, kids.length ? h("ul",null, kids) : null);
 }
 /* a strain sheet; by default the selected plant's, on the Plant tab. The Strains tab passes another sheet and its own box. */
+/* the Character sliders as rows (Info tab and the Strains tab) */
+function specRows(sp){ return (sp || []).map(v => h("div",{class:"spec-row"},
+  raw('<svg aria-hidden="true" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round">' + (SPEC_ICONS[v.i] || "") + '</svg>'),
+  h("span",{class:"sl"}, v.l),
+  h("span",{class:"track", role:"img", "aria-label": v.l + " to " + v.r + ": " + Math.round(v.v * 10) + " of 10"}, h("span",{class:"dot", style:"left:calc(" + (v.v * 100) + "% - 6px)"})),
+  h("span",{class:"sr"}, v.r))); }
+/* v54b: "Your plant" = what is true for this plant and your earlier runs of the strain; the strain's own sections
+   (facts, Character, terpenes…) stay general. Earlier-run lines live in the private sheet's `mine` field. */
+function minePanel(p, x){
+  const ph = phaseOf(p), T = today(), L = [], fd = x && flowerDays(x.flowering);
+  const sp = phaseStart(p, "grow") || p.sprout, fl = flipOf(p), dry = phaseStart(p, "dry");
+  if (["grow","bloom"].includes(ph)){
+    L.push("Day " + (sp ? daysBetween(sp, T) + 1 : "?") + (ph === "bloom" && fl ? " · bloom day " + (daysBetween(fl, T) + 1) : ""));
+    if (p.kind !== "auto" && (p.flipEst || p.endEst)) L.push("Your plan: " + [!fl || fl > T ? (p.flipEst ? "flip ~" + short(p.flipEst) : null) : null, p.endEst ? "harvest ~" + short(p.endEst) : null].filter(Boolean).join(", ") + (fd ? " (sheet: ~" + fd + " days of bloom)" : ""));
+  } else if (fl && dry){
+    const bd = daysBetween(fl, dry); L.push((p.kind === "auto" ? "Seed to harvest " + (sp ? daysBetween(sp, dry) : "?") : "Bloom " + bd) + " days" + (fd && p.kind !== "auto" ? " (sheet ~" + fd + ")" : ""));
+  }
+  const r = p.run || {}; if (r.dry_g || r.final_g) L.push([r.dry_g ? r.dry_g + " g dry" : null, r.final_g ? r.final_g + " g final" : null].filter(Boolean).join(" · ") + (r.verdict ? " · " + r.verdict : ""));
+  const own = !["grow","bloom","germ"].includes(ph) && p.start ? p.start.slice(0, 4) + " run" : null;   // this plant's own run is already summed up above
+  for (const m of (x && x.mine) || []) if (!own || !m.startsWith(own)) L.push(m);
+  for (const l of (p.learnings || []).slice(-3)) L.push(l.text);
+  if (!L.length) return null;
+  return h("div",{class:"panel fr","data-soak":"0.15"}, h("h2",null,"Your plant"), h("ul",{class:"notes"}, L.map(t => h("li",null, t))));
+}
 function renderStrain(T){
   T = T || {};
   const p = sel(), other = T.sheet || null, x = other || strainOf(p), box = T.box || $("#st-body"), nameEl = T.name || $("#st-name"), byEl = T.by || $("#st-by"); box.replaceChildren();
@@ -1496,15 +1525,12 @@ function renderStrain(T){
   nameEl.textContent = x.name; byEl.textContent = [x.breeder, x.country].filter(Boolean).join(" · ");
   const facts = [["Type", x.type], ["Genetics", x.genetics], ["THC", x.thc], ["CBD", x.cbd], ["Bloom", daysOnly(x.flowering)], ["Height", x.height], ["Yield", x.yield], ["Climate", x.climate], ["How sure", x.confidence ? x.confidence + (x.status === "unreviewed" ? " · not reviewed" : "") : null]].filter(f => f[1]);
   box.append(h("dl",{class:"facts"}, facts.flatMap(f => [h("dt",null,f[0]), h("dd",{class:"num"},f[1])])));
+  if (!other && p){ const mp = minePanel(p, x); if (mp) box.append(mp); }
   // A5 order: Character (open) → terpenes, taste and how sure we are → lineage, story, growing, lessons (collapsed)
   const fold = (title, kids, open) => h("div",{class:"panel fr","data-soak":"0.12"}, h("details",{class:"fold", open: open ? "" : null}, h("summary",null, h("h2",{style:"display:inline"}, title)), ...kids));
   const ch = [];
   if (x.special && x.special.length) ch.push(h("div",{class:"chips", style:"gap:6px"}, x.special.map(t => h("span",{class:"tag"}, t))));
-  for (const v of x.spectra || []) ch.push(h("div",{class:"spec-row"},
-      raw('<svg aria-hidden="true" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round">' + (SPEC_ICONS[v.i] || "") + '</svg>'),
-      h("span",{class:"sl"}, v.l),
-      h("span",{class:"track", role:"img", "aria-label": v.l + " to " + v.r + ": " + Math.round(v.v * 10) + " of 10"}, h("span",{class:"dot", style:"left:calc(" + (v.v * 100) + "% - 6px)"})),
-      h("span",{class:"sr"}, v.r)));
+  ch.push(...specRows(x.spectra));
   if (x.spectraNote) ch.push(h("p",{class:"note-line"}, x.spectraNote));
   if (ch.length) box.append(h("div",{class:"panel fr","data-soak":"0.12"}, h("h2",null,"Character"), ...ch));
   const tp = h("div",{class:"panel fr","data-soak":"0.12"}, h("h2",null,"Terpenes, taste, effect"));
