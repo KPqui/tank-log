@@ -1,6 +1,6 @@
 // App shell cache: network first, cache as fallback. Data calls to api.github.com are never cached.
-const CACHE = "flowerphile-v55";
-const SHELL = ["./", "./index.html", "./start.html", "./manifest.webmanifest", "./specimen.js?v=55", "./bgart.js?v=55","./stylize.js?v=55","./rules.js?v=55","./feed.js?v=55","./chart.js?v=55","./bridge.js?v=55","./howto.js?v=55","./quiz.js?v=55","./branches.js?v=55","./ai.js?v=55","./steps.js?v=55", "./app.js?v=55", "./icons/icon-192.png", "./icons/icon-512.png"];
+const CACHE = "flowerphile-v56";
+const SHELL = ["./", "./index.html", "./start.html", "./manifest.webmanifest", "./specimen.js?v=56", "./bgart.js?v=56","./stylize.js?v=56","./rules.js?v=56","./feed.js?v=56","./chart.js?v=56","./bridge.js?v=56","./howto.js?v=56","./quiz.js?v=56","./branches.js?v=56","./ai.js?v=56","./steps.js?v=56", "./app.js?v=56", "./icons/icon-192.png", "./icons/icon-512.png"];
 self.addEventListener("install", e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL))); self.skipWaiting(); });
 self.addEventListener("activate", e => {
   e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE).map(k => caches.delete(k)))));

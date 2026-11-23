@@ -54,7 +54,7 @@
   }
   /* {from, to, vol} → {items:[{name, ml}], extras, basis, n, range:[lo,hi], text} or null */
   function suggest(p, logs, o){
-    const vol = +o.vol || (p.setup && +p.setup.volume) || (lastFeed(logs, p) || {}).vol || (p.doseRef && p.doseRef.l);
+    const vol = +o.vol || (lastFeed(logs, p) || {}).vol || (p.setup && +p.setup.volume) || (p.doseRef && p.doseRef.l);   // the last filled volume wins
     if (!vol || o.to == null || o.from == null || o.to <= o.from + 0.02) return null;
     const pts = points(logs, p).slice(-5), pr = prior(p);
     let k, lo, hi, basis;
@@ -101,7 +101,31 @@
     if (cur < avg * 0.5) return "drinking less than usual (" + r2(cur) + " vs " + r2(avg) + " L/day)";
     return null;
   }
-  const api = {points, prior, suggest, drink, expectTop, odd, ecParts};
+  /* v56 pH Up/Down: log.phfix = {vol, up?: ml, down?: ml, phBefore}. pH after = the next log 15 min–12 h later
+     (nothing else changed in between), else this log's pH. k = pH change per ml/L, per direction. */
+  function phPoints(logs, p){
+    const L = mine(logs, p), out = [];
+    L.forEach((l, i) => {
+      const f = l.phfix; if (!f || !f.vol || f.phBefore == null) return;
+      const ml = +(f.up || 0) || +(f.down || 0), dir = +(f.up || 0) ? 1 : -1; if (!ml) return;
+      let after = null;
+      for (let j = i + 1; j < L.length; j++){ const n = L[j], h = hours(l.at, n.at); if (h > 12) break; if (isWC(n) || isFeed(n) || n.phfix) break; if (h >= 0.25 && n.ph != null){ after = +n.ph; break; } }
+      if (after == null && l.ph != null) after = +l.ph; if (after == null) return;
+      const k = dir * (after - f.phBefore) / (ml / f.vol);
+      if (k > 0.05 && k < 20) out.push({at: l.at, dir, k});
+    });
+    return out;
+  }
+  function phSuggest(p, logs, o){
+    const vol = +o.vol || (lastFeed(logs, p) || {}).vol || (p.setup && +p.setup.volume) || (p.doseRef && p.doseRef.l);
+    if (!vol || o.from == null || o.to == null || Math.abs(o.to - o.from) < 0.05) return null;
+    const dir = o.to > o.from ? 1 : -1, pts = phPoints(logs, p).filter(x => x.dir === dir).slice(-5);
+    const k = pts.length ? pts.reduce((a, x) => a + x.k, 0) / pts.length : 2;   // first guess: 1 ml per 4 L moves ~0.5
+    const ml = Math.abs(o.to - o.from) / k * vol, r = ml < 2 ? Math.max(0.1, Math.round(ml * 10) / 10) : Math.round(ml * 2) / 2;
+    const name = dir > 0 ? "pH Up" : "pH Down";
+    return {ml: r, dir, n: pts.length, text: "About " + r + " ml " + name + " in " + vol + " L to go from " + o.from + " to ~" + o.to + " (" + (pts.length ? "from your " + pts.length + " measured correction" + (pts.length > 1 ? "s" : "") : "a first guess, not measured yet") + "). Add half, stir, wait 10–15 min, measure, then the rest."};
+  }
+  const api = {points, prior, suggest, drink, expectTop, odd, ecParts, phPoints, phSuggest};
   if (typeof window !== "undefined") window.Feed = api;
   if (typeof module !== "undefined") module.exports = api;
 })();

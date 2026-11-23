@@ -707,7 +707,7 @@ function loadCache(){
 
 /* ---------- routing ---------- */
 const VIEWS = ["today","log","plan","setup","plant","quiz","strain","library"];
-const APP_V = "v55";
+const APP_V = "v56";
 /* Android: Share → Flowerphile lands here as ?title=…&text=… (manifest share_target); taken once the data is loaded */
 let SHARED = (() => { try { const q = new URLSearchParams(location.search); if (!["share","text","title","url"].some(k => q.has(k))) return null;
   const t = [q.get("title"), q.get("text"), q.get("url")].filter(Boolean).join("\n").trim(); history.replaceState(null, "", location.pathname + "#today"); return t || null; } catch(e){ return null; } })();
@@ -1758,7 +1758,7 @@ function taskRow(t){
   const ask = !done && /check in with claude/i.test(t.title);
   return h("div",{class:"task"+(done?" done":"")+(t.urgent && !done ? " urgent" : "")}, cb, h("div",{class:"tb"}, title,
     !done && doseFor(t, sel()) ? h("span",{class:"dose"}, doseFor(t, sel())) : null,
-    open ? h("span",{class:"d"}, t.detail || "", t.trigger ? (t.detail ? " · " : "") + "Trigger: " + t.trigger : "") : null,
+    open ? h("span",{class:"d"}, detailOf(t, sel()), t.trigger ? (t.detail ? " · " : "") + "Trigger: " + t.trigger : "") : null,
     open && howtoFor(t) ? howtoToggle("t-" + t.id, howtoFor(t), renderToday) : null,
     open && howtoFor(t) && S.openHow.has("t-" + t.id) ? howtoCard(howtoFor(t)) : null,
     ask ? h("button",{type:"button", class:"btn ghost sm", style:"align-self:flex-start;margin-top:4px", onclick:() => openCheckin(t)}, "Copy check-in & open chat") : null));
@@ -2114,7 +2114,7 @@ function renderPlan(){
         moved && t.whyMoved ? h("span",{class:"why-moved"}, t.whyMoved) : null,
         note ? h("span",{class:"why-moved"}, "Your note: " + note) : null,
         doseFor(t, p) ? h("span",{class:"dose"}, doseFor(t, p)) : null,
-        open ? h("span",{class:"muted small"}, [t.detail, t.trigger ? "Trigger: " + t.trigger : ""].filter(Boolean).join(" · ")) : null,
+        open ? h("span",{class:"muted small"}, [detailOf(t, p), t.trigger ? "Trigger: " + t.trigger : ""].filter(Boolean).join(" · ")) : null,
         open && howtoFor(t) ? howtoToggle("p-" + t.id, howtoFor(t), renderPlan) : null),
       h("span",{class:"when num"+(isDue?" due":"")}, moved ? h("span",{class:"was"}, "was " + short(t.was)) : null,
         h("span",{class: moved ? shiftTint(t.was, t.due).trim() : null}, t.due ? (isDue ? fmtDay(t.due) : "~" + fmtDay(t.due)) : "open")),
@@ -2204,10 +2204,10 @@ function feedProducts(p){
 }
 function renderFeedBox(p){
   const old = $("#l-feed"), keep = {}; if (old){ old.querySelectorAll("input").forEach(i => keep[i.dataset.k] = i.value); old.remove(); }
-  const fed = S.actions.has("Fed") || S.actions.has("Water change") || S.actions.has("Top-dressed"), top = S.actions.has("Topped off");
-  if (!fed && !top || !["grow","bloom"].includes(phaseOf(p))) return;
+  const fed = S.actions.has("Fed") || S.actions.has("Water change") || S.actions.has("Top-dressed"), top = S.actions.has("Topped off"), phx = S.actions.has("pH adjusted");
+  if (!fed && !top && !phx || !["grow","bloom"].includes(phaseOf(p))) return;
   const inp = (k, label, ph) => h("label",{class:"f"}, label, h("input",{type:"text", inputmode:"decimal", autocomplete:"off", "data-k":k, placeholder: ph || "–", value: keep[k] || null}));
-  const box = h("fieldset",{id:"l-feed", class:"panel fr", "data-soak":"0.1"}, h("legend",null, fed ? "What went in" : "Top-off"));
+  const box = h("fieldset",{id:"l-feed", class:"panel fr", "data-soak":"0.1"}, h("legend",null, fed || phx ? "What went in" : "Top-off"));
   const grid = h("div",{class:"fields"});
   if (top){ const ex = window.Feed ? Feed.expectTop(S.logs, p, d => phaseOn(p, d), phaseOf(p), new Date().toISOString()) : null;
     grid.append(inp("top_l", "Topped off L", ex ? String(ex.l) : null)); if (ex) box.append(h("p",{class:"sub", style:"margin:0"}, ex.text)); }
@@ -2219,6 +2219,12 @@ function renderFeedBox(p){
     box.append(h("div",{class:"daynote"}, add, h("button",{type:"button", class:"btn ghost sm", onclick:() => { const n = add.value.trim(); if (!n) return; S.extraProducts = (S.extraProducts || []).concat(n); renderFeedBox(p); }}, "Add")));
     for (const n of S.extraProducts || []) if (!feedProducts(p).includes(n)) grid.append(inp("ml:" + n, n + " ml"));
   } else box.append(grid);
+  if (phx){   // v56: pH Up/Down amounts, so the app learns how much moves your pH
+    const lp = mine(S.logs).find(l => l.ph != null), g2 = h("div",{class:"fields"});
+    if (!fed){ const v = (S.logs.filter(l => l.run === p.id && l.feed && l.feed.vol).sort((a, b) => a.at < b.at ? 1 : -1)[0] || {feed:{}}).feed.vol || (p.setup && p.setup.volume); g2.append(inp("vol", "Litres now", v ? String(v) : null)); }
+    g2.append(inp("phBefore", "pH before", lp ? String(lp.ph) : null), inp("phUp", "pH Up ml"), inp("phDown", "pH Down ml"));
+    box.append(g2, h("p",{class:"sub", style:"margin:0"}, "Log the pH again 10–15 min later (here or in the next log)."));
+  }
   $("#chips").closest("fieldset").after(box); decorateSoon();
 }
 function readFeedBox(){
@@ -2226,6 +2232,8 @@ function readFeedBox(){
   const v = {}; b.querySelectorAll("input[data-k]").forEach(i => { const n = num(i.value); if (n != null) v[i.dataset.k] = n; });
   const ml = {}; for (const k of Object.keys(v)) if (k.startsWith("ml:")) ml[k.slice(3)] = v[k];
   const out = {}; if (v.top_l != null) out.top_l = v.top_l;
+  if (v.phUp != null || v.phDown != null) out.phfix = Object.assign({vol: v.vol || null, phBefore: v.phBefore != null ? v.phBefore : null}, v.phUp != null ? {up: v.phUp} : {}, v.phDown != null ? {down: v.phDown} : {});
+  delete v.phUp; delete v.phDown; delete v.phBefore;
   if (Object.keys(ml).length || v.vol != null) out.feed = Object.assign({ml}, v.vol != null ? {vol: v.vol} : {}, v.ecBefore != null ? {ecBefore: v.ecBefore} : {});
   return out;
 }
@@ -2594,9 +2602,20 @@ function doseFor(t, p){
   if (/water change|fresh (mix|water)|new (mix|res)/i.test(t.title) && tg){
     const aim = Math.round((tg[0] + tg[1]) / 2 * 100) / 100, r = Feed.suggest(p, S.logs, {from: +((p.setup && p.setup.waterEc) || 0), to: aim, vol, water: true});
     return (vol ? "Refill to " + vol + " L, then feed to EC " + tg[0] + "–" + tg[1] + ". " : "") + (r ? r.text : ""); }
+  const last = k => (mine(S.logs).find(l => l.run === p.id && l[k] != null) || {})[k];
+  if (/adjust ph/i.test(t.title)){ const ph = last("ph"), tp = targetsOf(p).ph; if (ph == null || !tp) return null;
+    const r = Feed.phSuggest(p, S.logs, {from: +ph, to: Math.round((tp[0] + tp[1]) / 2 * 10) / 10, vol}); return r ? r.text : null; }
+  if (/feed step|top up nutrients/i.test(t.title)){ const ec = last("ec"), a = t.aim || (t.title.match(/(\d\.\d+)\s*[–-]\s*(\d\.\d+)/) || []).slice(1).map(Number); if (ec == null || !a || a.length < 2) return null;
+    const to = Math.round((a[0] + a[1]) / 2 * 100) / 100;
+    if (/feed step/i.test(t.title) && t.due && t.due > today() && +ec < to - 0.2){   // soft steps: the top-up comes first, this step then adds ~0.15
+      const r = Feed.suggest(p, S.logs, {from: Math.round((to - 0.15) * 100) / 100, to, vol});
+      return "EC is " + ec + " now: the top-up into the upper half of the current range comes first. This step then adds ~0.15" + (r ? ": " + r.text.replace(/ → EC ≈[^(]*/, " ") : "."); }
+    const r = Feed.suggest(p, S.logs, {from: +ec, to, vol}); return r ? "Now EC " + ec + " → aim ~" + to + ". " + r.text : null; }
   if (/top.?off/i.test(t.title)){ const ex = Feed.expectTop(S.logs, p, d => phaseOn(p, d), phaseOf(p), new Date().toISOString()); return ex ? ex.text : null; }
   return null;
 }
+/* a step's own text without its old dose sentence when the live (learned) dose line is shown above it */
+function detailOf(t, p){ const d = t.detail || ""; return doseFor(t, p) ? d.replace(/\s*(Add|About) about [^.]*\.|\s*About [\d.]+ ml[^.]*\.(\s*Add half[^.]*\.)?|\s*Add about [^.]*\.(\s*\([^)]*\))?/g, "").replace(/\s*\(≈[^)]*\)/g, "").trim() : d; }
 function lastCheck(p){ const r = S.logs.filter(l => l.run === p.id).flatMap(l => (l.replies || []).map(x => x.at || "")); return [p.aiAt, p.lastReview, ...r].filter(Boolean).sort().pop() || null; }
 function stepReplies(p){ return S.logs.filter(l => l.run === p.id && (l.replies || []).length).flatMap(l => l.replies.filter(r => r.src === "ai").map(r => ({date: l.date, step: (l.step && l.step.name) || "log", text: r.text}))).slice(0, 3); }
 async function aiPhotoFiles(paths){

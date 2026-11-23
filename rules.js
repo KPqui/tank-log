@@ -152,6 +152,12 @@
     if (ec < lo) pull(T, "EC fell to " + ec + ", below " + lo + "–" + hi + ": the plant is eating.");
     else if (sl != null && sl <= -0.08 && (ec - lo) / -sl <= 2) pull(tomorrow, "EC falling ~" + Math.abs(sl).toFixed(2) + "/day; it reaches " + lo + " within 2 days.");
     else if (prev && prev.ec - ec >= 0.15 && D(log.date || T) - D(prev.date || T) <= 3 * 864e5 && ec <= lo + 0.1) pull(tomorrow, "EC dropped " + prev.ec + " → " + ec + " within a few days.");
+    // v56 hold high: in the lower third of the range → a small top-up to the upper half today, so the next ramp step stays soft
+    else if (ec >= lo && ec <= lo + (hi - lo) / 3 + 0.001 && !(feed && feed.due && feed.due <= tomorrow) && !openSoon(ctx, p, /top up nutrients/i, 2)){
+      const aim = Math.round((hi - (hi - lo) / 4) * 100) / 100;
+      out.push(task(p, "hold-" + T, T, "Top up nutrients to EC ~" + aim, "EC " + ec + " sits at the bottom of " + lo + "–" + hi + ". A small top-up keeps it in the upper half, so the next feed step is a soft one. " + dose(ec, aim) + " Measure after 15–30 minutes.", "EC in the lower third", {aim: [Math.round((hi - (hi - lo) / 2) * 100) / 100, hi], kind: "hold"}));
+      why.push("EC " + ec + " low in range");
+    }
     if (ec > hi + 0.2 && !openSoon(ctx, p, /plain water/i, 1)){
       out.push(task(p, "ec-high-" + T, T, "Top off with plain water", "EC " + ec + " is above " + lo + "–" + hi + ". Top off with plain (distilled) water only, no nutrients, measure again tomorrow.", "After your log")); why.push("EC " + ec + " high"); }
   }
@@ -202,7 +208,8 @@
       if (hydro && log.ph != null && tg.ph && log.ph >= tg.ph[0] - 0.15 && log.ph <= tg.ph[1] + 0.15){
         const ps = slope(series(ctx, p, "ph", log, 48));
         if (ps != null && Math.abs(ps) >= 0.15 && (log.ph + ps < tg.ph[0] || log.ph + ps > tg.ph[1]) && !openSoon(ctx, p, /adjust ph/i, 2)){
-          out.push(task(p, "ph-drift-" + T, tomorrow, "Adjust pH", "pH is drifting " + (ps > 0 ? "up" : "down") + " ~" + Math.abs(ps).toFixed(2) + "/day (now " + log.ph + "). Correct back to " + tg.ph[0] + "–" + tg.ph[1] + ", a few drops at a time.", "pH trend")); why.push("pH drifting " + (ps > 0 ? "+" : "") + ps.toFixed(2) + "/day"); }
+          const now = log.ph < tg.ph[0] || log.ph > tg.ph[1];   // v56: already past the edge → today
+          out.push(task(p, "ph-drift-" + T, now ? T : tomorrow, "Adjust pH", "pH is drifting " + (ps > 0 ? "up" : "down") + " ~" + Math.abs(ps).toFixed(2) + "/day (now " + log.ph + "). Correct back to " + tg.ph[0] + "–" + tg.ph[1] + ", a few drops at a time.", "pH trend")); why.push("pH drifting " + (ps > 0 ? "+" : "") + ps.toFixed(2) + "/day"); }
       }
       // water warming day over day
       if (hydro && log.water != null && log.water <= 23.5 && log.water >= 22){
@@ -293,9 +300,9 @@
       const fedAt = ctx.tasks.filter(t => t.run === p.id && t.status === "done" && FEED.test(t.title) && t.doneAt).map(t => t.doneAt.slice(0, 10)).sort().pop();
       const since = fedAt ? diff(fedAt, T) : (p.sprout ? diff(p.sprout, T) - 10 : 0);
       const ceil = ctx.phase === "bloom" ? 1.6 : 1.2;
-      if (lastEc && diff(lastEc.date, T) <= 2 && lastEc.ec >= tg[0] && lastEc.ec <= tg[1] && (!lastW || lastW.water <= 23) && !burnt && since >= 4 && tg[1] < ceil){
+      if (lastEc && diff(lastEc.date, T) <= 2 && lastEc.ec >= (tg[0] + tg[1]) / 2 - 0.02 && lastEc.ec <= tg[1] && (!lastW || lastW.water <= 23) && !burnt && since >= 4 && tg[1] < ceil){
         const aim = [Math.round((tg[0] + 0.2) * 10) / 10, Math.round(Math.min(ceil, tg[1] + 0.2) * 10) / 10];
-        tasks.push(task(p, "ramp-" + T, add(T, 1), "Feed step to EC " + aim[0] + "–" + aim[1], "EC has held in " + tg[0] + "–" + tg[1] + " and the last step was " + since + " days ago. " + doseText(p, lastEc.ec, aim[1], ctx) + " Measure after 15 minutes. Ticking it done moves the EC target to " + aim[0] + "–" + aim[1] + ".", "Leaf tips clean, water ≤ 23 °C", {aim}));
+        tasks.push(task(p, "ramp-" + T, add(T, 1), "Feed step to EC " + aim[0] + "–" + aim[1], "EC has held in " + tg[0] + "–" + tg[1] + " and the last step was " + since + " days ago. " + doseText(p, lastEc.ec, Math.round((aim[0] + aim[1]) / 2 * 100) / 100, ctx) + " Aim for the middle, not the top. Measure after 15 minutes. Ticking it done moves the EC target to " + aim[0] + "–" + aim[1] + ".", "Leaf tips clean, water ≤ 23 °C", {aim}));
       }
     }
     // burps the jars don't need: steady (58–63 %) after cure day 5 → every 3 days; running dry → none
