@@ -275,6 +275,21 @@
       if (l) close.push({id: t.id, at: l.at, why: "\"" + t.title + "\" done by your log (" + l.date.slice(5) + ")."});
       else if (t.gen && t.due < add(T, -1) && open.some(x => x !== t && /^check\b/i.test(x.title) && x.due && x.due >= T)) close.push({id: t.id, skipped: true, why: "Skipped check from " + t.due.slice(5) + " closed; a newer one is planned."});
     }
+    // v60: a fix-it step (Adjust pH, Cool the water) closes once a newer reading is back in range,
+    // or a "pH adjusted" chip was logged after it came up. Newer = a later day, or later the same day than an out-of-range reading.
+    const tgs = ctx.targets || p.targets || {};
+    const FIX = [["ph", /^(ph|ph-drift)-(\d{4}-\d{2}-\d{2})$/, /adjust ph/i, "pH adjusted"], ["water", /^(water-warm|water-trend)-(\d{4}-\d{2}-\d{2})$/, /cool the water/i, null]];
+    for (const [k, re, title, chip] of FIX){ const tg = tgs[k]; if (!tg) continue;
+      for (const t of open.filter(t => title.test(t.title))){
+        const m = re.exec(t.gen || "") || /(\d{4}-\d{2}-\d{2})/.exec(t.id) && [null, null, /(\d{4}-\d{2}-\d{2})/.exec(t.id)[1]]; const made = m ? m[2] : t.due; if (!made) continue;
+        const newest = logs.find(l => l[k] != null);
+        const lastOut = logs.find(l => l[k] != null && (l[k] < tg[0] || l[k] > tg[1]));
+        const fixed = newest && newest[k] >= tg[0] && newest[k] <= tg[1] && newest.date >= made && (newest.date > made || (lastOut && newest.at > lastOut.at));
+        const chipped = chip && logs.find(l => (l.actions || []).includes(chip) && l.date >= made);
+        if (fixed || chipped){ const l = fixed ? newest : chipped;
+          close.push({id: t.id, at: l.at, why: "\"" + t.title + "\" closed: " + (fixed ? (k === "ph" ? "pH " : "water ") + newest[k] + " is back in range (" + l.date.slice(5) + ")." : "you logged \u201c" + chip + "\u201d (" + l.date.slice(5) + ").")}); }
+      }
+    }
     // overdue big tasks roll to the next suitable day
     for (const t of open.filter(t => t.size === "big" && t.due && t.due < T)){ const d = nextSuitable(p, T); if (d !== t.due) moves.push({id: t.id, due: d, why: "\"" + t.title + "\" was overdue; moved to the next weekend/off day (" + d.slice(5) + ")."}); }
     // B5 day notes: a day the grower marked as away/busy gets no steps; each moves to the nearest free day (the day before first)

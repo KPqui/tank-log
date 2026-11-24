@@ -171,6 +171,15 @@ function ago(iso){
   if (hrs < 1) return "just now"; if (hrs < 24) return Math.round(hrs) + " h ago";
   const d = Math.floor(hrs / 24); return d === 1 ? "1 day ago" : d + " days ago";
 }
+function numStrict(v){ const t = String(v).trim().replace(",", "."); return /^-?(\d+\.?\d*|\.\d+)$/.test(t) ? parseFloat(t) : null; }
+/* a value far outside the usual range, or a big jump from the last reading of the last 2 days */
+function oddValue(p, k, v){
+  const lim = {ph:[4, 8.5], ec:[0, 4], water:[8, 32], air:[5, 40], rh:[15, 95], jar_rh:[40, 80]}[k], jump = {ph:0.5, ec:0.5, water:4}[k];
+  const lbl = labelFor(p, k), last = mine(S.logs).find(l => l[k] != null && l.id !== (S.edit && S.edit.id) && (Date.now() - new Date(l.at)) < 2 * 864e5);
+  if (lim && (v < lim[0] || v > lim[1])) return lbl + " " + v + " is unusual";
+  if (jump && last && Math.abs(v - last[k]) >= jump) return lbl + " " + v + " is a big jump from " + last[k] + " (" + hm(last.at) + ")";
+  return null;
+}
 function num(v){ if (v == null || v === "") return null; const n = parseFloat(String(v).replace(",", ".")); return Number.isFinite(n) ? n : null; }
 const fmtv = (k, v) => v.toFixed(F[k] ? F[k].d : 1) + ((F[k] && F[k].unit) || "");
 const plantOf = x => x.run || x.plant || "tank1";
@@ -709,7 +718,7 @@ function loadCache(){
 
 /* ---------- routing ---------- */
 const VIEWS = ["today","log","plan","setup","plant","quiz","strain","library"];
-const APP_V = "v59";
+const APP_V = "v60";
 /* Android: Share → Flowerphile lands here as ?title=…&text=… (manifest share_target); taken once the data is loaded */
 let SHARED = (() => { try { const q = new URLSearchParams(location.search); if (!["share","text","title","url"].some(k => q.has(k))) return null;
   const t = [q.get("title"), q.get("text"), q.get("url")].filter(Boolean).join("\n").trim(); history.replaceState(null, "", location.pathname + "#today"); return t || null; } catch(e){ return null; } })();
@@ -1130,7 +1139,7 @@ async function keepPlans(){
     const w = await loadWeather(p); if (!w) continue; const tasks = Branch.weather(p, w.j, ruleCtx(p));
     if (tasks.length) by.push([p.id, {tasks, why: ["from the weather forecast"], kind: "weather"}]); }
   // upkeep the nightly review used to do: checks done by logs, overdue big tasks, one stressor a day, EC ramp
-  for (const p of S.plants.filter(x => x.status === "active")){ const m = Rules.maintain(p, ruleCtx(p)); if (m.tasks.length || m.moves.length || m.close.length) by.push([p.id, Object.assign(m, {why: [], kind: "upkeep"})]); }
+  for (const p of S.plants.filter(x => x.status === "active")){ const m = Rules.maintain(p, Object.assign(ruleCtx(p), {targets: targetsOf(p)})); if (m.tasks.length || m.moves.length || m.close.length) by.push([p.id, Object.assign(m, {why: [], kind: "upkeep"})]); }
   // sensor readings react like a log would, once per plant per day (gen keys keep it from repeating)
   // (finished runs too when a jar sensor watches the storage jars)
   for (const p of S.plants.filter(x => x.status === "active" || liveJarFor(x))){ const lv = liveFor(p), lj = liveJarFor(p); if (!lv && !lj) continue;
@@ -1601,7 +1610,8 @@ function renderToday(){
   const lastLog = mine(S.logs)[0], ackEl = $("#t-ack");
   ackEl.textContent = lastLog && lastLog.ack && lastLog.date === T ? lastLog.ack.replace(/^Noted/, "Noted " + hm(lastLog.at)) : ""; ackEl.hidden = !ackEl.textContent;
   const askEl = $("#t-stepask"); if (askEl){ askEl.replaceChildren(); const can = !ackEl.hidden && askable(lastLog) && !(lastLog.replies || []).length;
-    askEl.hidden = !can; if (can) askEl.append(h("button",{type:"button", class:"btn ghost sm", onclick:() => { S.planSeg = "book"; location.hash = "#plan"; askStep(p, lastLog); }}, lastLog.asks ? "Ask your AI this question" : "Ask your AI about this step")); }
+    askEl.hidden = ackEl.hidden; if (!ackEl.hidden) askEl.append(h("button",{type:"button", class:"btn ghost sm", style:"margin-right:8px", onclick:() => startEdit(lastLog)}, "Wrong value? Edit"));
+    if (can) askEl.append(h("button",{type:"button", class:"btn ghost sm", onclick:() => { S.planSeg = "book"; location.hash = "#plan"; askStep(p, lastLog); }}, lastLog.asks ? "Ask your AI this question" : "Ask your AI about this step")); }
 
   // Observations: three plant values + three climate/weather values
   const fields = fieldsFor(p);
@@ -1970,7 +1980,7 @@ function renderDays(p){
     try { S.plants = await mutate("plants.json", list => (list || []).map(x => { if (x.id !== p.id) return x; const dn = Object.assign({}, x.dayNotes || {});
         for (const k of Object.keys(dn)) if (k < addDays(T, -14)) delete dn[k];
         if (txt) dn[d] = txt; else delete dn[d]; return Object.assign({}, x, {dayNotes: Object.keys(dn).length ? dn : undefined}); }), "day note " + d);
-      cache(); const q = S.plants.find(x => x.id === p.id), m = window.Rules ? Rules.maintain(q, ruleCtx(q)) : null;
+      cache(); const q = S.plants.find(x => x.id === p.id), m = window.Rules ? Rules.maintain(q, Object.assign(ruleCtx(q), {targets: targetsOf(q)})) : null;
       if (m && (m.moves.length || m.tasks.length || m.close.length)) await applyRules([[q.id, Object.assign(m, {why: [], kind: "upkeep"})]], "plan");
       S.dayPick = null; renderAll(); } catch(e){ msg.textContent = "Couldn't save."; } };
   box.after(h("form",{class:"daynote", id:"p-daynote", onsubmit:e => { e.preventDefault(); save(inp.value.trim()); }}, h("span",{class:"small"}, fmtDay(d)), inp,
@@ -2312,7 +2322,15 @@ $("#logform").addEventListener("submit", async e => {
   const st = $("#f-status"), btn = $("#f-save");
   const at = new Date().toISOString();
   const vals = {}; let any = false;
-  document.querySelectorAll("#l-fields input").forEach(i => { const v = num(i.value); if (v != null){ vals[i.dataset.k] = v; any = true; } });
+  const bad = [], odd = [];
+  document.querySelectorAll("#l-fields input").forEach(i => { const raw = i.value.trim(); if (!raw) return;
+    const v = numStrict(raw); if (v == null){ bad.push(labelFor(p, i.dataset.k) + " \u201c" + raw + "\u201d"); return; }
+    vals[i.dataset.k] = v; any = true; const w = oddValue(p, i.dataset.k, v); if (w) odd.push(w); });
+  /* v60: never save a half-read number ("5 9" used to become 5), and ask once before saving an unlikely value */
+  if (bad.length){ st.textContent = "Couldn't read " + bad.join(", ") + ". Use a dot or comma, e.g. 5.9."; return; }
+  const sig = JSON.stringify(vals);
+  if (odd.length && S.oddOk !== sig){ S.oddOk = sig; st.textContent = odd.join(" · ") + ". Tap Save again if that's right."; return; }
+  S.oddOk = null;
   const actions = [...S.actions], note = $("#f-note").value.trim();
   const photos = [...$("#f-photo").files], files = [...$("#f-file").files];
   if (!S.edit && !any && !actions.length && !note && !photos.length && !files.length){ st.textContent = "Nothing to save yet. Enter a value, tap an action, or add a file."; return; }
