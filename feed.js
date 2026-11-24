@@ -125,7 +125,42 @@
     const name = dir > 0 ? "pH Up" : "pH Down";
     return {ml: r, dir, n: pts.length, text: "About " + r + " ml " + name + " in " + vol + " L to go from " + o.from + " to ~" + o.to + " (" + (pts.length ? "from your " + pts.length + " measured correction" + (pts.length > 1 ? "s" : "") : "a first guess, not measured yet") + "). Add half, stir, wait 10–15 min, measure, then the rest."};
   }
-  const api = {points, prior, suggest, drink, expectTop, odd, ecParts, phPoints, phSuggest};
+  /* v57 soil watering rhythm: days between waterings (actions Watered / Reservoir refilled), per phase when there are
+     ≥ 2 in this phase; with logged pot weights (pot_kg, weighed BEFORE watering) also the weight it usually gets watered at
+     and the dry-back per day, so the next watering is predicted from the latest weight. Works with feel only, too. */
+  const WAT = /^(Watered|Reservoir refilled)$/;
+  function rhythm(logs, p, phaseAt, phase){
+    const W = mine(logs, p).filter(l => (l.actions || []).some(a => WAT.test(a)));
+    if (W.length < 2) return null;
+    const iv = []; for (let i = 1; i < W.length; i++) iv.push({d: hours(W[i - 1].at, W[i].at) / 24, phase: phaseAt ? phaseAt(String(W[i].date || W[i].at).slice(0, 10)) : null});
+    const same = iv.filter(x => !phase || x.phase === phase).slice(-4), use = same.length >= 2 ? same : iv.slice(-4);
+    const every = use.reduce((s, x) => s + x.d, 0) / use.length, last = W[W.length - 1];
+    const out = {every: Math.round(every * 10) / 10, n: use.length, phaseOnly: use === same, last: last.at};
+    const wAt = W.map(l => l.pot_kg).filter(x => x != null).slice(-4);
+    if (wAt.length >= 2){
+      out.waterAt = Math.round(wAt.reduce((a, b) => a + +b, 0) / wAt.length * 10) / 10;
+      const L = mine(logs, p).filter(l => l.pot_kg != null && l.at > last.at);   // weights since the last watering
+      if (L.length){ const lw = L[L.length - 1], rate = L.length >= 2 ? (+L[0].pot_kg - +lw.pot_kg) / Math.max(0.25, hours(L[0].at, lw.at) / 24) : null;
+        out.latest = +lw.pot_kg; out.latestAt = lw.at; if (rate && rate > 0) out.rate = Math.round(rate * 100) / 100; }
+    }
+    return out;
+  }
+  function nextWater(logs, p, phaseAt, phase){
+    const r = rhythm(logs, p, phaseAt, phase); if (!r) return null;
+    let at = new Date(new Date(r.last).getTime() + r.every * 864e5), how = "every ~" + r.every + " days (last " + r.n + " waterings" + (r.phaseOnly ? " in this stage" : "") + ")";
+    if (r.waterAt && r.latest != null && r.rate){ const t = new Date(new Date(r.latestAt).getTime() + Math.max(0, (r.latest - r.waterAt) / r.rate) * 864e5);
+      if (t < at) at = t; how += "; by weight: you water at ~" + r.waterAt + " kg, it loses ~" + r.rate + " kg/day"; }
+    return {date: at.toISOString().slice(0, 10), how, r};
+  }
+  function oddWater(logs, p, entry, phaseAt, phase){
+    if (!(entry.actions || []).some(a => WAT.test(a))) return null;
+    const r = rhythm(logs, p, phaseAt, phase); if (!r || r.n < 3) return null;
+    const d = hours(r.last, entry.at) / 24;
+    if (d < r.every * 0.6) return "watered sooner than usual (" + d.toFixed(1) + " vs ~" + r.every + " days): heat, a bigger plant, or a small pot?";
+    if (d > r.every * 1.6) return "watered later than usual (" + d.toFixed(1) + " vs ~" + r.every + " days)";
+    return null;
+  }
+  const api = {points, prior, suggest, drink, expectTop, odd, ecParts, phPoints, phSuggest, rhythm, nextWater, oddWater};
   if (typeof window !== "undefined") window.Feed = api;
   if (typeof module !== "undefined") module.exports = api;
 })();

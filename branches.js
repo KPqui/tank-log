@@ -38,9 +38,9 @@
   function chips(p){
     const b = of(p), auto = b.system === "autopot"; let a;
     if (b.medium === "hydro") a = ["Fed", "Topped off", "Water change", "pH adjusted", "Trimmed", "Trained"];
-    else if (b.medium === "living-soil") a = [auto ? "Reservoir refilled" : "Watered", "Top-dressed", "Tea / amended", "Mulch topped up", "Pot felt light", "Gnats seen", "Trimmed", "Trained", "Pest check"];
+    else if (b.medium === "living-soil") a = [auto ? "Reservoir refilled" : "Watered", "Top-dressed", "Tea / amended", "Mulch topped up", "Pot felt light", "Pot felt heavy", "Gnats seen", "Trimmed", "Trained", "Pest check"];
     else if (b.medium === "coco") a = [auto ? "Reservoir refilled" : "Watered", "Fed", "Runoff", "Flushed", "Trimmed", "Trained", "Pest check"];
-    else a = [auto ? "Reservoir refilled" : "Watered", "Fed", "Flushed", "Pot felt light", "Trimmed", "Trained", "Pest check"];
+    else a = [auto ? "Reservoir refilled" : "Watered", "Fed", "Flushed", "Pot felt light", "Pot felt heavy", "Trimmed", "Trained", "Pest check"];
     if (b.where === "indoor") a.push("Light changed", "Sensor moved");
     else a.push("Sheltered", "Tied / staked", "Shook off rain", "Caterpillar check");
     return a;
@@ -72,6 +72,13 @@
     const has = gen => ctx.tasks.some(t => t.run === p.id && t.gen === gen);
     const want = (gen, due, title, detail, trigger, extra) => { if (due >= T && diff(T, due) <= 7 && !has(gen)) out.push(Object.assign({id: "g-" + gen + "-" + p.id, run: p.id, gen, due, title, detail, trigger, status: "open", src: "app"}, extra || {})); };
     const sprout = p.sprout || (p.phases || {}).grow, flip = p.flip || (p.phases || {}).bloom;
+    // v57: watering rhythm learned from the grower's own waterings (and pot weights, if any): one "lift the pot" step on the expected day
+    if ((b.medium === "soil" || b.medium === "living-soil") && b.system !== "autopot" && window.Feed){
+      const phaseAt = ctx.phaseAt || null, nw = window.Feed.nextWater(ctx.logs || [], p, phaseAt, ph);
+      if (nw){ const due = nw.date < T ? T : nw.date;
+        if (!ctx.tasks.some(t => t.run === p.id && t.status === "open" && t.kind === "water"))
+          want("water-" + due, due, "Lift the pot: watering likely due", "Your rhythm: " + nw.how + ". Light → water until a little runs out" + (b.medium === "living-soil" ? " (or ~5–10 % of the soil volume)" : "") + ", then log Watered. Still heavy → wait, log \"Pot felt heavy\", and the app learns.", "Your watering rhythm", {kind: "water"}); }
+    }
     if (b.medium === "living-soil"){
       if (ph === "grow" && sprout) want("ls-topdress-veg", add(sprout, 28), "Top-dress", "Scratch a handful of worm castings and a balanced dry amendment into the top 2 cm, then water it in and cover with mulch.", "Veg day ~28");
       if (ph === "bloom" && flip){ want("ls-topdress-b1", add(flip, 1), "Top-dress for bloom", "A bloom amendment (more phosphorus and potassium) scratched into the top layer, watered in, mulch back on.", "Start of bloom");

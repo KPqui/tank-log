@@ -27,6 +27,7 @@ const F = {
   ppfd:{label:"Light (PPFD)", short:"Light", d:0}, height:{label:"Height cm", short:"Height", d:0, unit:" cm"},
   air:{label:"Air °C", short:"Air", d:1, unit:"°"}, rh:{label:"Humidity %", short:"Humidity", d:0, unit:"%"},
   nodes:{label:"Nodes", d:0}, lamp:{label:"Lamp above rim cm", short:"Lamp", d:0, unit:" cm"},
+  pot_kg:{label:"Pot weight kg (before watering)", short:"Pot", d:1, unit:" kg"},
   weight:{label:"Weight g", short:"Weight", d:0, unit:" g"}, jar_rh:{label:"Jar RH %", short:"Jar RH", d:0, unit:"%"},
   wet_g:{label:"Wet weight g", short:"Wet", d:0, unit:" g"}, dry_g:{label:"Dry weight g", short:"Dry", d:0, unit:" g"}, final_g:{label:"Final weight g", short:"Final", d:0, unit:" g"}
 };
@@ -87,6 +88,7 @@ function fieldsFor(p){
     k = sys === "autopot" ? ["res_l"] : ["water_l"];
     if (m === "coco") k.push(...(sys === "autopot" ? ["res_ph","res_ec"] : ["ph","ec"]), "runoff_ec");
     if (m === "soil") k.push(...(sys === "autopot" ? ["res_ph","res_ec"] : ["ph","ec"]), "runoff_ph");
+    if ((m === "soil" || m === "living-soil") && sys !== "autopot") k.push("pot_kg");   // optional; feel works too
   }
   if (indoor) k.push("ppfd");
   k.push("height","nodes");
@@ -707,7 +709,7 @@ function loadCache(){
 
 /* ---------- routing ---------- */
 const VIEWS = ["today","log","plan","setup","plant","quiz","strain","library"];
-const APP_V = "v56";
+const APP_V = "v57";
 /* Android: Share → Flowerphile lands here as ?title=…&text=… (manifest share_target); taken once the data is loaded */
 let SHARED = (() => { try { const q = new URLSearchParams(location.search); if (!["share","text","title","url"].some(k => q.has(k))) return null;
   const t = [q.get("title"), q.get("text"), q.get("url")].filter(Boolean).join("\n").trim(); history.replaceState(null, "", location.pathname + "#today"); return t || null; } catch(e){ return null; } })();
@@ -1086,7 +1088,7 @@ function askCard(p){
 /* ---------- the app's own plan keeping (rules.js) ---------- */
 function ruleCtx(p){ const ph = phaseOf(p), ls = latestSensor(), ta = (targetsOf(p).air || [0, 99])[1];
   const dose = window.Feed ? (from, to) => { const r = Feed.suggest(p, S.logs, {from, to}); return r ? r.text : null; } : null;
-  return {dose, hot: !!(ls && ls.temp != null && ls.temp > ta), today: today(), phase: ph, phaseStart: phaseStart(p, ph === "done" ? "cure" : ph), tasks: S.tasks, logs: S.logs, profile: S.profile, check: window.Branch ? Branch.check(p, S.profile) : null, jar: liveJarFor(p)}; }
+  return {dose, phaseAt: d => phaseOn(p, d), hot: !!(ls && ls.temp != null && ls.temp > ta), today: today(), phase: ph, phaseStart: phaseStart(p, ph === "done" ? "cure" : ph), tasks: S.tasks, logs: S.logs, profile: S.profile, check: window.Branch ? Branch.check(p, S.profile) : null, jar: liveJarFor(p)}; }
 async function applyRules(byPlant, label){
   const add = [], mv = [], ch = [], T = today();
   const cl = [];
@@ -2341,7 +2343,7 @@ $("#logform").addEventListener("submit", async e => {
       const fb = readFeedBox();
       const entry = Object.assign({id:"l-" + Date.now(), run:p.id, at, date:today(), source:"app", actions, note, photos:newPhotos, files:newFiles}, vals, fb);
       if (newPhotos.length && S.view && S.view !== "side") entry.view = S.view;
-      const dr = window.Feed ? Feed.odd(S.logs, p, entry, d => phaseOn(p, d)) : null;
+      const dr = window.Feed ? (Feed.odd(S.logs, p, entry, d => phaseOn(p, d)) || Feed.oddWater(S.logs, p, entry, d => phaseOn(p, d), phaseOf(p))) : null;
       if (sensor) entry.sensor = sensor;
       if (moved.length) entry.moved = moved;
       if (ljar && ljar.rh != null && ["cure","done"].includes(phaseOf(p)) && entry.jar_rh == null) entry.jar_rh = ljar.rh;
@@ -2474,8 +2476,36 @@ async function sensorDiag(){
 }
 
 /* ---------- setup ---------- */
+/* v57: tester feedback. A plain-text summary a tester shares with the developer: app version, device type, grower profile,
+   each plant's branch and stage, counts, what their AI changed on the screen (plant.ui), and the newest AI changes.
+   Never photos, log notes, keys or the store name. */
+function feedbackText(note){
+  const T = today(), pr = S.profile || {}, ua = navigator.userAgent, dev = /iPhone|iPad/.test(ua) ? "iPhone" : /Android/.test(ua) ? "Android" : "other";
+  const L = ["Flowerphile feedback · " + APP_V + " · " + T, "", note ? "Note: " + note : "Note: (none)", "",
+    "Device: " + dev + ", " + innerWidth + "×" + innerHeight + (matchMedia("(display-mode: standalone)").matches ? ", home screen app" : ", in the browser") + " · storage: " + (isLocal() ? "this phone" : "own GitHub"),
+    "Grower: " + ["exp " + (pr.exp || "?"), "germ " + (pr.germ || "?"), "meters " + (pr.meters || "?")].join(", ")];
+  for (const p of S.plants.filter(p => p.status !== "done")){
+    const lg = S.logs.filter(l => l.run === p.id), ai = S.changes.filter(c => c.run === p.id && c.src === "ai");
+    L.push("", "Plant: " + [p.medium, p.system, p.where, p.kind, phaseOf(p)].filter(Boolean).join(" · ") + " · started " + (p.start || "?"),
+      "Logs: " + lg.length + " (last " + (lg[0] ? lg[0].date : "–") + ") · check-ins: " + (p.aiAt ? "last " + p.aiAt.slice(0, 10) : "none") + " · step answers: " + lg.filter(l => (l.replies || []).length).length);
+    if (p.ui) L.push("Screen changed by the AI: " + JSON.stringify(p.ui).slice(0, 600));
+    const used = {}; for (const l of lg) for (const a of l.actions || []) used[a] = (used[a] || 0) + 1;
+    L.push("Buttons used: " + (Object.entries(used).map(([k, v]) => k + " ×" + v).join(", ") || "none"));
+    const keys = {}; for (const l of lg) for (const k of Object.keys(l)) if (F[k] || (p.ui && (p.ui.custom || []).some(c => c.key === k))) keys[k] = (keys[k] || 0) + 1;
+    L.push("Fields filled: " + (Object.entries(keys).map(([k, v]) => k + " ×" + v).join(", ") || "none"));
+    if (ai.length) L.push("Newest AI changes: " + ai.slice(0, 5).map(c => String(c.text || "").slice(0, 120)).join(" | "));
+  }
+  return L.join("\n");
+}
+function renderFeedback(){
+  const b = $("#s-feedback"); if (!b) return; b.hidden = !S.cfg;
+  const st = $("#s-fb-status"), go = async how => { const t = feedbackText($("#s-fb-note").value.trim());
+    try { if (how === "send" && navigator.share){ await navigator.share({title: "Flowerphile feedback", text: t}); st.textContent = "Thanks, sent."; $("#s-fb-note").value = ""; return; }
+      await navigator.clipboard.writeText(t); st.textContent = "Copied: paste it into a message to the developer."; } catch(e){ if (e && e.name !== "AbortError") st.textContent = "Couldn't share. Try Copy."; } };
+  $("#s-fb-send").onclick = () => go("send"); $("#s-fb-copy").onclick = () => go("copy");
+}
 function renderSetup(){
-  const c = S.cfg;
+  const c = S.cfg; renderFeedback();
   const tb = $("#s-theme"); tb.replaceChildren(); for (const [v,l] of [["auto","Follow phone"],["day","Day"],["night","Night"],["plant","Follow the lamp"]]) tb.append(h("button",{type:"button",class:"chip","aria-pressed": themePref()===v ? "true":"false", onclick:() => { try { localStorage.setItem(THEME_KEY, v); } catch(e){} applyTheme(); renderSetup(); }}, l));
   renderThemeNote();
   // first visit: a welcome with two ways in; the GitHub form only shows when asked for
