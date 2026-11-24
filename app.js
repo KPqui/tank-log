@@ -709,7 +709,7 @@ function loadCache(){
 
 /* ---------- routing ---------- */
 const VIEWS = ["today","log","plan","setup","plant","quiz","strain","library"];
-const APP_V = "v57";
+const APP_V = "v58";
 /* Android: Share → Flowerphile lands here as ?title=…&text=… (manifest share_target); taken once the data is loaded */
 let SHARED = (() => { try { const q = new URLSearchParams(location.search); if (!["share","text","title","url"].some(k => q.has(k))) return null;
   const t = [q.get("title"), q.get("text"), q.get("url")].filter(Boolean).join("\n").trim(); history.replaceState(null, "", location.pathname + "#today"); return t || null; } catch(e){ return null; } })();
@@ -2504,8 +2504,21 @@ function renderFeedback(){
       await navigator.clipboard.writeText(t); st.textContent = "Copied: paste it into a message to the developer."; } catch(e){ if (e && e.name !== "AbortError") st.textContent = "Couldn't share. Try Copy."; } };
   $("#s-fb-send").onclick = () => go("send"); $("#s-fb-copy").onclick = () => go("copy");
 }
+/* v58: the developer's feedback inbox. Shown to a GitHub-connected phone that opted in (Settings link "?dev" once, or the
+   owner KPqui). Each paste becomes feedback/inbox/<time>.txt in the private store; the weekly feedback round (a scheduled
+   Claude task) summarises it into the project doc and deletes the raw files. No new platform. */
+function devPhone(){ try { if (/[?&]dev\b/.test(location.search)) localStorage.setItem("ff-dev", "1"); } catch(e){} return !isLocal() && S.cfg && (S.cfg.owner === "KPqui" || localStorage.getItem("ff-dev") === "1"); }
+function renderInbox(){
+  const b = $("#s-inbox"); if (!b) return; b.hidden = !devPhone(); if (b.hidden) return;
+  const ta = $("#s-in-text"), st = $("#s-in-status");
+  $("#s-in-paste").onclick = async () => { try { ta.value = await navigator.clipboard.readText(); } catch(e){ st.textContent = "Couldn't read the clipboard: long-press and paste."; } };
+  $("#s-in-save").onclick = async () => { const t = ta.value.trim(); if (!t){ st.textContent = "Nothing to save."; return; }
+    st.textContent = "Saving…"; const at = new Date().toISOString(), path = "feedback/inbox/" + at.replace(/[:.]/g, "-") + ".txt";
+    try { const r = await putB64(path, b64enc(t + "\n"), null, "feedback inbox"); if (!r || r.ok === false) throw new Error("put"); ta.value = ""; st.textContent = "Saved. The next weekly round picks it up."; }
+    catch(e){ st.textContent = "Couldn't save. Check the connection and try again."; } };
+}
 function renderSetup(){
-  const c = S.cfg; renderFeedback();
+  const c = S.cfg; renderFeedback(); renderInbox();
   const tb = $("#s-theme"); tb.replaceChildren(); for (const [v,l] of [["auto","Follow phone"],["day","Day"],["night","Night"],["plant","Follow the lamp"]]) tb.append(h("button",{type:"button",class:"chip","aria-pressed": themePref()===v ? "true":"false", onclick:() => { try { localStorage.setItem(THEME_KEY, v); } catch(e){} applyTheme(); renderSetup(); }}, l));
   renderThemeNote();
   // first visit: a welcome with two ways in; the GitHub form only shows when asked for
