@@ -709,7 +709,7 @@ function loadCache(){
 
 /* ---------- routing ---------- */
 const VIEWS = ["today","log","plan","setup","plant","quiz","strain","library"];
-const APP_V = "v58";
+const APP_V = "v59";
 /* Android: Share → Flowerphile lands here as ?title=…&text=… (manifest share_target); taken once the data is loaded */
 let SHARED = (() => { try { const q = new URLSearchParams(location.search); if (!["share","text","title","url"].some(k => q.has(k))) return null;
   const t = [q.get("title"), q.get("text"), q.get("url")].filter(Boolean).join("\n").trim(); history.replaceState(null, "", location.pathname + "#today"); return t || null; } catch(e){ return null; } })();
@@ -1652,6 +1652,7 @@ function renderToday(){
   const old = $("#t-ask"); if (old) old.remove();
   const oa = $("#p-ai"); if (oa) oa.remove();
   const apn = aiPanel(p); if (apn) $("#t-tasks").closest(".panel").after(apn);
+  if (S.cfg && !S.fb) loadFbNotes().then(renderFbCard); else renderFbCard();
   const ask = askCard(p); if (ask) sb.after(ask);
   decorateSoon();
 }
@@ -2481,7 +2482,7 @@ async function sensorDiag(){
    Never photos, log notes, keys or the store name. */
 function feedbackText(note){
   const T = today(), pr = S.profile || {}, ua = navigator.userAgent, dev = /iPhone|iPad/.test(ua) ? "iPhone" : /Android/.test(ua) ? "Android" : "other";
-  const L = ["Flowerphile feedback · " + APP_V + " · " + T, "", note ? "Note: " + note : "Note: (none)", "",
+  const L = ["Flowerphile feedback · " + APP_V + " · " + T, "", note ? "Notes:" + (note.startsWith("\n") ? "" : " ") + note : "Notes: (none)", "",
     "Device: " + dev + ", " + innerWidth + "×" + innerHeight + (matchMedia("(display-mode: standalone)").matches ? ", home screen app" : ", in the browser") + " · storage: " + (isLocal() ? "this phone" : "own GitHub"),
     "Grower: " + ["exp " + (pr.exp || "?"), "germ " + (pr.germ || "?"), "meters " + (pr.meters || "?")].join(", ")];
   for (const p of S.plants.filter(p => p.status !== "done")){
@@ -2497,12 +2498,45 @@ function feedbackText(note){
   }
   return L.join("\n");
 }
+/* v59: feedback notes are collected in the grower's own store (feedback-notes.json: {notes:[{at, text}], sentAt}); a card on
+   Today offers to send them once a week (≥ 1 note and ≥ 7 days since the last send, or since the first note). Sending =
+   share sheet (or copy) of all notes + the summary above; then the notes are cleared and sentAt is set. */
+async function loadFbNotes(){ if (S.fb) return S.fb; try { const r = await getJSON("feedback-notes.json"); S.fb = r.data || {notes: []}; } catch(e){ S.fb = {notes: []}; } return S.fb; }
+async function saveFbNotes(fn){ S.fb = await mutate("feedback-notes.json", d => fn(d || {notes: []}), "feedback notes"); return S.fb; }
+function fbDue(){ const f = S.fb; if (!f || !f.notes || !f.notes.length) return false; const since = f.sentAt || f.notes[0].at; return (Date.now() - new Date(since)) / 864e5 >= 7; }
+async function sendFb(how, st){
+  const f = await loadFbNotes(), notes = f.notes || [], cur = ($("#s-fb-note") || {}).value || "";
+  const all = notes.map(n => "- " + n.at.slice(0, 10) + ": " + n.text).concat(cur.trim() ? ["- " + today() + ": " + cur.trim()] : []);
+  const t = feedbackText(all.length ? "\n" + all.join("\n") : "");
+  try {
+    if (how === "send" && navigator.share) await navigator.share({title: "Flowerphile feedback", text: t}); else await navigator.clipboard.writeText(t);
+    await saveFbNotes(d => ({notes: [], sentAt: new Date().toISOString(), sent: (d.sent || 0) + 1}));
+    if ($("#s-fb-note")) $("#s-fb-note").value = "";
+    if (st) st.textContent = how === "send" && navigator.share ? "Thanks, sent." : "Copied: paste it into a message to the developer.";
+    renderFeedbackList(); renderFbCard();
+  } catch(e){ if (st && e && e.name !== "AbortError") st.textContent = "Couldn't share. Try Copy."; }
+}
+function renderFeedbackList(){
+  const ul = $("#s-fb-list"); if (!ul) return; ul.replaceChildren();
+  for (const n of (S.fb && S.fb.notes) || []) ul.append(h("li",null, h("span",{class:"sub"}, short(n.at.slice(0, 10)) + " · "), n.text));
+  $("#s-fb-send").textContent = (S.fb && S.fb.notes && S.fb.notes.length) ? "Send all now (" + S.fb.notes.length + ")" : "Send now";
+}
 function renderFeedback(){
-  const b = $("#s-feedback"); if (!b) return; b.hidden = !S.cfg;
-  const st = $("#s-fb-status"), go = async how => { const t = feedbackText($("#s-fb-note").value.trim());
-    try { if (how === "send" && navigator.share){ await navigator.share({title: "Flowerphile feedback", text: t}); st.textContent = "Thanks, sent."; $("#s-fb-note").value = ""; return; }
-      await navigator.clipboard.writeText(t); st.textContent = "Copied: paste it into a message to the developer."; } catch(e){ if (e && e.name !== "AbortError") st.textContent = "Couldn't share. Try Copy."; } };
-  $("#s-fb-send").onclick = () => go("send"); $("#s-fb-copy").onclick = () => go("copy");
+  const b = $("#s-feedback"); if (!b) return; b.hidden = !S.cfg; if (b.hidden) return;
+  const st = $("#s-fb-status");
+  loadFbNotes().then(renderFeedbackList);
+  $("#s-fb-add").onclick = async () => { const t = $("#s-fb-note").value.trim(); if (!t){ st.textContent = "Write a note first."; return; }
+    st.textContent = "Saving…"; try { await saveFbNotes(d => Object.assign({}, d, {notes: [...(d.notes || []), {at: new Date().toISOString(), text: t.slice(0, 1000)}]})); $("#s-fb-note").value = ""; st.textContent = "Collected. Today will offer to send them weekly."; renderFeedbackList(); } catch(e){ st.textContent = "Couldn't save."; } };
+  $("#s-fb-send").onclick = () => sendFb("send", st); $("#s-fb-copy").onclick = () => sendFb("copy", st);
+}
+/* the weekly card on Today (testers only: not on the developer's phone) */
+function renderFbCard(){
+  const old = $("#t-fb"); if (old) old.remove();
+  if (!S.cfg || devPhone() || !fbDue()) return;
+  const n = S.fb.notes.length, st = h("span",{class:"sub"});
+  const card = h("div",{class:"panel fr", id:"t-fb", "data-soak":"0.12"}, h("div",{class:"aidone"}, h("span",null, h("b",null,"Feedback this week"), h("span",{class:"sub"}, " · " + n + " note" + (n > 1 ? "s" : "") + " collected")),
+    h("button",{type:"button", class:"btn sm", onclick:() => sendFb("send", st)}, "Send")), st);
+  const tk = $("#t-tasks"); if (tk) tk.closest(".panel").after(card);
 }
 /* v58: the developer's feedback inbox. Shown to a GitHub-connected phone that opted in (Settings link "?dev" once, or the
    owner KPqui). Each paste becomes feedback/inbox/<time>.txt in the private store; the weekly feedback round (a scheduled
