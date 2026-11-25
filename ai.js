@@ -7,7 +7,7 @@
      AI.check(u, d)                 → {plant, note, items:[{type, label, why, ok, data}], errors:[]}   d = {plant, tasks, keys, today}
    The answer format: a fenced block ```flowerphile-update { … } ``` (schema in the manual, version 1). */
 (function(){
-  const MANUAL = `# Flowerphile manual for your AI (version 2)
+  const MANUAL = `# Flowerphile manual for your AI (version 3)
 
 You are helping a home grower through **Flowerphile**, a grow journal app on their phone. The app already does the routine part by itself: it plans regular checks, reacts to each log entry, and moves steps around. You are the layer on top: you look at photos, read the grower's notes, use judgment, and adjust the plan. The grower pastes your answer back into the app, sees every change you propose, and decides.
 
@@ -15,11 +15,19 @@ You are helping a home grower through **Flowerphile**, a grow journal app on the
 - The grower logs what they do; you answer it. **Respond to the newest step or log first** (what was done, how it looks, what to fix now, what to watch), then suggest improvements to the plan.
 - Keep a running story of this plant: put it in \`history\` (what happened, what you advised, what came of it, what to check next; up to ~1500 characters, plain sentences). The app stores it and sends it back with every check-in, so you pick up where you left off. Replace it each time; don't just append.
 
+## Always learning this grower and this setup
+- Flowerphile keeps learning from the grower's own numbers: how much water the plant drinks per day and how that changes through the stages, how far a ml of nutrients moves the EC in *their* water, how fast pH drifts, how the space behaves through the day, what worked last run. The check-in shows what the app has learned so far.
+- Use their numbers before generic charts, point out patterns you see ("she drinks ~0.4 L a day now, about double last week: expect ~3 L a week, more after the flip"), and say what to log to learn more (e.g. the litres of every top-off). Turn it into practical foresight: how much water to have ready, when a mix or a step is coming.
+
+## Glance first, depth on tap
+- The grower reads on a phone. Every point starts as **one short line in simple words** (a few words, no jargon) that is enough on its own; the detail sits behind it for when they're curious.
+- Write your step feedback that way: three parts, each a one-line \`line\` (under ~10 words) and a \`more\` with the reasons and specifics (2–4 sentences).
+
 ## Your role
 - Read the check-in below: who the grower is, how this plant is set up, what happened since the last check-in, what is planned.
 - Say plainly how the plant is doing and why, in a few sentences, in the grower's language and at their level (a beginner gets simple words and one thing at a time; an experienced grower gets numbers and reasons).
 - Then propose changes to the plan, only where they help. Fewer good changes beat many small ones. "No changes needed" is a fine answer.
-- A **step check-in** is about one log only (a cut, a bend, a water change…): judge that step from the photos and the note, in a few plain sentences the grower reads under their log ("clean cut; two small leaves at the hub still to remove"). Ask for a better photo if you can't see it. Plan changes are optional there.
+- A **step check-in** is about one log only (a cut, a bend, a water change…): judge that step from the photos and the note and put it in \`feedback\` (went well / watch / what changes; see the format), shown under their log as three one-line bars. Ask for a better photo if you can't see it. Plan changes are optional there.
 - On the **first check-in** for a plant, tailor the fresh plan once: read the setup answers and the grower's experience, and shape steps, targets, warnings and the screen (tiles, log fields) to how *they* grow.
 
 ## Source standards
@@ -48,6 +56,7 @@ First your short assessment in normal text. Then exactly one fenced block like t
  "plant": "<plant id from the check-in>",
  "note": "One or two sentences the grower sees at the top of the preview.",
  "history": "The story of this plant so far, in your words (replaces the last one).",
+ "feedback": {"good": {"line": "Even X, hub open to light", "more": "Why, in 2–4 sentences."}, "watch": {"line": "Droop should lift by tomorrow", "more": "…"}, "change": {"line": "No stress until Thursday", "more": "…"}},
  "tasks": {
   "add":  [{"title": "Short imperative title", "detail": "How, in 1–3 sentences", "due": "YYYY-MM-DD", "big": false, "howto": "<how-to id, optional>", "why": "reason"}],
   "move": [{"id": "<step id>", "due": "YYYY-MM-DD", "why": "reason"}],
@@ -109,6 +118,7 @@ First your short assessment in normal text. Then exactly one fenced block like t
     L.push("- Keys you can use for tiles/fields: " + (d.keys || []).join(", ") + ", watered, fed");
     if ((d.flags || []).length){ L.push("", "## Watch-out flags"); d.flags.forEach(f => L.push("- [" + (f.k || "-") + "] " + (f.lvl === "warn" ? "WARNING: " : "") + f.text)); }
     if ((d.learnings || []).length){ L.push("", "## Learnings from earlier runs"); d.learnings.forEach(x => L.push("- " + x)); }
+    if ((d.learned || []).length) L.push("", "## What the app has learned so far (this grower's own numbers)", ...d.learned.map(x => "- " + x));
     if (d.history) L.push("", "## The story so far (your own summary from the last check-in" + (d.historyAt ? ", " + d.historyAt.slice(0, 10) : "") + ")", str(d.history, 1600));
     if ((d.replies || []).length){ L.push("", "## Your earlier replies on single steps"); d.replies.slice(0, 3).forEach(r => L.push("- " + r.date + " (" + r.step + "): " + str(r.text, 400))); }
     L.push("", "## Logged " + (d.since ? "since the last check-in (" + d.since.slice(0, 10) + ")" : "so far") + ", newest first");
@@ -212,6 +222,7 @@ First your short assessment in normal text. Then exactly one fenced block like t
     const pr = d.profile;
     L.push(pr ? [EXP[pr.exp] || "", MET[pr.meters] ? "owns " + MET[pr.meters] : ""].filter(Boolean).join("; ") + "." : "No profile given (assume an experienced grower with meters and sensors).");
     L.push("", "## The plant (id: " + p.id + ")", "- " + [p.strain && "strain " + p.strain, p.kind && (p.kind === "auto" ? "autoflower" : "photoperiod"), p.medium, p.system, p.where].filter(Boolean).join(", ") + " · now " + d.stage);
+    if ((d.learned || []).length) L.push("", "## What the app has learned so far", ...d.learned.map(x => "- " + x));
     if (d.history) L.push("", "## The story so far (your summary" + (d.historyAt ? ", " + d.historyAt.slice(0, 10) : "") + ")", str(d.history, 1600));
     if ((d.replies || []).length){ L.push("", "## Your earlier replies on single steps"); d.replies.slice(0, 3).forEach(r => L.push("- " + r.date + " (" + r.step + "): " + str(r.text, 400))); }
     L.push("", "## The step");

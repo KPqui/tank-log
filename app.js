@@ -718,7 +718,7 @@ function loadCache(){
 
 /* ---------- routing ---------- */
 const VIEWS = ["today","log","plan","setup","plant","quiz","strain","library"];
-const APP_V = "v61";
+const APP_V = "v62";
 /* Android: Share → Flowerphile lands here as ?title=…&text=… (manifest share_target); taken once the data is loaded */
 let SHARED = (() => { try { const q = new URLSearchParams(location.search); if (!["share","text","title","url"].some(k => q.has(k))) return null;
   const t = [q.get("title"), q.get("text"), q.get("url")].filter(Boolean).join("\n").trim(); history.replaceState(null, "", location.pathname + "#today"); return t || null; } catch(e){ return null; } })();
@@ -1615,8 +1615,8 @@ function renderToday(){
     const items = mine(S.logs).filter(l => l.at > cut).flatMap(l => (l.replies || []).filter(r => r.src !== "you" && !seen[l.id + "|" + r.at]).map(r => ({l, r}))).slice(0, 2);
     fb.hidden = !items.length;
     items.forEach(({l, r}) => fb.append(h("div",{class:"howto", style:"gap:6px;margin:6px 0"},
-      h("span",{class:"kicker"}, "Feedback on " + (l.step ? "your " + l.step.name.toLowerCase() : "your log") + " · " + short(l.date) + " · " + (r.src === "review" ? "nightly review" : "your AI")),
-      h("p",{style:"margin:0;white-space:pre-wrap"}, r.text),
+      h("span",{class:"kicker"}, "Feedback on " + (l.step ? "your " + l.step.name.toLowerCase() : "your log") + " · " + short(l.date) + " · " + (r.src === "review" ? "review" : "your AI")),
+      replyBars(r),
       h("div",{class:"chips", style:"gap:8px"},
         h("button",{type:"button", class:"btn ghost sm", onclick:() => { seen[l.id + "|" + r.at] = 1; try { localStorage.setItem("ff-fb-seen", JSON.stringify(seen)); } catch(e){} renderToday(); }}, "Got it"),
         askable(l) ? h("button",{type:"button", class:"btn ghost sm", onclick:() => { S.planSeg = "book"; location.hash = "#plan"; askStep(p, l); }}, "Ask a follow-up") : null)))); }
@@ -1961,6 +1961,49 @@ async function saveQuiz(){
   S.qz = null; renderAll(); location.hash = isNew ? "#today" : "#plan";
   S.planRan = null; keepPlans();                          // a new plant gets its first days planned right away
 }
+/* ---------- v62: glance first, depth on tap (KP Nov 25: a principle for the whole app) ----------
+   bar(kicker, line, more): one line in simple words with a + on the right; tapping opens the detail. */
+function bar(kicker, line, more, cls){
+  if (!more) return h("div",{class:"gbar" + (cls ? " " + cls : "")}, h("div",{class:"gl"}, kicker ? h("span",{class:"gk"}, kicker) : null, h("span",null, line)));
+  return h("details",{class:"gbar" + (cls ? " " + cls : "")}, h("summary",null, h("span",{class:"gl"}, kicker ? h("span",{class:"gk"}, kicker) : null, h("span",null, line)), h("span",{class:"chev", "aria-hidden":"true"}, "+")),
+    h("div",{class:"gm"}, ...(Array.isArray(more) ? more : [more]).map(x => typeof x === "string" ? h("p",null, x) : x)));
+}
+const FB_K = {good:["Went well","ok"], watch:["Watch","warn"], change:["What changes","info"]};
+/* a reply: three bars (went well / watch / what changes) when it has parts, else its first sentence with the rest behind + */
+function replyBars(r){
+  if ((r.parts || []).length) return h("div",{class:"gbars"}, r.parts.map(x => bar((FB_K[x.k] || [x.k])[0], x.line, x.more, (FB_K[x.k] || [])[1])));
+  const t = String(r.text || "").trim(), m = /^([\s\S]{20,220}?[.!?])\s+([\s\S]+)$/.exec(t);
+  return m ? bar(null, m[1], m[2].split(/\n+/)) : h("p",{style:"margin:0;white-space:pre-wrap"}, t);
+}
+/* what Flowerphile has learned about this setup and grower so far (generic: every grower's own numbers) */
+function learnPanel(p){
+  if (!p || !window.Feed || !["grow","bloom"].includes(phaseOf(p))) return null;
+  const items = [], pa = d => phaseOn(p, d), ph = phaseOf(p), now = new Date().toISOString();
+  const d = Feed.drink(S.logs, p, pa, ph);
+  if (d){ const pts = []; let last = null;
+    mine(S.logs).slice().reverse().forEach(l => { if (l.top_l != null && last) pts.push(short(l.date) + ": +" + l.top_l + " L after " + ((new Date(l.at) - new Date(last.at)) / 864e5).toFixed(1) + " days"); if (l.top_l != null || (l.actions || []).includes("Water change")) last = l; });
+    const wk = Math.round(d.perDay * 7 * 10) / 10, ex = Feed.expectTop(S.logs, p, pa, ph, now);
+    items.push(bar("Drinking", "about " + d.perDay + " L a day" + (d.n < 3 ? " (early guess, " + d.n + " top-off" + (d.n > 1 ? "s" : "") + ")" : ""),
+      ["From the litres you top off and the time between top-offs (" + d.n + " so far" + (d.phaseOnly ? ", this stage" : "") + "). It assumes you fill back to the same mark each time.",
+       "At this rate: ~" + wk + " L of water a week." + (ex && ex.l > 0 ? " Since the last fill: about " + ex.l + " L gone." : ""),
+       "It grows with the plant: bigger leaves and warmer, drier air mean more drinking. A sudden drop can be an early sign of root trouble or a cooler spell; a jump, heat or a leak.",
+       ...(pts.length ? [h("ul",{class:"notes"}, pts.slice(-6).map(x => h("li",null,x)))] : [])])); }
+  else items.push(bar("Drinking", "not known yet: log the litres when you top off", "Each top-off with its litres (\u201cTopped off\u201d \u2192 litres) teaches the app how much this plant drinks per day. After 2\u20133 top-offs it shows the rate, then the trend through the stages, so you know how much water to have ready."));
+  const k = Feed.points(S.logs, p);
+  if (k.length){ const avg = k.reduce((a, x) => a + x.k, 0) / k.length;
+    items.push(bar("Feeding", "1 ml per litre raises EC by ~" + (Math.round(avg * 100) / 100) + (k.length < 3 ? " (early guess)" : ""),
+      ["Measured from " + k.length + " feed" + (k.length > 1 ? "s" : "") + " with EC before and after. Dose suggestions use this instead of the bottle chart.",
+       h("ul",{class:"notes"}, k.slice(-5).map(x => h("li",null, short(x.at.slice(0, 10)) + ": EC " + x.from + " \u2192 " + x.to + " in " + x.vol + " L (~" + (Math.round(x.k * 100) / 100) + ")")))])); }
+  if (!items.length) return null;
+  return h("div",{class:"panel fr", "data-soak":"0.12", id:"p-learn"}, h("h2",null,"Learned so far"), h("div",{class:"gbars"}, items));
+}
+function learnedLines(p){
+  if (!p || !window.Feed) return [];
+  const out = [], pa = d => phaseOn(p, d), d = Feed.drink(S.logs, p, pa, phaseOf(p)), k = Feed.points(S.logs, p);
+  if (d) out.push("Drinking ~" + d.perDay + " L/day (" + d.n + " top-off" + (d.n > 1 ? "s" : "") + (d.phaseOnly ? ", this stage" : "") + ")");
+  if (k.length) out.push("1 ml/L of the nutrient parts raises EC by ~" + (Math.round(k.reduce((s, x) => s + x.k, 0) / k.length * 100) / 100) + " (" + k.length + " feeds measured)");
+  return out;
+}
 function setupPanel(p){
   if (!p || p.status !== "active" || !["germ","grow","bloom"].includes(phaseOf(p))) return null;
   const box = h("div",{class:"panel fr", "data-soak":"0.15", id:"p-setup"});
@@ -2119,9 +2162,10 @@ function renderPhase(p){
 function renderPlan(){
   const p = sel(), T = today();
   renderPhase(p);
-  for (const x of ["#p-focus", "#p-setup"]){ const o = $(x); if (o) o.remove(); }
+  for (const x of ["#p-focus", "#p-setup", "#p-learn"]){ const o = $(x); if (o) o.remove(); }
   // B1: run tile → this week / coming up → the rest
   const fp = p && focusPanel(p); if (fp) $("#p-steps").after(fp);
+  const lp = learnPanel(p); if (lp) $("#p-steps").after(lp);
   const sp = setupPanel(p); if (sp) $("#p-steps").after(sp);
   $("#p-upd").textContent = p && p.updated ? "updated " + short(ymd(new Date(p.updated))) : "";
   renderDays(p);
@@ -2181,7 +2225,7 @@ function renderHistory(){
       l.moved ? h("p",{class:"sub", style:"margin:0"}, "Moved: " + l.moved.map(m => "sensor " + m.num + " → " + m.place).join(", ")) : null,
       l.ack ? h("p",{class:"sub", style:"margin:0"}, l.ack) : null,
       (l.photos && l.photos.length) ? h("div",{class:"thumbs"}, l.photos.map(thumb)) : null,
-      (l.replies || []).length ? h("div",{class:"thread"}, l.replies.map(r => h("div",{class:"reply"}, h("span",{class:"kicker"}, (r.src === "ai" ? "Your AI" : r.src === "review" ? "Nightly review" : "You") + " · " + short(r.at.slice(0, 10))), h("p",{style:"margin:2px 0 0;white-space:pre-wrap"}, r.text)))) : null,
+      (l.replies || []).length ? h("div",{class:"thread"}, l.replies.map(r => h("div",{class:"reply"}, h("span",{class:"kicker"}, (r.src === "ai" ? "Your AI" : r.src === "review" ? "Review" : "You") + " · " + short(r.at.slice(0, 10))), replyBars(r)))) : null,
       askBox(p, l),
       files.length ? h("div",{class:"thumbs"}, files.map(f => /\.(jpe?g|png|webp)$/i.test(f) ? thumb(f) : h("span",{class:"tag"}, /\.csv$/i.test(f) ? "Sensor file" : "File"))) : null,
       h("div",{style:"display:flex;gap:8px"},
@@ -2694,7 +2738,7 @@ function aiData(p){
     logs, tasks: openTasks().sort(sortTasks), flags: p.flags || [], targets: targetsOf(p), fields: fieldsFor(p), tiles, chips: actionsFor(p), keys: ALL_KEYS.slice(),
     learnings: S.plants.filter(x => x.id !== p.id).flatMap(x => (x.learnings || []).map(l => (x.strain || x.name) + ": " + l.text)).slice(0, 8),
     knowledge: pages, howtos: window.HowTo ? HowTo.all.map(x => ({id: x.id, title: x.title})) : [], app: APP_V,
-    history: p.aiHistory || "", historyAt: p.aiHistoryAt || null, replies: stepReplies(p)};
+    history: p.aiHistory || "", historyAt: p.aiHistoryAt || null, replies: stepReplies(p), learned: learnedLines(p)};
 }
 /* A4: a check-in = the newest of: applied AI check-in, the nightly review, a step answer */
 function phaseOn(p, d){ let cur = null; for (const k of ["germ","grow","bloom","dry","cure","done"]){ const st = phaseStart(p, k); if (st && st <= d) cur = k; } return cur || phaseOf(p); }
@@ -2857,6 +2901,10 @@ function aiPanel(p){
    The AI's running story of the plant (`history`) is kept as plant.aiHistory and sent with every packet. */
 function wdShort(s){ const n = Math.round((new Date(s + "T12:00:00") - new Date(today() + "T12:00:00")) / 864e5);
   return n === 0 ? "today" : n === 1 ? "tomorrow" : new Date(s + "T12:00:00").toLocaleDateString("en-GB", n > 1 && n < 7 ? {weekday:"short"} : {day:"numeric", month:"short"}); }
+function fbParts(f){
+  const one = (k, x) => x && (x.line || typeof x === "string") ? {k, line: String(x.line || x).slice(0, 120), more: x.more ? String(x.more).slice(0, 900) : ""} : null;
+  const out = ["good","watch","change"].map(k => one(k, f[k])).filter(Boolean); return out.length ? out : null;
+}
 function askable(l){ return !!(l && window.AI && (l.step || l.asks || (l.photos || []).length)); }
 function askPending(){ try { const a = JSON.parse(localStorage.getItem("ff-ask") || "null"); return a && Date.now() - a.t < 2 * 864e5 ? a : null; } catch(e){ return null; } }
 function askClear(){ S.ask = null; try { localStorage.removeItem("ff-ask"); } catch(e){} pasteBar(); }
@@ -2865,7 +2913,7 @@ function stepData(p, l){
   const hw = s && s.howto && window.HowTo ? HowTo.byId(s.howto) : null, ph = phaseOf(p);
   return {plant: p, profile: S.profile, stage: ["grow","bloom"].includes(ph) ? stageText(p) : PHASES[ph], today: today(), log: l, step: s,
     howto: hw ? {title: hw.title, steps: hw.steps.map(x => x.text)} : null, history: p.aiHistory || "", historyAt: p.aiHistoryAt || null,
-    replies: stepReplies(p), tasks: openTasks().sort(sortTasks), keys: ALL_KEYS.slice(), app: APP_V};
+    replies: stepReplies(p), tasks: openTasks().sort(sortTasks), keys: ALL_KEYS.slice(), app: APP_V, learned: learnedLines(p)};
 }
 async function askStep(p, l, how){
   if (!window.AI || !l) return;
@@ -2902,10 +2950,10 @@ function askBox(p, l){
 async function stepAnswer(p, l, text){
   const now = new Date().toISOString(); let u = null, res = null;
   try { u = AI.extract(text); } catch(e){}
-  const rep = AI.reply(text) || (u && u.note) || "";
+  const rep = AI.reply(text) || (u && u.note) || "", parts = u && u.feedback ? fbParts(u.feedback) : null;
   if (!rep && !u){ if (S.ask) S.ask.err = "That looks empty. Paste the whole answer."; renderHistory(); return; }
   try {
-    S.logs = sortLogs(await mutate("logs.json", list => (list || []).map(x => x.id === l.id ? Object.assign({}, x, {replies: (x.replies || []).concat({at: now, src: "ai", text: rep || "(plan changes only)"})}) : x), "log reply " + l.id));
+    S.logs = sortLogs(await mutate("logs.json", list => (list || []).map(x => x.id === l.id ? Object.assign({}, x, {replies: (x.replies || []).concat(Object.assign({at: now, src: "ai", text: rep || "(plan changes only)"}, parts ? {parts} : {}))}) : x), "log reply " + l.id));
     if (u){ registerCustom(); res = AI.check(u, {plant: p, tasks: S.tasks.filter(t => t.run === p.id), keys: ALL_KEYS.slice(), today: today(), label: k => k === "watered" ? "Watered" : k === "fed" ? "Fed" : F[k] ? labelFor(p, k) : k});
       if (res.history) S.plants = await mutate("plants.json", list => (list || []).map(x => x.id === p.id ? Object.assign({}, x, {aiHistory: res.history, aiHistoryAt: now, updated: now}) : x), "ai: story so far"); }
     askClear(); cache();
