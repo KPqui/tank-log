@@ -2388,5 +2388,1406 @@
   "spectraNote": "Placed from breeder and vendor listings (indica/sativa share, listed effects, taste, THC claim), not lab data or your own grow.",
   "terpNote": "Terpenes as listed by vendors; no lab profile, so treat them as expectations.",
   "confidence": "medium"
+ },
+ {
+  "id": "banana-purple-punch-auto-fast-buds",
+  "name": "Banana Purple Punch Auto",
+  "breeder": "Fast Buds",
+  "kind": "auto",
+  "type": "Autoflower · feminized",
+  "genetics": "Indica-dominant hybrid, about 75 % indica / 25 % sativa (vendor)",
+  "flowering": "56–63 days from seed (vendor; the description also says about 56 days)",
+  "height": "Medium indoors, tall outdoors (vendor, no cm given)",
+  "yield": "Indoor up to 550 g/m², outdoor up to 200 g per plant (vendor claim)",
+  "thc": "about 26 % (breeder/vendor claim)",
+  "cbd": "0–1 % (breeder/vendor claim)",
+  "climate": "Indoors or outdoors; listed as easy to grow",
+  "terpenes": [],
+  "taste": [
+   "banana",
+   "berry",
+   "candy",
+   "fruity"
+  ],
+  "effects": [
+   "uplifting",
+   "soothing",
+   "long-lasting"
+  ],
+  "lineage": {
+   "name": "Banana Purple Punch Auto",
+   "by": "Fast Buds",
+   "parents": [
+    {
+     "name": "Banana Purple Punch"
+    },
+    {
+     "name": "Ruderalis (autoflower trait)"
+    }
+   ]
+  },
+  "story": "An autoflowering take on Banana Purple Punch, a dessert-style hybrid built from Banana OG and Purple Punch. Fast Buds added a ruderalis line so it flowers on its own clock instead of by light hours. It is sold mainly for its sweet banana-and-berry flavour and fast turnaround.",
+  "growNotes": [
+   "Autos have no time to recover from stress: keep training to gentle LST early on.",
+   "Purple-leaning hybrids may show colour late in bloom; cooler nights can bring it out, but colour is genetic, not a ripeness sign."
+  ],
+  "sources": [
+   {
+    "t": "Zamnesia: Banana Purple Punch Auto (FastBuds)",
+    "u": "https://www.zamnesia.com/8059-fastbuds-banana-purple-punch-auto.html",
+    "d": "2026-11-25"
+   }
+  ],
+  "level": 1,
+  "status": "unreviewed",
+  "updated": "2026-11-25",
+  "spectra": [
+   {
+    "l": "Calm",
+    "r": "Energetic",
+    "v": 0.25,
+    "i": "moon"
+   },
+   {
+    "l": "Body",
+    "r": "Head",
+    "v": 0.32,
+    "i": "body"
+   },
+   {
+    "l": "Fruity",
+    "r": "Gassy",
+    "v": 0.1,
+    "i": "drop"
+   },
+   {
+    "l": "Gentle",
+    "r": "Potent",
+    "v": 0.86,
+    "i": "spark"
+   }
+  ],
+  "spectraNote": "Placed from breeder and vendor listings (indica/sativa share, listed effects, taste, THC claim), not lab data or your own grow.",
+  "terpNote": "No published terpene profile found yet.",
+  "confidence": "low"
+ },
+ {
+  "id": "pineapple-express-auto-barney-s-farm",
+  "name": "Pineapple Express Auto",
+  "breeder": "Barney's Farm",
+  "kind": "auto",
+  "type": "Autoflower · feminized",
+  "genetics": "Hybrid of Pineapple Chunk × BF Super Auto #1 (vendor; indica/sativa share not stated)",
+  "flowering": "70–77 days from seed (vendor; the description also says 56–70 days)",
+  "height": "About 110 cm indoors and outdoors (vendor)",
+  "yield": "Indoor up to 600 g/m², outdoor up to 100 g per plant (vendor claim)",
+  "thc": "about 15 % (breeder/vendor claim)",
+  "cbd": "not stated",
+  "climate": "Indoors or outdoors; listed as easy and stress-resistant",
+  "terpenes": [],
+  "taste": [],
+  "effects": [
+   "relaxing",
+   "calming",
+   "soothing"
+  ],
+  "lineage": {
+   "name": "Pineapple Express Auto",
+   "by": "Barney's Farm",
+   "parents": [
+    {
+     "name": "Pineapple Chunk"
+    },
+    {
+     "name": "BF Super Auto #1"
+    }
+   ]
+  },
+  "story": "Barney's Farm built this auto from its own Pineapple Chunk and an autoflowering line called Super Auto #1. The name borrows from the famous American Pineapple Express, but the genetics here are the breeder's own. It is one of the breeder's long-running autos and is marketed as a forgiving first grow.",
+  "growNotes": [
+   "Fairly tall for an auto: leave headroom or use early low-stress training.",
+   "Vendor timings disagree by about two weeks, so judge harvest by trichomes and pistils rather than the calendar."
+  ],
+  "sources": [
+   {
+    "t": "Zamnesia: Pineapple Express Auto (Barney's Farm)",
+    "u": "https://www.zamnesia.com/166-barneys-farm-pineapple-express-autoflowering.html",
+    "d": "2026-11-25"
+   }
+  ],
+  "level": 1,
+  "status": "unreviewed",
+  "updated": "2026-11-25",
+  "spectra": [
+   {
+    "l": "Calm",
+    "r": "Energetic",
+    "v": 0.26,
+    "i": "moon"
+   },
+   {
+    "l": "Body",
+    "r": "Head",
+    "v": 0.5,
+    "i": "body"
+   },
+   {
+    "l": "Gentle",
+    "r": "Potent",
+    "v": 0.55,
+    "i": "spark"
+   }
+  ],
+  "spectraNote": "Placed from breeder and vendor listings (indica/sativa share, listed effects, taste, THC claim), not lab data or your own grow.",
+  "terpNote": "No published terpene profile found yet.",
+  "confidence": "low"
+ },
+ {
+  "id": "blackberry-auto-fast-buds",
+  "name": "Blackberry Auto",
+  "breeder": "Fast Buds",
+  "kind": "auto",
+  "type": "Autoflower · feminized",
+  "genetics": "Indica-dominant hybrid, about 75 % indica / 25 % sativa (vendor)",
+  "flowering": "63–70 days from seed (vendor; the description also says about 56 days)",
+  "height": "About 70–110 cm (vendor)",
+  "yield": "Indoor up to 600 g/m², outdoor up to 300 g per plant (vendor claim)",
+  "thc": "about 23 % (breeder/vendor claim)",
+  "cbd": "0–1 % (breeder/vendor claim)",
+  "climate": "Indoors, or outdoors in temperate and Mediterranean climates",
+  "terpenes": [
+   {
+    "name": "Myrcene",
+    "basis": "vendor listing"
+   },
+   {
+    "name": "Pinene",
+    "basis": "vendor listing"
+   }
+  ],
+  "taste": [
+   "berry",
+   "sweet",
+   "fruity",
+   "pine"
+  ],
+  "effects": [
+   "relaxing",
+   "body buzz",
+   "euphoric",
+   "sleepy"
+  ],
+  "lineage": {
+   "name": "Blackberry Auto",
+   "by": "Fast Buds",
+   "parents": [
+    {
+     "name": "Blackberry"
+    },
+    {
+     "name": "Purple Kush (Pakistani)"
+    },
+    {
+     "name": "Canadian Ruderalis"
+    }
+   ]
+  },
+  "story": "Fast Buds started from Blackberry, a strain the vendor says was created in the Netherlands, and folded in purple Kush lines of Pakistani origin. A Canadian ruderalis gives the autoflowering trait. The result is sold as a compact, berry-scented indica auto.",
+  "growNotes": [
+   "Indica-leaning and dense: keep air moving through the canopy late in bloom to avoid bud rot.",
+   "Avoid topping late; autos do best with early, light training."
+  ],
+  "sources": [
+   {
+    "t": "Zamnesia: Blackberry Auto (FastBuds)",
+    "u": "https://www.zamnesia.com/3953-fastbuds-autoflowering-blackberry-Auto-feminized.html",
+    "d": "2026-11-25"
+   }
+  ],
+  "level": 1,
+  "status": "unreviewed",
+  "updated": "2026-11-25",
+  "spectra": [
+   {
+    "l": "Calm",
+    "r": "Energetic",
+    "v": 0.09,
+    "i": "moon"
+   },
+   {
+    "l": "Body",
+    "r": "Head",
+    "v": 0.24,
+    "i": "body"
+   },
+   {
+    "l": "Fruity",
+    "r": "Gassy",
+    "v": 0.3,
+    "i": "drop"
+   },
+   {
+    "l": "Gentle",
+    "r": "Potent",
+    "v": 0.72,
+    "i": "spark"
+   }
+  ],
+  "spectraNote": "Placed from breeder and vendor listings (indica/sativa share, listed effects, taste, THC claim), not lab data or your own grow.",
+  "terpNote": "Terpenes as listed by vendors; no lab profile, so treat them as expectations.",
+  "confidence": "low"
+ },
+ {
+  "id": "gelato-auto-fast-buds",
+  "name": "Gelato Auto",
+  "breeder": "Fast Buds",
+  "kind": "auto",
+  "type": "Autoflower · feminized",
+  "genetics": "Balanced hybrid, about 45 % indica / 55 % sativa (vendor)",
+  "flowering": "56–63 days from seed (vendor)",
+  "height": "Medium indoors and outdoors (vendor, no cm given)",
+  "yield": "Indoor up to 550 g/m², outdoor up to 200 g per plant (vendor claim; the description says 250–300 g)",
+  "thc": "about 26 % (breeder/vendor claim)",
+  "cbd": "0–1 % (breeder/vendor claim)",
+  "climate": "Indoors, or outdoors in temperate and Mediterranean climates",
+  "terpenes": [
+   {
+    "name": "Myrcene",
+    "basis": "vendor listing"
+   },
+   {
+    "name": "Limonene",
+    "basis": "vendor listing"
+   }
+  ],
+  "taste": [
+   "sweet",
+   "citrus",
+   "earthy"
+  ],
+  "effects": [
+   "relaxing",
+   "uplifting",
+   "euphoric",
+   "cerebral"
+  ],
+  "lineage": {
+   "name": "Gelato Auto",
+   "by": "Fast Buds",
+   "parents": [
+    {
+     "name": "Gelato (clone)"
+    },
+    {
+     "name": "Auto Girl Scout Cookies"
+    }
+   ]
+  },
+  "story": "Gelato is a Bay Area dessert strain from the Cookies family, bred from Sunset Sherbet and Thin Mint Girl Scout Cookies. Fast Buds crossed a Gelato clone with its own autoflowering Girl Scout Cookies to make this auto. It keeps the sweet, creamy-citrus profile in a short cycle.",
+  "growNotes": [
+   "A hybrid that can stretch a little in early bloom; give it room before flowers set.",
+   "Like most autos, keep the light schedule constant (for example 18 or 20 hours on) from seed to harvest."
+  ],
+  "sources": [
+   {
+    "t": "Zamnesia: Gelato Auto (FastBuds)",
+    "u": "https://www.zamnesia.com/5457-fastbuds-autoflowering-gelato-Auto-feminized.html",
+    "d": "2026-11-25"
+   }
+  ],
+  "level": 1,
+  "status": "unreviewed",
+  "updated": "2026-11-25",
+  "spectra": [
+   {
+    "l": "Calm",
+    "r": "Energetic",
+    "v": 0.71,
+    "i": "moon"
+   },
+   {
+    "l": "Body",
+    "r": "Head",
+    "v": 0.62,
+    "i": "body"
+   },
+   {
+    "l": "Fruity",
+    "r": "Gassy",
+    "v": 0.37,
+    "i": "drop"
+   },
+   {
+    "l": "Gentle",
+    "r": "Potent",
+    "v": 0.86,
+    "i": "spark"
+   }
+  ],
+  "spectraNote": "Placed from breeder and vendor listings (indica/sativa share, listed effects, taste, THC claim), not lab data or your own grow.",
+  "terpNote": "Terpenes as listed by vendors; no lab profile, so treat them as expectations.",
+  "confidence": "low"
+ },
+ {
+  "id": "auto-cinderella-jack-dutch-passion",
+  "name": "Auto Cinderella Jack",
+  "breeder": "Dutch Passion",
+  "kind": "auto",
+  "type": "Autoflower · feminized",
+  "genetics": "Hybrid of (Cinderella 99 × Jack Herer) × Magnum (vendor; share not stated)",
+  "flowering": "70–77 days from seed (vendor)",
+  "height": "not stated",
+  "yield": "Indoor up to 500 g/m², outdoor up to 150 g per plant (vendor claim)",
+  "thc": "about 20–21 % (breeder/vendor claim)",
+  "cbd": "0–1 % (breeder/vendor claim)",
+  "climate": "Indoors or outdoors",
+  "terpenes": [],
+  "taste": [],
+  "effects": [
+   "relaxing",
+   "strong",
+   "long-lasting",
+   "calming"
+  ],
+  "lineage": {
+   "name": "Auto Cinderella Jack",
+   "by": "Dutch Passion",
+   "parents": [
+    {
+     "name": "Cinderella 99"
+    },
+    {
+     "name": "Jack Herer"
+    },
+    {
+     "name": "Magnum (auto)"
+    }
+   ]
+  },
+  "story": "Dutch Passion made this with the Spanish breeder Buddha Seeds, joining two classic sativa-leaning lines, Cinderella 99 and Jack Herer, to an autoflowering Magnum. It aims to bring haze-style plants into the auto format. The vendor lists it among the stronger Dutch Passion autos.",
+  "growNotes": [
+   "Sativa ancestry means more stretch and a longer cycle than compact autos; plan height accordingly.",
+   "Autos keep their own clock: a stall from transplant shock or overwatering early on costs final size."
+  ],
+  "sources": [
+   {
+    "t": "Zamnesia: Auto Cinderella Jack (Dutch Passion)",
+    "u": "https://www.zamnesia.com/4395-dutch-passion-Auto-cinderella-jack-feminized.html",
+    "d": "2026-11-25"
+   }
+  ],
+  "level": 1,
+  "status": "unreviewed",
+  "updated": "2026-11-25",
+  "spectra": [
+   {
+    "l": "Calm",
+    "r": "Energetic",
+    "v": 0.34,
+    "i": "moon"
+   },
+   {
+    "l": "Body",
+    "r": "Head",
+    "v": 0.5,
+    "i": "body"
+   },
+   {
+    "l": "Gentle",
+    "r": "Potent",
+    "v": 0.72,
+    "i": "spark"
+   }
+  ],
+  "spectraNote": "Placed from breeder and vendor listings (indica/sativa share, listed effects, taste, THC claim), not lab data or your own grow.",
+  "terpNote": "No published terpene profile found yet.",
+  "confidence": "low"
+ },
+ {
+  "id": "lsd-25-auto-fast-buds",
+  "name": "LSD-25 Auto",
+  "breeder": "Fast Buds",
+  "kind": "auto",
+  "type": "Autoflower · feminized",
+  "genetics": "Indica-dominant hybrid, about 65 % indica / 35 % sativa (vendor)",
+  "flowering": "63–70 days from seed (vendor; the description also says 56–63 days)",
+  "height": "About 120 cm indoors, 110 cm outdoors (vendor)",
+  "yield": "Indoor up to 500 g/m², outdoor up to 250 g per plant (vendor claim)",
+  "thc": "about 19–21 % (breeder/vendor claim)",
+  "cbd": "about 1 % (breeder/vendor claim)",
+  "climate": "Indoors, or outdoors in regions with a short summer",
+  "terpenes": [
+   {
+    "name": "Ocimene",
+    "basis": "vendor listing"
+   },
+   {
+    "name": "Myrcene",
+    "basis": "vendor listing"
+   }
+  ],
+  "taste": [
+   "sweet",
+   "earthy",
+   "floral"
+  ],
+  "effects": [
+   "relaxing",
+   "uplifting",
+   "euphoric"
+  ],
+  "lineage": {
+   "name": "LSD-25 Auto",
+   "by": "Fast Buds",
+   "parents": [
+    {
+     "name": "L.S.D. (Mazar-i-Sharif × Skunk #1)"
+    },
+    {
+     "name": "Canadian Ruderalis"
+    }
+   ]
+  },
+  "story": "Based on L.S.D., a Mazar-i-Sharif × Skunk #1 hybrid known from Barney's Farm, crossed by Fast Buds with a Canadian ruderalis. The name refers to its reputation for a strong head effect, not to any link with the drug. It is one of the older Fast Buds catalogue staples.",
+  "growNotes": [
+   "Quite tall for an auto: early LST helps keep an even canopy.",
+   "Mazar/Skunk lines are usually robust, but avoid big nutrient jumps in the first two weeks."
+  ],
+  "sources": [
+   {
+    "t": "Zamnesia: LSD-25 Auto (FastBuds)",
+    "u": "https://www.zamnesia.com/3209-fastbuds-autoflowering-lsd-25-Auto-feminized.html",
+    "d": "2026-11-25"
+   }
+  ],
+  "level": 1,
+  "status": "unreviewed",
+  "updated": "2026-11-25",
+  "spectra": [
+   {
+    "l": "Calm",
+    "r": "Energetic",
+    "v": 0.43,
+    "i": "moon"
+   },
+   {
+    "l": "Body",
+    "r": "Head",
+    "v": 0.39,
+    "i": "body"
+   },
+   {
+    "l": "Fruity",
+    "r": "Gassy",
+    "v": 0.5,
+    "i": "drop"
+   },
+   {
+    "l": "Gentle",
+    "r": "Potent",
+    "v": 0.72,
+    "i": "spark"
+   }
+  ],
+  "spectraNote": "Placed from breeder and vendor listings (indica/sativa share, listed effects, taste, THC claim), not lab data or your own grow.",
+  "terpNote": "Terpenes as listed by vendors; no lab profile, so treat them as expectations.",
+  "confidence": "low"
+ },
+ {
+  "id": "auto-glueberry-og-dutch-passion",
+  "name": "Auto Glueberry OG",
+  "breeder": "Dutch Passion",
+  "kind": "auto",
+  "type": "Autoflower · feminized",
+  "genetics": "Mostly sativa hybrid of Glueberry O.G. × Auto Blueberry (vendor; share not stated)",
+  "flowering": "84–91 days from seed (vendor)",
+  "height": "About 100–150 cm (vendor)",
+  "yield": "not stated",
+  "thc": "about 20 % (breeder/vendor claim)",
+  "cbd": "not stated",
+  "climate": "Indoors, outdoors or in a greenhouse",
+  "terpenes": [],
+  "taste": [
+   "blueberry",
+   "fruity",
+   "diesel"
+  ],
+  "effects": [],
+  "lineage": {
+   "name": "Auto Glueberry OG",
+   "by": "Dutch Passion",
+   "parents": [
+    {
+     "name": "Glueberry O.G."
+    },
+    {
+     "name": "Auto Blueberry"
+    }
+   ]
+  },
+  "story": "Dutch Passion crossed its photoperiod Glueberry O.G. (a GG4 × Blueberry type) with its long-running Auto Blueberry. The aim was a stronger, glue-flavoured auto that keeps the berry notes. It runs longer than most autos.",
+  "growNotes": [
+   "A long, tall auto: plan for about three months and up to 150 cm.",
+   "Autos keep their own clock: a stall from transplant shock or overwatering early on costs final size."
+  ],
+  "sources": [
+   {
+    "t": "Cannapot: AutoGlueberry OG (Dutch Passion)",
+    "u": "https://www.cannapot.com/shop/cannabis-seeds/dutch-passion/autoglueberry-og_seeds.html",
+    "d": "2026-11-25"
+   }
+  ],
+  "level": 1,
+  "status": "unreviewed",
+  "updated": "2026-11-25",
+  "spectra": [
+   {
+    "l": "Calm",
+    "r": "Energetic",
+    "v": 0.68,
+    "i": "moon"
+   },
+   {
+    "l": "Body",
+    "r": "Head",
+    "v": 0.63,
+    "i": "body"
+   },
+   {
+    "l": "Fruity",
+    "r": "Gassy",
+    "v": 0.37,
+    "i": "drop"
+   },
+   {
+    "l": "Gentle",
+    "r": "Potent",
+    "v": 0.72,
+    "i": "spark"
+   }
+  ],
+  "spectraNote": "Placed from breeder and vendor listings (indica/sativa share, listed effects, taste, THC claim), not lab data or your own grow.",
+  "terpNote": "No published terpene profile found yet.",
+  "confidence": "low"
+ },
+ {
+  "id": "mexican-airlines-auto-fast-buds",
+  "name": "Mexican Airlines Auto",
+  "breeder": "Fast Buds",
+  "kind": "auto",
+  "type": "Autoflower · feminized",
+  "genetics": "Sativa-dominant hybrid, about 35 % indica / 65 % sativa (vendor)",
+  "flowering": "70–77 days from seed (vendor; the description also says about 63 days)",
+  "height": "About 90–140 cm (vendor)",
+  "yield": "Indoor up to 500 g/m², outdoor 50–250 g per plant (vendor claim)",
+  "thc": "about 19 % (breeder/vendor claim)",
+  "cbd": "about 1 % (breeder/vendor claim)",
+  "climate": "Indoors, or outdoors where the season is short",
+  "terpenes": [],
+  "taste": [],
+  "effects": [
+   "creative",
+   "inspiring",
+   "uplifting"
+  ],
+  "lineage": {
+   "name": "Mexican Airlines Auto",
+   "by": "Fast Buds",
+   "parents": [
+    {
+     "name": "Colombian"
+    },
+    {
+     "name": "Mexican"
+    },
+    {
+     "name": "Ruderalis (autoflower trait)"
+    }
+   ]
+  },
+  "story": "A Latin American landrace-style blend of Colombian and Mexican genetics with a ruderalis line for autoflowering. Fast Buds sells it as a sativa auto with a lighter body effect. The name nods to old smuggling-era stories.",
+  "growNotes": [
+   "Sativa-leaning autos stretch: give height and keep the light at a fair distance.",
+   "Autos keep their own clock: a stall from transplant shock or overwatering early on costs final size."
+  ],
+  "sources": [
+   {
+    "t": "Zamnesia: Mexican Airlines Auto (FastBuds)",
+    "u": "https://www.zamnesia.com/3203-fastbuds-autoflowering-mexican-airlines-Auto-feminized.html",
+    "d": "2026-11-25"
+   }
+  ],
+  "level": 1,
+  "status": "unreviewed",
+  "updated": "2026-11-25",
+  "spectra": [
+   {
+    "l": "Calm",
+    "r": "Energetic",
+    "v": 0.81,
+    "i": "moon"
+   },
+   {
+    "l": "Body",
+    "r": "Head",
+    "v": 0.69,
+    "i": "body"
+   },
+   {
+    "l": "Gentle",
+    "r": "Potent",
+    "v": 0.55,
+    "i": "spark"
+   }
+  ],
+  "spectraNote": "Placed from breeder and vendor listings (indica/sativa share, listed effects, taste, THC claim), not lab data or your own grow.",
+  "terpNote": "No published terpene profile found yet.",
+  "confidence": "low"
+ },
+ {
+  "id": "auto-mazar-dutch-passion",
+  "name": "Auto Mazar",
+  "breeder": "Dutch Passion",
+  "kind": "auto",
+  "type": "Autoflower · feminized",
+  "genetics": "Indica-dominant, indica × ruderalis (vendor; share not stated)",
+  "flowering": "70–77 days from seed (vendor)",
+  "height": "About 80 cm indoors (vendor)",
+  "yield": "Outdoor up to 200 g per plant in good conditions (vendor claim)",
+  "thc": "about 10–14 % (breeder/vendor claim)",
+  "cbd": "not stated",
+  "climate": "Indoors, or outdoors in continental climates",
+  "terpenes": [
+   {
+    "name": "Myrcene",
+    "basis": "vendor listing"
+   }
+  ],
+  "taste": [
+   "earthy",
+   "skunk"
+  ],
+  "effects": [
+   "body buzz",
+   "relaxing"
+  ],
+  "lineage": {
+   "name": "Auto Mazar",
+   "by": "Dutch Passion",
+   "parents": [
+    {
+     "name": "Mazar"
+    },
+    {
+     "name": "Ruderalis (Russian, autoflower trait)"
+    }
+   ]
+  },
+  "story": "An autoflowering relative of Dutch Passion's Mazar, an Afghan-type indica named after Mazar-i-Sharif. The vendor describes the ruderalis parent as Russian in origin. It is an older, compact, low-to-mid strength auto.",
+  "growNotes": [
+   "Compact plant: suits small tents and short outdoor seasons.",
+   "Lower THC claim than modern autos; it is grown more for reliability than strength."
+  ],
+  "sources": [
+   {
+    "t": "Zamnesia: Auto Mazar (Dutch Passion)",
+    "u": "https://www.zamnesia.com/375-dutch-passion-auto-mazar-autoflowering.html",
+    "d": "2026-11-25"
+   }
+  ],
+  "level": 1,
+  "status": "unreviewed",
+  "updated": "2026-11-25",
+  "spectra": [
+   {
+    "l": "Calm",
+    "r": "Energetic",
+    "v": 0.16,
+    "i": "moon"
+   },
+   {
+    "l": "Body",
+    "r": "Head",
+    "v": 0.29,
+    "i": "body"
+   },
+   {
+    "l": "Fruity",
+    "r": "Gassy",
+    "v": 0.9,
+    "i": "drop"
+   },
+   {
+    "l": "Gentle",
+    "r": "Potent",
+    "v": 0.35,
+    "i": "spark"
+   }
+  ],
+  "spectraNote": "Placed from breeder and vendor listings (indica/sativa share, listed effects, taste, THC claim), not lab data or your own grow.",
+  "terpNote": "Terpenes as listed by vendors; no lab profile, so treat them as expectations.",
+  "confidence": "low"
+ },
+ {
+  "id": "auto-blueberry-dutch-passion",
+  "name": "Auto Blueberry",
+  "breeder": "Dutch Passion",
+  "kind": "auto",
+  "type": "Autoflower · feminized",
+  "genetics": "Indica-dominant, Blueberry × Dutch Passion AutoFem line (vendor; share not stated)",
+  "flowering": "63–70 days from seed (vendor; another line says about 70 days)",
+  "height": "not stated",
+  "yield": "not stated",
+  "thc": "about 10–14 % (breeder/vendor claim)",
+  "cbd": "0–1 % (breeder/vendor claim)",
+  "climate": "Indoors or outdoors; listed as easy",
+  "terpenes": [],
+  "taste": [
+   "fruity",
+   "blueberry"
+  ],
+  "effects": [
+   "relaxing",
+   "euphoric"
+  ],
+  "lineage": {
+   "name": "Auto Blueberry",
+   "by": "Dutch Passion",
+   "parents": [
+    {
+     "name": "Blueberry"
+    },
+    {
+     "name": "AutoFem (ruderalis line)"
+    }
+   ]
+  },
+  "story": "One of the earliest commercial autoflowers, built by Dutch Passion from its classic Blueberry and its own autoflowering 'AutoFem' line. The photoperiod Blueberry is the famous berry-flavoured indica from the 1970s–80s US breeding scene and won cup awards; the auto itself is a milder, compact version.",
+  "growNotes": [
+   "Small, easy auto with modest yields: well suited to a first grow or a windowsill-sized space.",
+   "Autos keep their own clock: a stall from transplant shock or overwatering early on costs final size."
+  ],
+  "sources": [
+   {
+    "t": "Zamnesia: Auto Blueberry (Dutch Passion)",
+    "u": "https://www.zamnesia.com/379-dutch-passion-auto-blueberry-autoflowering.html",
+    "d": "2026-11-25"
+   }
+  ],
+  "level": 1,
+  "status": "unreviewed",
+  "updated": "2026-11-25",
+  "spectra": [
+   {
+    "l": "Calm",
+    "r": "Energetic",
+    "v": 0.32,
+    "i": "moon"
+   },
+   {
+    "l": "Body",
+    "r": "Head",
+    "v": 0.37,
+    "i": "body"
+   },
+   {
+    "l": "Fruity",
+    "r": "Gassy",
+    "v": 0.1,
+    "i": "drop"
+   },
+   {
+    "l": "Gentle",
+    "r": "Potent",
+    "v": 0.35,
+    "i": "spark"
+   }
+  ],
+  "spectraNote": "Placed from breeder and vendor listings (indica/sativa share, listed effects, taste, THC claim), not lab data or your own grow.",
+  "terpNote": "No published terpene profile found yet.",
+  "confidence": "low"
+ },
+ {
+  "id": "auto-night-queen-dutch-passion",
+  "name": "Auto Night Queen",
+  "breeder": "Dutch Passion",
+  "kind": "auto",
+  "type": "Autoflower · feminized",
+  "genetics": "Indica-dominant, Night Queen × Afghan Mazar-i-Sharif × AutoFem (vendor; share not stated)",
+  "flowering": "70–77 days from seed (vendor)",
+  "height": "Around 100 cm (vendor)",
+  "yield": "Indoor up to 500 g/m², outdoor up to 150 g per plant (vendor claim)",
+  "thc": "about 17 % (breeder/vendor claim)",
+  "cbd": "0–1 % (breeder/vendor claim)",
+  "climate": "Indoors or outdoors; listed as moderate difficulty",
+  "terpenes": [
+   {
+    "name": "Ocimene",
+    "basis": "vendor listing"
+   },
+   {
+    "name": "β-Caryophyllene",
+    "basis": "vendor listing"
+   }
+  ],
+  "taste": [
+   "sweet",
+   "spicy"
+  ],
+  "effects": [
+   "relaxing"
+  ],
+  "lineage": {
+   "name": "Auto Night Queen",
+   "by": "Dutch Passion",
+   "parents": [
+    {
+     "name": "Night Queen"
+    },
+    {
+     "name": "Afghan Mazar-i-Sharif"
+    },
+    {
+     "name": "AutoFem (ruderalis line)"
+    }
+   ]
+  },
+  "story": "An autoflowering version of Dutch Passion's Night Queen, a dark-leaved indica, mixed with Afghan Mazar genetics. It is known for purple to near-black colours late in bloom. The vendor rates it a step harder than the breeder's easiest autos.",
+  "growNotes": [
+   "Dark colouring is genetic; cooler night temperatures late in bloom can deepen it.",
+   "Autos keep their own clock: a stall from transplant shock or overwatering early on costs final size."
+  ],
+  "sources": [
+   {
+    "t": "Zamnesia: Auto Night Queen (Dutch Passion)",
+    "u": "https://www.zamnesia.com/3897-dutch-passion-Auto-night-queen-feminized.html",
+    "d": "2026-11-25"
+   }
+  ],
+  "level": 1,
+  "status": "unreviewed",
+  "updated": "2026-11-25",
+  "spectra": [
+   {
+    "l": "Calm",
+    "r": "Energetic",
+    "v": 0.24,
+    "i": "moon"
+   },
+   {
+    "l": "Body",
+    "r": "Head",
+    "v": 0.37,
+    "i": "body"
+   },
+   {
+    "l": "Fruity",
+    "r": "Gassy",
+    "v": 0.5,
+    "i": "drop"
+   },
+   {
+    "l": "Gentle",
+    "r": "Potent",
+    "v": 0.55,
+    "i": "spark"
+   }
+  ],
+  "spectraNote": "Placed from breeder and vendor listings (indica/sativa share, listed effects, taste, THC claim), not lab data or your own grow.",
+  "terpNote": "Terpenes as listed by vendors; no lab profile, so treat them as expectations.",
+  "confidence": "low"
+ },
+ {
+  "id": "rhino-ryder-auto-fast-buds",
+  "name": "Rhino Ryder Auto",
+  "breeder": "Fast Buds",
+  "kind": "auto",
+  "type": "Autoflower · feminized",
+  "genetics": "Indica-dominant hybrid, about 60 % indica / 40 % sativa (vendor)",
+  "flowering": "63–70 days from seed (vendor)",
+  "height": "Up to about 100–110 cm (vendor)",
+  "yield": "Indoor 450–650 g/m², outdoor 50–350 g per plant (vendor claim)",
+  "thc": "about 17–20 % (breeder/vendor claim)",
+  "cbd": "about 1 % (breeder/vendor claim)",
+  "climate": "Indoors or outdoors",
+  "terpenes": [],
+  "taste": [],
+  "effects": [
+   "relaxing",
+   "sedating"
+  ],
+  "lineage": {
+   "name": "Rhino Ryder Auto",
+   "by": "Fast Buds",
+   "parents": [
+    {
+     "name": "Medicine Man"
+    },
+    {
+     "name": "Canadian Ruderalis"
+    }
+   ]
+  },
+  "story": "Fast Buds based this auto on Medicine Man, a White Rhino descendant, crossed with Canadian ruderalis. The vendor describes a heavy, body-relaxing effect. It is one of the older Fast Buds staples.",
+  "growNotes": [
+   "White Rhino lines make dense colas: keep humidity in check late in bloom.",
+   "Autos keep their own clock: a stall from transplant shock or overwatering early on costs final size."
+  ],
+  "sources": [
+   {
+    "t": "Zamnesia: Rhino Ryder Auto (FastBuds)",
+    "u": "https://www.zamnesia.com/3212-fastbuds-autoflowering-rhino-ryder-Auto-feminized.html",
+    "d": "2026-11-25"
+   }
+  ],
+  "level": 1,
+  "status": "unreviewed",
+  "updated": "2026-11-25",
+  "spectra": [
+   {
+    "l": "Calm",
+    "r": "Energetic",
+    "v": 0.24,
+    "i": "moon"
+   },
+   {
+    "l": "Body",
+    "r": "Head",
+    "v": 0.43,
+    "i": "body"
+   },
+   {
+    "l": "Gentle",
+    "r": "Potent",
+    "v": 0.55,
+    "i": "spark"
+   }
+  ],
+  "spectraNote": "Placed from breeder and vendor listings (indica/sativa share, listed effects, taste, THC claim), not lab data or your own grow.",
+  "terpNote": "No published terpene profile found yet.",
+  "confidence": "low"
+ },
+ {
+  "id": "think-different-dutch-passion",
+  "name": "Think Different",
+  "breeder": "Dutch Passion",
+  "kind": "auto",
+  "type": "Autoflower · feminized",
+  "genetics": "Sativa-leaning, AK420 × AutoFem; about 60 % sativa / 20 % indica / 20 % ruderalis (vendor)",
+  "flowering": "70–77 days from seed (vendor)",
+  "height": "not stated (known as a tall auto)",
+  "yield": "Indoor up to 500 g/m², outdoor up to 300 g per plant (vendor claim)",
+  "thc": "about 18 % (breeder/vendor claim)",
+  "cbd": "not stated",
+  "climate": "Indoors or outdoors; listed as easy",
+  "terpenes": [],
+  "taste": [],
+  "effects": [
+   "strong",
+   "uplifting"
+  ],
+  "lineage": {
+   "name": "Think Different",
+   "by": "Dutch Passion",
+   "parents": [
+    {
+     "name": "AK420"
+    },
+    {
+     "name": "AutoFem (ruderalis line)"
+    }
+   ]
+  },
+  "story": "Sold as Auto Think Different, this is one of Dutch Passion's large sativa-leaning autos, descended from an AK-47 type hybrid called AK420. It became popular because it yields more than most early autos. The vendor calls it award-winning without naming the award.",
+  "growNotes": [
+   "Big for an auto: use a large container from the start rather than transplanting late.",
+   "Sativa share means more stretch; leave headroom."
+  ],
+  "sources": [
+   {
+    "t": "Zamnesia: Auto Think Different (Dutch Passion)",
+    "u": "https://www.zamnesia.com/371-dutch-passion-think-different-autoflowering.html",
+    "d": "2026-11-25"
+   }
+  ],
+  "level": 1,
+  "status": "unreviewed",
+  "updated": "2026-11-25",
+  "spectra": [
+   {
+    "l": "Calm",
+    "r": "Energetic",
+    "v": 0.68,
+    "i": "moon"
+   },
+   {
+    "l": "Body",
+    "r": "Head",
+    "v": 0.57,
+    "i": "body"
+   },
+   {
+    "l": "Gentle",
+    "r": "Potent",
+    "v": 0.55,
+    "i": "spark"
+   }
+  ],
+  "spectraNote": "Placed from breeder and vendor listings (indica/sativa share, listed effects, taste, THC claim), not lab data or your own grow.",
+  "terpNote": "No published terpene profile found yet.",
+  "confidence": "low"
+ },
+ {
+  "id": "critical-automatic-royal-queen-seeds",
+  "name": "Critical Automatic",
+  "breeder": "Royal Queen Seeds",
+  "kind": "auto",
+  "type": "Autoflower · feminized",
+  "genetics": "Indica-dominant, Critical (Mass) × ruderalis; about 50 % indica / 15 % sativa / 35 % ruderalis (vendor)",
+  "flowering": "70–77 days from seed (vendor)",
+  "height": "About 70 cm indoors, 140 cm outdoors (vendor)",
+  "yield": "Indoor up to 400 g/m², outdoor up to 200 g per plant (vendor claim)",
+  "thc": "about 14 % (breeder/vendor claim)",
+  "cbd": "medium (breeder/vendor claim, no figure)",
+  "climate": "Indoors; outdoor use not stated",
+  "terpenes": [
+   {
+    "name": "Ocimene",
+    "basis": "vendor listing"
+   }
+  ],
+  "taste": [
+   "sweet",
+   "skunk"
+  ],
+  "effects": [
+   "relaxing"
+  ],
+  "lineage": {
+   "name": "Critical Automatic",
+   "by": "Royal Queen Seeds",
+   "parents": [
+    {
+     "name": "Critical (Critical Mass)"
+    },
+    {
+     "name": "Ruderalis (autoflower trait)"
+    }
+   ]
+  },
+  "story": "An autoflowering version of RQS Critical, itself based on the heavy-yielding Critical Mass (Afghani × Skunk #1). The vendor says it has won several awards in Spain. It is a compact, mid-strength workhorse.",
+  "growNotes": [
+   "Critical lines are known for heavy buds: give support and airflow late in bloom.",
+   "Autos keep their own clock: a stall from transplant shock or overwatering early on costs final size."
+  ],
+  "sources": [
+   {
+    "t": "Zamnesia: Royal Critical Automatic (Royal Queen Seeds)",
+    "u": "https://www.zamnesia.com/120-royal-queen-seeds-critical-automatic.html",
+    "d": "2026-11-25"
+   }
+  ],
+  "level": 1,
+  "status": "unreviewed",
+  "updated": "2026-11-25",
+  "spectra": [
+   {
+    "l": "Calm",
+    "r": "Energetic",
+    "v": 0.42,
+    "i": "moon"
+   },
+   {
+    "l": "Body",
+    "r": "Head",
+    "v": 0.5,
+    "i": "body"
+   },
+   {
+    "l": "Fruity",
+    "r": "Gassy",
+    "v": 0.5,
+    "i": "drop"
+   },
+   {
+    "l": "Gentle",
+    "r": "Potent",
+    "v": 0.35,
+    "i": "spark"
+   }
+  ],
+  "spectraNote": "Placed from breeder and vendor listings (indica/sativa share, listed effects, taste, THC claim), not lab data or your own grow.",
+  "terpNote": "Terpenes as listed by vendors; no lab profile, so treat them as expectations.",
+  "confidence": "low"
+ },
+ {
+  "id": "original-auto-sour-diesel-fast-buds",
+  "name": "Original Auto Sour Diesel",
+  "breeder": "Fast Buds",
+  "kind": "auto",
+  "type": "Autoflower · feminized",
+  "genetics": "Sativa-dominant, about 35 % indica / 65 % sativa (vendor)",
+  "flowering": "63–70 days from seed (vendor)",
+  "height": "About 120 cm indoors (vendor)",
+  "yield": "Indoor up to 550 g/m², outdoor up to 200 g per plant (vendor claim)",
+  "thc": "about 21 % (breeder/vendor claim)",
+  "cbd": "0–1 % (breeder/vendor claim)",
+  "climate": "Indoors, or outdoors in warm, Mediterranean-type climates",
+  "terpenes": [
+   {
+    "name": "Myrcene",
+    "basis": "vendor listing"
+   },
+   {
+    "name": "Limonene",
+    "basis": "vendor listing"
+   }
+  ],
+  "taste": [
+   "diesel",
+   "citrus",
+   "earthy",
+   "spicy"
+  ],
+  "effects": [
+   "uplifting",
+   "energetic",
+   "focused",
+   "clear-headed"
+  ],
+  "lineage": {
+   "name": "Original Auto Sour Diesel",
+   "by": "Fast Buds",
+   "parents": [
+    {
+     "name": "Sour Diesel (autoflowering line)"
+    }
+   ]
+  },
+  "story": "Fast Buds' auto take on Sour Diesel, the fuel-scented East Coast sativa from the 1990s. It belongs to the breeder's \"Original Auto\" range of classic strains. Expect a strong fuel smell during bloom.",
+  "growNotes": [
+   "Very pungent in bloom: plan for a carbon filter indoors.",
+   "Sativa stretch: give headroom and keep training early."
+  ],
+  "sources": [
+   {
+    "t": "Zamnesia: Original Auto Sour Diesel (FastBuds)",
+    "u": "https://www.zamnesia.com/5994-fastbuds-autoflowering-original-Auto-sour-diesel-feminized.html",
+    "d": "2026-11-25"
+   }
+  ],
+  "level": 1,
+  "status": "unreviewed",
+  "updated": "2026-11-25",
+  "spectra": [
+   {
+    "l": "Calm",
+    "r": "Energetic",
+    "v": 0.95,
+    "i": "moon"
+   },
+   {
+    "l": "Body",
+    "r": "Head",
+    "v": 0.69,
+    "i": "body"
+   },
+   {
+    "l": "Fruity",
+    "r": "Gassy",
+    "v": 0.7,
+    "i": "drop"
+   },
+   {
+    "l": "Gentle",
+    "r": "Potent",
+    "v": 0.72,
+    "i": "spark"
+   }
+  ],
+  "spectraNote": "Placed from breeder and vendor listings (indica/sativa share, listed effects, taste, THC claim), not lab data or your own grow.",
+  "terpNote": "Terpenes as listed by vendors; no lab profile, so treat them as expectations.",
+  "confidence": "low"
+ },
+ {
+  "id": "do-si-dos-automatic-royal-queen-seeds",
+  "name": "Do-Si-Dos Automatic",
+  "breeder": "Royal Queen Seeds",
+  "kind": "auto",
+  "type": "Autoflower · feminized",
+  "genetics": "Indica-dominant, about 60 % indica / 35 % sativa / 5 % ruderalis (vendor)",
+  "flowering": "63–70 days from seed (vendor)",
+  "height": "About 100 cm indoors, 120 cm outdoors (vendor)",
+  "yield": "Indoor up to 400 g/m², outdoor up to 150 g per plant (vendor claim)",
+  "thc": "about 20 % (breeder/vendor claim)",
+  "cbd": "low (breeder/vendor claim)",
+  "climate": "Indoors or outdoors",
+  "terpenes": [
+   {
+    "name": "Ocimene",
+    "basis": "vendor listing"
+   },
+   {
+    "name": "Myrcene",
+    "basis": "vendor listing"
+   }
+  ],
+  "taste": [
+   "sweet",
+   "earthy",
+   "fruity",
+   "skunk"
+  ],
+  "effects": [
+   "relaxing",
+   "soothing"
+  ],
+  "lineage": {
+   "name": "Do-Si-Dos Automatic",
+   "by": "Royal Queen Seeds",
+   "parents": [
+    {
+     "name": "Do-Si-Dos"
+    },
+    {
+     "name": "Cookies Auto"
+    }
+   ]
+  },
+  "story": "Do-Si-Dos is a Girl Scout Cookies × Face Off OG cross from the US West Coast. RQS paired it with an autoflowering Cookies line to make this version. It keeps the dense, frosty dessert-style buds of the Cookies family.",
+  "growNotes": [
+   "Cookies-family autos often stay compact and bushy: light LST opens the canopy.",
+   "Autos keep their own clock: a stall from transplant shock or overwatering early on costs final size."
+  ],
+  "sources": [
+   {
+    "t": "Zamnesia: Do-Si-Dos Automatic (Royal Queen Seeds)",
+    "u": "https://www.zamnesia.com/6799-royal-queen-seeds-do-si-dos-automatic.html",
+    "d": "2026-11-25"
+   }
+  ],
+  "level": 1,
+  "status": "unreviewed",
+  "updated": "2026-11-25",
+  "spectra": [
+   {
+    "l": "Calm",
+    "r": "Energetic",
+    "v": 0.24,
+    "i": "moon"
+   },
+   {
+    "l": "Body",
+    "r": "Head",
+    "v": 0.43,
+    "i": "body"
+   },
+   {
+    "l": "Fruity",
+    "r": "Gassy",
+    "v": 0.5,
+    "i": "drop"
+   },
+   {
+    "l": "Gentle",
+    "r": "Potent",
+    "v": 0.72,
+    "i": "spark"
+   }
+  ],
+  "spectraNote": "Placed from breeder and vendor listings (indica/sativa share, listed effects, taste, THC claim), not lab data or your own grow.",
+  "terpNote": "Terpenes as listed by vendors; no lab profile, so treat them as expectations.",
+  "confidence": "low"
+ },
+ {
+  "id": "strawberry-pie-auto-fast-buds",
+  "name": "Strawberry Pie Auto",
+  "breeder": "Fast Buds",
+  "kind": "auto",
+  "type": "Autoflower · feminized",
+  "genetics": "Indica-dominant, about 85 % indica / 15 % sativa (vendor)",
+  "flowering": "56–63 days from seed (vendor)",
+  "height": "Up to about 100 cm indoors (vendor)",
+  "yield": "Indoor up to 500 g/m², outdoor up to 200 g per plant (vendor claim)",
+  "thc": "about 26 % (breeder/vendor claim)",
+  "cbd": "0–1 % (breeder/vendor claim)",
+  "climate": "Indoors, or outdoors in most climates (vendor)",
+  "terpenes": [
+   {
+    "name": "Ocimene",
+    "basis": "vendor listing"
+   },
+   {
+    "name": "Pinene",
+    "basis": "vendor listing"
+   }
+  ],
+  "taste": [
+   "strawberry",
+   "berry",
+   "sweet",
+   "pine"
+  ],
+  "effects": [
+   "relaxing",
+   "creative",
+   "focused"
+  ],
+  "lineage": {
+   "name": "Strawberry Pie Auto",
+   "by": "Fast Buds",
+   "parents": [
+    {
+     "name": "Strawberry Pie"
+    },
+    {
+     "name": "Ruderalis (autoflower trait)"
+    }
+   ]
+  },
+  "story": "An autoflowering Strawberry Pie, a dessert-type strain with a strong berry nose. Fast Buds added a ruderalis line to make it fast and compact. It is one of the breeder's high-THC claims.",
+  "growNotes": [
+   "Short cycle and compact frame: suits small tents and quick outdoor runs.",
+   "Autos keep their own clock: a stall from transplant shock or overwatering early on costs final size."
+  ],
+  "sources": [
+   {
+    "t": "Zamnesia: Strawberry Pie Auto (FastBuds)",
+    "u": "https://www.zamnesia.com/6205-fastbuds-autoflowering-strawberry-pie-Auto-feminized.html",
+    "d": "2026-11-25"
+   }
+  ],
+  "level": 1,
+  "status": "unreviewed",
+  "updated": "2026-11-25",
+  "spectra": [
+   {
+    "l": "Calm",
+    "r": "Energetic",
+    "v": 0.23,
+    "i": "moon"
+   },
+   {
+    "l": "Body",
+    "r": "Head",
+    "v": 0.34,
+    "i": "body"
+   },
+   {
+    "l": "Fruity",
+    "r": "Gassy",
+    "v": 0.3,
+    "i": "drop"
+   },
+   {
+    "l": "Gentle",
+    "r": "Potent",
+    "v": 0.86,
+    "i": "spark"
+   }
+  ],
+  "spectraNote": "Placed from breeder and vendor listings (indica/sativa share, listed effects, taste, THC claim), not lab data or your own grow.",
+  "terpNote": "Terpenes as listed by vendors; no lab profile, so treat them as expectations.",
+  "confidence": "low"
  }
 ]
