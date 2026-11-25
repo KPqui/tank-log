@@ -718,7 +718,7 @@ function loadCache(){
 
 /* ---------- routing ---------- */
 const VIEWS = ["today","log","plan","setup","plant","quiz","strain","library"];
-const APP_V = "v60";
+const APP_V = "v61";
 /* Android: Share → Flowerphile lands here as ?title=…&text=… (manifest share_target); taken once the data is loaded */
 let SHARED = (() => { try { const q = new URLSearchParams(location.search); if (!["share","text","title","url"].some(k => q.has(k))) return null;
   const t = [q.get("title"), q.get("text"), q.get("url")].filter(Boolean).join("\n").trim(); history.replaceState(null, "", location.pathname + "#today"); return t || null; } catch(e){ return null; } })();
@@ -1609,6 +1609,17 @@ function renderToday(){
   $("#t-count").textContent = "";
   const lastLog = mine(S.logs)[0], ackEl = $("#t-ack");
   ackEl.textContent = lastLog && lastLog.ack && lastLog.date === T ? lastLog.ack.replace(/^Noted/, "Noted " + hm(lastLog.at)) : ""; ackEl.hidden = !ackEl.textContent;
+  /* v61: feedback on a step (nightly review or your AI) shows on Today until you tap "Got it" */
+  const fb = $("#t-feedback"); if (fb){ fb.replaceChildren(); let seen = {}; try { seen = JSON.parse(localStorage.getItem("ff-fb-seen") || "{}"); } catch(e){}
+    const cut = new Date(Date.now() - 4 * 864e5).toISOString();
+    const items = mine(S.logs).filter(l => l.at > cut).flatMap(l => (l.replies || []).filter(r => r.src !== "you" && !seen[l.id + "|" + r.at]).map(r => ({l, r}))).slice(0, 2);
+    fb.hidden = !items.length;
+    items.forEach(({l, r}) => fb.append(h("div",{class:"howto", style:"gap:6px;margin:6px 0"},
+      h("span",{class:"kicker"}, "Feedback on " + (l.step ? "your " + l.step.name.toLowerCase() : "your log") + " · " + short(l.date) + " · " + (r.src === "review" ? "nightly review" : "your AI")),
+      h("p",{style:"margin:0;white-space:pre-wrap"}, r.text),
+      h("div",{class:"chips", style:"gap:8px"},
+        h("button",{type:"button", class:"btn ghost sm", onclick:() => { seen[l.id + "|" + r.at] = 1; try { localStorage.setItem("ff-fb-seen", JSON.stringify(seen)); } catch(e){} renderToday(); }}, "Got it"),
+        askable(l) ? h("button",{type:"button", class:"btn ghost sm", onclick:() => { S.planSeg = "book"; location.hash = "#plan"; askStep(p, l); }}, "Ask a follow-up") : null)))); }
   const askEl = $("#t-stepask"); if (askEl){ askEl.replaceChildren(); const can = !ackEl.hidden && askable(lastLog) && !(lastLog.replies || []).length;
     askEl.hidden = ackEl.hidden; if (!ackEl.hidden) askEl.append(h("button",{type:"button", class:"btn ghost sm", style:"margin-right:8px", onclick:() => startEdit(lastLog)}, "Wrong value? Edit"));
     if (can) askEl.append(h("button",{type:"button", class:"btn ghost sm", onclick:() => { S.planSeg = "book"; location.hash = "#plan"; askStep(p, lastLog); }}, lastLog.asks ? "Ask your AI this question" : "Ask your AI about this step")); }
@@ -2170,7 +2181,7 @@ function renderHistory(){
       l.moved ? h("p",{class:"sub", style:"margin:0"}, "Moved: " + l.moved.map(m => "sensor " + m.num + " → " + m.place).join(", ")) : null,
       l.ack ? h("p",{class:"sub", style:"margin:0"}, l.ack) : null,
       (l.photos && l.photos.length) ? h("div",{class:"thumbs"}, l.photos.map(thumb)) : null,
-      (l.replies || []).length ? h("div",{class:"thread"}, l.replies.map(r => h("div",{class:"reply"}, h("span",{class:"kicker"}, (r.src === "ai" ? "Your AI" : "You") + " · " + short(r.at.slice(0, 10))), h("p",{style:"margin:2px 0 0;white-space:pre-wrap"}, r.text)))) : null,
+      (l.replies || []).length ? h("div",{class:"thread"}, l.replies.map(r => h("div",{class:"reply"}, h("span",{class:"kicker"}, (r.src === "ai" ? "Your AI" : r.src === "review" ? "Nightly review" : "You") + " · " + short(r.at.slice(0, 10))), h("p",{style:"margin:2px 0 0;white-space:pre-wrap"}, r.text)))) : null,
       askBox(p, l),
       files.length ? h("div",{class:"thumbs"}, files.map(f => /\.(jpe?g|png|webp)$/i.test(f) ? thumb(f) : h("span",{class:"tag"}, /\.csv$/i.test(f) ? "Sensor file" : "File"))) : null,
       h("div",{style:"display:flex;gap:8px"},
